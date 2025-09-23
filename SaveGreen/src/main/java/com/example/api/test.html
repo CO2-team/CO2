@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ML 예측 로딩</title>
+    <style>
+        :root{
+          --bg:#D0DACF;         /* 배경(연두색) */
+          --card:#133D1E;       /* 카드 배경 */
+          --text:#e5e7eb;       /* 기본 텍스트 */
+          --muted:#9ca3af;      /* 보조 텍스트 */
+          --accent:#22d3ee;     /* 포커스/포인트 */
+          --chip:#1f2937;       /* 칩 배경 */
+        }
+        *{box-sizing:border-box}
+        body{margin:0;font-family:system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Apple SD Gothic Neo, "맑은 고딕", sans-serif;background:#f3f4f6}
+        /* Overlay */
+        .loader-overlay{
+          position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+          background:linear-gradient(135deg, rgba(15,23,42,.95), rgba(2,6,23,.9));
+          z-index:9999;
+        }
+        /* Card */
+        .loader-card{
+          width:min(680px, 92vw);
+          background:var(--card);
+          color:var(--text);
+          border:1px solid rgba(255,255,255,.08);
+          border-radius:20px;
+          padding:28px 24px;
+          box-shadow: 0 20px 60px rgba(0,0,0,.35);
+        }
+        .row{display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+        .title{font-size:18px; font-weight:700; letter-spacing:.2px}
+        .muted{color:var(--muted); font-size:13px}
+        .chips{
+        display:flex;
+        gap:8px;
+        flex-wrap:nowrap;      /* 한 줄 유지 */
+        white-space:nowrap;    /* 줄바꿈 방지 */
+        /* overflow-x:auto;       /* 넘치면 가로 스크롤 */
+        -webkit-overflow-scrolling: touch; */
+      }
+      .chip{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        background:var(--chip);
+        color:var(--text);
+        border:1px solid rgba(255,255,255,.07);
+        padding:8px 12px;
+        border-radius:999px;
+        font-size:13px;
+        line-height:1;
+        white-space:nowrap;    /* 칩 내부도 줄바꿈 금지 */
+      }
+      .chip .dot{
+        width:8px; height:8px; border-radius:50%;
+        background:var(--accent);
+        box-shadow:0 0 0 4px rgba(34,211,238,.12);
+        animation:pulse 1.6s ease-in-out infinite;
+      }
+
+        @keyframes pulse{
+          0%{ box-shadow:0 0 0 0 rgba(34,211,238,.25)}
+          80%{ box-shadow:0 0 0 12px rgba(34,211,238,0)}
+          100%{ box-shadow:0 0 0 0 rgba(34,211,238,0)}
+        }
+        /* Spinner */
+        .spinner{
+          width:22px; height:22px; border-radius:50%;
+          border:3px solid rgba(255,255,255,.18);
+          border-top-color:var(--accent);
+          animation:spin .9s linear infinite;
+        }
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        /* Progress */
+        .progress{
+          width:100%; height:10px; border-radius:999px; overflow:hidden;
+          background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08);
+          position:relative; margin-top:14px;
+        }
+        .progress-bar{
+          height:100%; width:0%;
+          background:linear-gradient(90deg, #06b6d4, #22d3ee, #67e8f9);
+          transition:width .35s ease;
+        }
+        .progress-map{
+          display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;
+        }
+        .step{
+          display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px;
+        }
+        .step .check{
+          width:16px; height:16px; border-radius:50%; background:rgba(34,211,238,.12);
+          border:1px solid rgba(255,255,255,.12); display:grid; place-items:center;
+          color:var(--accent); font-weight:700;
+        }
+        .divider{height:1px; background:rgba(255,255,255,.08); margin:16px 0}
+        .small{font-size:12px;color:var(--muted)}
+        .right{margin-left:auto; display:flex; align-items:center; gap:10px}
+        .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#0b1020; color:#9ccfd8;
+             border:1px solid rgba(255,255,255,.08); border-radius:6px; padding:4px 6px; font-size:12px}
+        .fade-in{animation:fade .5s ease both}
+        @keyframes fade{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+    </style>
+</head>
+<body>
+
+<!-- 로딩 오버레이 -->
+<div class="loader-overlay" id="mlLoader" role="dialog" aria-modal="true" aria-labelledby="mlLoaderTitle" aria-describedby="mlLoaderDesc">
+    <div class="loader-card fade-in">
+        <div class="row">
+            <div>
+                <div class="title" id="mlLoaderTitle">예측 계산 중…</div>
+                <div class="muted" id="mlLoaderDesc">에너지 사용량 & 비용을 머신러닝 모델로 산출하고 있습니다.</div>
+            </div>
+            <div class="right">
+                <div class="spinner" aria-hidden="true"></div>
+                <span class="muted" id="mlStatusText">초기화</span>
+            </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <!-- 모델/데이터 칩 -->
+        <div class="chips" aria-live="polite">
+            <span class="chip" id="chip-model"><span class="dot"></span><strong>모델</strong>: <span id="modelName">Linear Regression)</span></span>      <span class="chip"><span class="dot"></span><strong>데이터</strong>: 2024–2030 연간</span>
+            <span class="chip"><span class="dot"></span><strong>특성</strong>: 연도, 사용량, 비용</span>
+        </div>
+
+        <!-- 진행 바 -->
+        <div class="progress" aria-label="예측 진행률">
+            <div class="progress-bar" id="progressBar" style="width:0%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+        </div>
+
+        <!-- 단계 지도 -->
+        <div class="progress-map" id="progressMap">
+            <div class="step"><span class="check" data-step="1">•</span>데이터 로딩</div>
+            <div class="step"><span class="check" data-step="2">•</span>정규화/스케일링</div>
+            <div class="step"><span class="check" data-step="3">•</span>모델 피팅</div>
+            <div class="step"><span class="check" data-step="4">•</span>예측/검증</div>
+            <div class="step"><span class="check" data-step="5">•</span>차트 렌더링</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+            <!-- <div class="small">Tip: 모델을 바꾸려면 <span class="kbd">setModel('Ridge')</span> 또는 <span class="kbd">setModel('Polynomial(2)')</span></div> -->
+            <div class="small">완료 시 이 창은 자동으로 닫히고 차트 애니메이션이 시작됩니다.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ===== 설정/훅 =====
+    // 모델명 변경 API (외부 스크립트에서 호출 가능)
+    function setModel(name){
+      document.getElementById('modelName').textContent = name;
+    }
+    // 상태 텍스트 업데이트
+    function setStatus(txt){
+      document.getElementById('mlStatusText').textContent = txt;
+    }
+    // 진행도 업데이트 (0~100)
+    function setProgress(p){
+      const clamped = Math.max(0, Math.min(100, p));
+      const bar = document.getElementById('progressBar');
+      bar.style.width = clamped + '%';
+      bar.setAttribute('aria-valuenow', clamped);
+      // 단계 체크 채움 효과
+      const steps = document.querySelectorAll('.check');
+      const activeIdx = Math.min(steps.length, Math.ceil(clamped/20));
+      steps.forEach((el, i)=>{
+        el.textContent = (i < activeIdx) ? '✓' : '•';
+        el.style.background = (i < activeIdx) ? 'rgba(34,211,238,.22)' : 'rgba(34,211,238,.12)';
+      });
+    }
+    // 완료시 오버레이 닫기
+    function finishLoading(){
+      const el = document.getElementById('mlLoader');
+      el.style.opacity = '0';
+      el.style.transition = 'opacity .35s ease';
+      setTimeout(()=>{ el.style.display='none'; }, 380);
+      // 여기서 차트 애니메이션 시작 함수를 호출하세요 (예: startChartAnimation())
+      // startChartAnimation();
+    }
+
+    // ===== 데모용 시뮬레이션 =====
+    // 실제 연결 시: 각 단계가 끝날 때 setProgress / setStatus 호출
+    (function demo(){
+      const phases = [
+        {p: 12, s:'데이터 수집/로딩'},
+        {p: 28, s:'정규화/스케일링'},
+        {p: 55, s:'모델 피팅 (학습)'},
+        {p: 78, s:'예측 생성 & 교차검증'},
+        {p: 100, s:'차트 준비 & 렌더링'}
+      ];
+      let i=0;
+      setModel('선형 회귀(Linear Regression)'); // 기본 모델명
+
+
+    // ⬇️ 추가: 총 시간 6초(6000ms) 기준 변수화
+    const INITIAL_DELAY_MS = 500;                     // 시작 지연(그대로 유지)
+    const PHASE_DELAY_MS   = (6000 - 500) / phases.length; // = 1100ms
+
+    const tick = ()=> {
+      if(i < phases.length){
+        setProgress(phases[i].p);
+        setStatus(phases[i].s);
+        i++;
+        setTimeout(tick, PHASE_DELAY_MS); // 🔁 700 → PHASE_DELAY_MS(1100)
+      }else{
+        finishLoading();
+      }
+    };
+    setTimeout(tick, INITIAL_DELAY_MS); // 🔁 500 그대로
+  })();
+
+
+
+
+
+</script>
+</body>
+</html>
