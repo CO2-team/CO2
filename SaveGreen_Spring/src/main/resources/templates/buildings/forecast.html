@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GREEN REMODELING</title>
+
+    <link rel="stylesheet" th:href="@{/css/forecast.css}">
+    <link rel="stylesheet" th:href="@{/css/ml-loader.css}">
+</head>
+<body>
+<div th:replace="~{layouts/header :: header}"></div>
+
+<main class="wrap" th:with="bid=${buildingId}">
+
+    <!-- HERO (연두 배경, 좌 텍스트 / 우 영상) -->
+    <section class="hero-block">
+        <div class="hero-inner">
+            <div class="hero-text">
+                <h1>GREEN REMODELING</h1>
+                <h2>운영비는 낮추고,<br/>건물 가치는 높이는 가장 똑똑한 선택</h2>
+                <p class="hero-desc">
+                    데이터 기반 머신러닝으로 예상 비용 절감, 에너지 절감량, 투자 회수 기간을 예측합니다.
+                </p>
+            </div>
+            <div class="hero-media">
+                <video id="hero-video"
+                       class="hero-video"
+                       autoplay
+                       muted
+                       loop
+                       playsinline
+                       preload="metadata"
+                       poster="/img/hero-poster.jpg"
+                       aria-label="그린 리모델링 소개 영상">
+                    <source th:src="@{/video/hero.webm}" type="video/webm" />
+                    <source th:src="@{/video/solar.mp4}"  type="video/mp4" />
+                    브라우저가 비디오를 지원하지 않습니다.
+                </video>
+            </div>
+        </div>
+    </section>
+
+    <!-- ✅ 페이지 안에 들어가는 ML 로딩 패널 (히어로 바로 아래) -->
+    <section id="mlLoader" class="ml-panel" role="region" aria-labelledby="mlLoaderTitle" aria-describedby="mlLoaderDesc">
+        <div class="ml-card fade-in">
+            <div class="row">
+                <div>
+                    <div class="title" id="mlLoaderTitle">예측 계산 중…</div>
+                    <div class="muted" id="mlLoaderDesc">에너지 사용량 & 비용을 머신러닝 모델로 산출하고 있습니다.</div>
+                </div>
+                <div class="right">
+                    <div class="spinner" aria-hidden="true"></div>
+                    <span class="muted" id="mlStatusText">초기화</span>
+                </div>
+            </div>
+
+            <div style="height:12px"></div>
+
+            <div class="chips" aria-live="polite">
+          <span class="chip" id="chip-model">
+            <span class="dot"></span>
+            <strong>모델</strong>: <span id="modelName">Linear Regression</span>
+          </span>
+                <span class="chip">
+            <span class="dot"></span>
+            <strong>데이터</strong>: 2024–2030 연간
+          </span>
+                <span class="chip">
+            <span class="dot"></span>
+            <strong>특성</strong>: 연도, 사용량, 비용
+          </span>
+            </div>
+
+            <div class="progress" aria-label="예측 진행률">
+                <div class="progress-bar" id="progressBar" style="width:0%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+
+            <div class="progress-map" id="progressMap">
+                <div class="step"><span class="check" data-step="1">•</span>데이터 로딩</div>
+                <div class="step"><span class="check" data-step="2">•</span>정규화/스케일링</div>
+                <div class="step"><span class="check" data-step="3">•</span>모델 피팅</div>
+                <div class="step"><span class="check" data-step="4">•</span>예측/검증</div>
+                <div class="step"><span class="check" data-step="5">•</span>차트 렌더링</div>
+            </div>
+
+            <div class="divider"></div>
+            <div class="row">
+                <div class="small">완료 시 이 패널은 자동으로 닫히고 차트 애니메이션이 시작됩니다.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 결과(로딩 후 표시) -->
+    <section id="result-section" class="result hidden">
+
+        <!-- KPI 카드 4개 — 비용 → kWh → % → 회수기간 -->
+        <section class="kpis">
+            <article class="kpi-card kpi-cost">
+                <div class="icon">₩</div>
+                <div class="meta">
+                    <div class="label">예상 비용 절감 (원/년)</div>
+                    <div id="kpi-saving-cost" class="value">-</div>
+                </div>
+            </article>
+
+            <article class="kpi-card kpi-kwh">
+                <div class="icon">🔌</div>
+                <div class="meta">
+                    <div class="label">예상 절감량 (kWh/년)</div>
+                    <div id="kpi-saving-kwh" class="value">-</div>
+                </div>
+            </article>
+
+            <article class="kpi-card kpi-pct">
+                <div class="icon">📉</div>
+                <div class="meta">
+                    <div class="label">절감률 (%)</div>
+                    <div id="kpi-saving-pct" class="value">-</div>
+                </div>
+            </article>
+
+            <article class="kpi-card kpi-payback">
+                <div class="icon">⏱️</div>
+                <div class="meta">
+                    <div class="label">투자 회수 기간 (년)</div>
+                    <div id="kpi-payback" class="value">-</div>
+                </div>
+            </article>
+        </section>
+
+        <!-- 혼합 차트(한 장): Bar(절감), Line 2개(Before/After) -->
+        <section class="chart-card">
+            <div class="chart-title">에너지 사용량 & 절감 (kWh/년)</div>
+            <canvas id="chart-energy-combo"></canvas>
+        </section>
+
+        <!-- 결과 요약 -->
+        <section class="summary card">
+            <div class="summary-title">결과 요약</div>
+            <ul id="summary-list" class="summary-list"></ul>
+        </section>
+
+        <!-- 배너: 결과 요약 아래 + 우측 배지 + 고정 문구 -->
+        <div id="status-banner" class="banner recommend">
+            <span id="banner-message">투자 회수기간이 짧고 효과가 큽니다.</span>
+            <span id="banner-badge" class="badge">추천</span>
+        </div>
+    </section>
+
+    <div id="page-data" th:data-building-id="${buildingId}" hidden></div>
+</main>
+
+<div th:replace="~{layouts/footer :: footer}"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script th:src="@{/js/forecast.js}"></script>
+</body>
+</html>

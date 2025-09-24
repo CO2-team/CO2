@@ -1,0 +1,244 @@
+:root {
+  --green: #133D1E;       /* 추천 */
+  --orange: #F57C00;      /* 조건부 */
+  --red: #D80004;         /* 비추천 */
+  --bg: #F3F4F6;
+  --card: #FFFFFF;
+  --muted: #6B7280;
+  --text: #111827;
+  --light-green: #E9F5EA; /* 히어로 연두 배경 */
+  --shadow: 0 6px 18px rgba(0, 0, 0, .08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", "맑은 고딕", sans-serif;
+}
+
+.wrap {
+  max-width: 1180px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+/* HERO (연두 배경) */
+.hero-block {
+  background: var(--light-green);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.hero-text h1 {
+  margin: 4px 0 8px;
+  font-size: 18px;
+  letter-spacing: .08em;
+}
+
+.hero-text h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.hero-desc {
+  margin: 0;
+  color: #374151;
+}
+
+.hero-media {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.hero-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  aspect-ratio: 16 / 9;
+}
+
+/* 로딩 오버레이 */
+.loading {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+
+.loading.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #fff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  color: #fff;
+  font-weight: 700;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 결과 섹션 */
+.result.hidden {
+  display: none;
+}
+
+/* KPI 카드 — 비용 → kWh → % → 회수기간 */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 14px 0 16px;
+}
+
+.kpi-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+
+.kpi-card .icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #EEF2FF;
+  font-size: 18px;
+}
+
+.kpi-card .label {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.kpi-card .value {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.kpi-cost { order: 1; }
+.kpi-kwh  { order: 2; }
+.kpi-pct  { order: 3; }
+.kpi-payback { order: 4; }
+
+/* 혼합 차트 카드 (한 장) */
+.chart-card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  min-height: 340px;
+  margin-bottom: 12px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+/* 요약 */
+.summary.card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-top: 4px;
+}
+
+.summary-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.summary-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+/* 배너: 요약 아래, 우측 배지 */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 9999px;
+  color: #fff;
+  font-weight: 800;
+  margin: 12px 0 0;
+}
+
+.banner.recommend {
+  background: var(--green);
+}
+
+.banner.conditional {
+  background: var(--orange);
+}
+
+.banner.not-recommend {
+  background: var(--red);
+}
+
+.banner .badge {
+  background: rgba(255, 255, 255, .22);
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font-weight: 900;
+}
+
+/* 반응형 */
+@media (max-width: 960px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+  }
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+}
