@@ -3,11 +3,11 @@ document.addEventListener('DOMContentLoaded', init);
 /* ========= Loader 설정 ========= */
 let _loaderTimer = null;   // 진행률 인터벌 핸들
 let _cap = 20;             // 진행 상한 (20 → 40 → 60 → 80 → 100)
-const TICK_MS = 200;       // 게이지 증가 주기(부드럽게 보이도록 0.2s)
+const TICK_MS = 200;       // 게이지 증가 주기(0.2s)
 const STEP_MIN = 1;        // 1틱 최소 증가폭(%)
 const STEP_MAX = 3;        // 1틱 최대 증가폭(%)
-const STEP_PAUSE_MS = [2000, 2000, 2000, 2000]; // 5단계 사이 멈춤 연출(총 8초)
-const CLOSE_DELAY_MS = 2000; // 100% 찍은 후 패널 닫기까지 대기
+const STEP_PAUSE_MS = [3000, 3000, 3000, 3000]; // 5단계 사이 멈춤 연출
+const CLOSE_DELAY_MS = 4000; // 100% 찍은 후 패널 닫기까지 대기
 
 // 단계별 상태 문구 (체크 5개에 매핑)
 const STEP_STATUS = [
@@ -27,7 +27,7 @@ async function init() {
   setStatus(STEP_STATUS[0]); // 1단계 문구
   _cap = 20;
   startLoaderProgress();                 // 게이지는 항상 현재 _cap까지 부드럽게 증가
-  const timelineP = runFiveStepTimeline(); // 5단계 타임라인(멈춤→상한 해제)을 병행 실행
+  const timelineP = runFiveStepTimeline(); // 5단계 타임라인(멈춤→상한 해제) 병행
 
   try {
     // 1) API 호출
@@ -38,11 +38,11 @@ async function init() {
     // 2) 렌더링
     applyBanner(j);
     fillKpis(j);
-    drawComboChart(j);
+    drawComboChart(j);   // ✅ 막대=비용 절감(원/년, 우측축) + 선=에너지 After(kWh/년, 좌측축)
     fillSummary(j);
 
-    // 3) 타임라인이 끝날 때까지 대기 → 100% → 닫기
-    await timelineP;                // 5단계(80%)까지 끝나면 100% 단계로 진입
+    // 3) 타임라인 종료 대기 → 100% → 닫기
+    await timelineP;
     completeLoaderProgress();       // 100%
     setTimeout(() => {
       showPanel(false);             // 패널 닫기
@@ -85,7 +85,7 @@ function runFiveStepTimeline() {
     await delay(STEP_PAUSE_MS[2]);
     _cap = 80; setStatus(STEP_STATUS[3]);
 
-    // 4 → 5 단계(여기서는 상한을 100으로 올리기 직전에 잠깐 멈춤 느낌)
+    // 4 → 5 단계
     await delay(STEP_PAUSE_MS[3]);
     _cap = 100; setStatus(STEP_STATUS[4]); // 최종 단계 문구
     resolve();
@@ -139,7 +139,7 @@ function startLoaderProgress() {
     const step = STEP_MIN + Math.floor(Math.random() * (STEP_MAX - STEP_MIN + 1));
     const next = Math.min(_cap, now + step);
     setProgress(next);
-    // 상한 도달 시에는 멈춰 보임 (상한이 다음 단계로 해제되면 다시 증가)
+    // 상한 도달 시 멈춰 보임 (_cap이 다음 단계로 해제되면 다시 증가)
   }, TICK_MS);
 }
 
@@ -179,81 +179,96 @@ function fillKpis(j) {
   setText('#kpi-saving-cost', fmtCurrency(j.kpi?.savingCostYr));
   setText('#kpi-saving-kwh', fmtNumber(j.kpi?.savingKwhYr));
 
-  let pct = j.kpi?.savingPct;
-  if (pct == null) {
-    const before = j.series?.before ?? [];
-    const saving = j.series?.saving ?? [];
-    const idx = firstPositiveIndex(saving);
-    if (idx >= 0 && before[idx]) pct = (saving[idx] / before[idx]) * 100;
-  }
+  // 절감률은 BE에서 내려준 값을 그대로 사용 (before 제거 대응)
+  const pct = j.kpi?.savingPct;
   setText('#kpi-saving-pct', pct != null ? fmtPercent(pct) : '-');
+
   setText('#kpi-payback', j.kpi?.paybackYears ?? '-');
 }
 
-/* 혼합 차트: Bar(절감 kWh/년) + Line 2개(Before/After kWh/년) */
+/* 혼합 차트(한 장):
+   - Line: 비용 절감 (원/년) → 우측 Y축 (yCost)
+   - Bar: 에너지 사용량 (kWh/년) → 좌측 Y축 (yEnergy)
+   - 애니메이션:
+     · 막대: 아래→위 상승 + 인덱스 순서 지연
+     · 선: 좌→우로 점 순차 등장(지연) + 선 연결
+*/
 function drawComboChart(j) {
-  const years  = range(j.meta?.fromYear ?? 2024, j.meta?.toYear ?? 2026);
-  const before = j.series?.before ?? [];
-  const after  = j.series?.after  ?? [];
-  const saving = j.series?.saving ?? [];
+  const years    = range(j.meta?.fromYear ?? 2024, j.meta?.toYear ?? 2026);
+  const energy   = j.series?.after  ?? [];   // 에너지 사용량 (kWh/년) — 막대
+  const costSave = j.cost?.saving   ?? [];   // 비용 절감 (원/년) — 꺾은선
 
   const ctx = document.getElementById('chart-energy-combo').getContext('2d');
   new Chart(ctx, {
     data: {
       labels: years,
       datasets: [
+        // ── Bar: 에너지 사용량(kWh/년) ──
         {
           type: 'bar',
-          label: '절감량 (kWh/년)',
-          data: saving,
+          label: '에너지 사용량 (kWh/년)',   // ✅ 라벨 교체
+          data: energy,
+          yAxisID: 'yEnergy',
           borderRadius: 6
         },
+        // ── Line: 비용 절감(원/년) ──
         {
           type: 'line',
-          label: 'Before (kWh/년)',
-          data: before,
+          label: '비용 절감 (원/년)',
+          data: costSave,
+          yAxisID: 'yCost',
           fill: false,
           tension: 0.3,
           borderWidth: 2,
-          pointRadius: 2
-        },
-        {
-          type: 'line',
-          label: 'After (kWh/년)',
-          data: after,
-          fill: false,
-          tension: 0.3,
-          borderWidth: 2,
-          pointRadius: 2
+          pointRadius: 3
         }
       ]
     },
     options: {
       responsive: true,
-      animation: {
-        duration: 900,
-        easing: 'easeOutQuart'
-      },
+      animation: { duration: 900, easing: 'easeOutQuart' },
       scales: {
-        y: { beginAtZero: true }
+        // 좌측: kWh
+        yEnergy: {
+          position: 'left',
+          beginAtZero: true,
+          title: { display: true, text: 'kWh/년' },
+          ticks: { callback: (v) => fmtNumber(v) }
+        },
+        // 우측: 원
+        yCost: {
+          position: 'right',
+          beginAtZero: true,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: '원/년' },
+          ticks: { callback: (v) => fmtNumber(v) }
+        }
       },
       plugins: {
         tooltip: {
           callbacks: {
-            label: (c) => `${c.dataset.label}: ${fmtNumber(c.parsed.y)} kWh/년`
+            label: (c) => {
+              const isCost = c.dataset.yAxisID === 'yCost';
+              const val = c.parsed.y;
+              return isCost
+                ? `${c.dataset.label}: ${fmtCurrency(val).replace(' 원','원/년')}`
+                : `${c.dataset.label}: ${fmtNumber(val)} kWh/년`;
+            }
           }
-        }
+        },
+        legend: { labels: { boxWidth: 14, boxHeight: 14 } }
       }
     }
   });
 }
+
 
 function fillSummary(j) {
   const ul = document.getElementById('summary-list');
   const items = [
     `연간 비용 절감 약 ${fmtCurrency(j.kpi?.savingCostYr)} 수준`,
     `예상 절감량 ${fmtNumber(j.kpi?.savingKwhYr)} kWh/년`,
-    `예상 절감률 ${fmtPercent(deriveSavingPct(j))}`,
+    `예상 절감률 ${fmtPercent(j.kpi?.savingPct)}`,
     `투자 회수 기간 약 ${j.kpi?.paybackYears ?? '-'} 년`
   ];
   ul.innerHTML = items.map((t) => `<li>${t}</li>`).join('');
@@ -275,18 +290,7 @@ function bootHeroVideo() {
 /* ====== utils ====== */
 function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
 function range(f, t) { const a = []; for (let y = f; y <= t; y++) a.push(y); return a; }
-function firstPositiveIndex(arr) { for (let i = 0; i < (arr?.length || 0); i++) if (arr[i] > 0) return i; return -1; }
 function setText(sel, txt) { const el = document.querySelector(sel); if (el) el.textContent = txt; }
 function fmtNumber(n) { if (n == null) return '-'; return new Intl.NumberFormat('ko-KR').format(n); }
 function fmtCurrency(n) { if (n == null) return '-'; return new Intl.NumberFormat('ko-KR').format(n) + ' 원'; }
 function fmtPercent(p) { if (p == null) return '-'; return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(p) + '%'; }
-function deriveSavingPct(j) {
-  const before = j.series?.before ?? [];
-  const saving = j.series?.saving ?? [];
-  if (!before.length || !saving.length) return null;
-  let sum = 0, cnt = 0;
-  for (let i = 0; i < Math.min(before.length, saving.length); i++) {
-    if (before[i]) { sum += (saving[i] / before[i]) * 100; cnt++; }
-  }
-  return cnt ? (sum / cnt) : null;
-}

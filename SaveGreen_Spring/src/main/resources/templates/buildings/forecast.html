@@ -94,6 +94,12 @@
     <!-- 결과(로딩 후 표시) -->
     <section id="result-section" class="result hidden">
 
+        <!-- 혼합 차트(한 장): Bar(절감), Line 2개(Before/After) -->
+        <section class="chart-card">
+            <div class="chart-title">에너지 사용량 & 절감 (kWh/년)</div>
+            <canvas id="chart-energy-combo"></canvas>
+        </section>
+
         <!-- KPI 카드 4개 — 비용 → kWh → % → 회수기간 -->
         <section class="kpis">
             <article class="kpi-card kpi-cost">
@@ -127,12 +133,6 @@
                     <div id="kpi-payback" class="value">-</div>
                 </div>
             </article>
-        </section>
-
-        <!-- 혼합 차트(한 장): Bar(절감), Line 2개(Before/After) -->
-        <section class="chart-card">
-            <div class="chart-title">에너지 사용량 & 절감 (kWh/년)</div>
-            <canvas id="chart-energy-combo"></canvas>
         </section>
 
         <!-- 결과 요약 -->
