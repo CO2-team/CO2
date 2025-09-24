@@ -8,7 +8,7 @@ public class MainController {
 
     @GetMapping("/main")
     public String main() {
-        return "index"; // templates/index.html 렌더링
+        return "layouts/index"; // templates/index.html 렌더링
     }
     
 }

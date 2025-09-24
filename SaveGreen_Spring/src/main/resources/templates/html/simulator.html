@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulator</title>
+    <link rel="stylesheet" th:href="@{/css/simulator.css}">
+</head>
+<body>
+
+  
+    <div th:replace="layouts/header :: header"></div>
+
+  
+    <section class="simulator-container">
+        <div class="simulator-input">
+            <h3>에너지 효율 등급 시뮬레이터</h3>
+            <form id="simulatorForm" th:action="@{/simulate}" method="post">
+                <div class="form-group">
+                    <img class="icon" src="/img/location.png" alt="Location Icon">
+                    <label>주소 입력</label>
+                    <input type="text" name="address" placeholder="주소">
+                </div>
+                <div class="form-group">
+                    <img class="icon" src="/img/area.png" alt="Area Icon">
+                    <label>m²</label>
+                    <input type="number" name="area" placeholder="건물 면적">
+                </div>
+                <div class="form-group">
+                    <img class="icon" src="/img/battery.png" alt="Battery Icon">
+                    <label>kWh/년</label>
+                    <input type="number" name="energy" placeholder="에너지">
+                </div>
+                <div class="form-group">
+                    <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
+                    <label>개수</label>
+                    <input type="number" name="panelCount" placeholder="태양광 패널 개수">
+                </div>
+                <div class="form-group">
+                    <img class="icon" src="/img/electric.png" alt="Electric Icon">
+                    <label>W</label>
+                    <input type="number" name="panelPower" placeholder="태양광 패널 정격출력">
+                </div>
+                <button type="submit" class="btn-submit">결과보기</button>
+            </form>
+        </div>
+        
+
+
+        <div id="resultBox" class="simulator-result" style="display:none;">
+            <h3>시뮬레이션 결과</h3>
+            <ul>
+                <li>에너지 효율 등급: <span id="grade"></span></li>
+                <li>녹색 건축물 등급: <span id="greenGrade"></span></li>
+                <li>에너지 자립도: <span id="energySelf"></span>%</li>
+                <li>ZEB 등급: <span id="zebGrade"></span></li>
+                <li>재산세 감면: <span id="propertyTax"></span>%</li>
+                <li>취득세 감면: <span id="acquireTax"></span>%</li>
+                <li>건물 기준 완화: <span id="buildingEase"></span>%</li>
+            </ul>
+        </div>
+    </section>
+
+   
+    <div th:replace="layouts/footer :: footer"></div>
+
+</body>
+</html>
