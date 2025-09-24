@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="header :: head"></head> <!-- header.html에서 head 불러오기 -->
+<head>
+    <title>SaveGreen</title>
+</head>
 <body>
-    <div th:replace="header :: body"></div> <!-- header body 부분 포함 -->
-
-    <main>
-        <h2>Welcome to SaveGreen</h2>
-        <p>탄소 절감을 위한 프로젝트 페이지입니다.</p>
-    </main>
-
-    <div th:replace="footer :: footer"></div>
+    <div th:replace="header :: header"></div>  <!-- header.html 불러오기 -->
+    
+    <h1>메인 페이지</h1>
+    <p>여기에 본문 내용을 작성</p>
+    
+    <div th:replace="footer :: footer"></div>  <!-- footer.html 불러오기 -->
 </body>
 </html>

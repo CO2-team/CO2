@@ -21,6 +21,10 @@ repositories {
 dependencies {
 	// 스프링 데이터 JPA
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	
+    implementation 'mysql:mysql-connector-j:8.1.0' // MySQL 드라이버 추가
+
 	// 타임리프
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf' 
 	implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -41,6 +45,7 @@ dependencies {
 	// 엑셀 데이터 처리용 빌드
 	implementation 'org.apache.poi:poi:5.2.5'
 	implementation 'org.apache.poi:poi-ooxml:5.2.5'
+
 }
 
 tasks.named('test') {
