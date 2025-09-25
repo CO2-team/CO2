@@ -1,296 +1,466 @@
+/* =========================
+ * forecast.js  (FULL)
+ * - 게이트: 로딩 끝나기 전 결과 숨김
+ * - 5단계 로딩(각 단계 독립 진행) + 최소표시시간
+ * - 단계 완료 시 .done 부여 → CSS가 동그라미 안에 ✓만 표시
+ * - KPI/요약/배너: 피그마 문구/순서
+ * - 차트: 로더 종료 후 최초 렌더 시작(빈 상태) → 막대 '완전 순차' → 점 순차 → 선 표시
+ * ========================= */
+
 document.addEventListener('DOMContentLoaded', init);
 
-/* ========= Loader 설정 ========= */
-let _loaderTimer = null;   // 진행률 인터벌 핸들
-let _cap = 20;             // 진행 상한 (20 → 40 → 60 → 80 → 100)
-const TICK_MS = 200;       // 게이지 증가 주기(0.2s)
-const STEP_MIN = 1;        // 1틱 최소 증가폭(%)
-const STEP_MAX = 3;        // 1틱 최대 증가폭(%)
-const STEP_PAUSE_MS = [3000, 3000, 3000, 3000]; // 5단계 사이 멈춤 연출
-const CLOSE_DELAY_MS = 4000; // 100% 찍은 후 패널 닫기까지 대기
+/* ---------- 피그마 고정 텍스트 ---------- */
+const BANNER_TEXTS = {
+  recommend: '연식과 향후 비용 리스크를 고려할 때, 리모델링을 권장합니다.',
+  conditional: '일부 항목은 적정하나, 향후 효율과 수익성 검토가 필요합니다.',
+  'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
+};
 
-// 단계별 상태 문구 (체크 5개에 매핑)
-const STEP_STATUS = [
-  '데이터 로딩',
-  '정규화/스케일링',
-  '모델 피팅 확인',
-  '예측 생성 & 검증',
-  '차트 렌더링'
-];
+/* 요약에 쓰는 라벨/계산 규칙 */
+function euiRefForGrade(grade) {
+  const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
+  return map[grade] ?? 180;
+}
 
+/* ---------- 초기화 ---------- */
 async function init() {
-  const buildingId = document.getElementById('page-data')?.dataset?.buildingId || '1';
+  const $result = $('#result-section');
+  const $ml = $('#mlLoader');
 
-  // 0) ML 패널 시작
-  showPanel(true);
-  setModel('선형 회귀(Linear Regression)');
-  setStatus(STEP_STATUS[0]); // 1단계 문구
-  _cap = 20;
-  startLoaderProgress();                 // 게이지는 항상 현재 _cap까지 부드럽게 증가
-  const timelineP = runFiveStepTimeline(); // 5단계 타임라인(멈춤→상한 해제) 병행
+  // 0) 게이트: 결과 숨김
+  if ($result) $result.classList.add('hidden');
+
+  // 1) 로더 시작
+  startLoader();
+
+  // 2) 데이터 로드
+  const buildingId = getBuildingId();
+  const data = await fetchForecast(buildingId, 2024, 2030);
+  const { years, series, cost } = data;
+
+  // 3) KPI 계산 (API 우선)
+  const kpi = computeKpis({ years, series, cost, kpiFromApi: data.kpi });
+
+  // 4) 등급 추정(피그마 카드/요약용)
+  const gradeNow = estimateEnergyGrade(kpi.savingPct);
+
+  // 5) 상태 → 배너/아이콘배경
+  const status = decideStatusByKpi(kpi);
+  applyStatus(status);
+
+  // 6) KPI 출력
+  renderKpis(kpi, { gradeNow });
+
+  // 7) 결과 요약(피그마 문구)
+  renderSummary({ gradeNow, kpi });
+
+  // 8) 최소 표시 시간 보장 → 로더 종료
+  await ensureMinLoaderTime();
+  await finishLoader();
+
+  // 9) 결과 노출
+  if ($ml) $ml.classList.add('hidden');
+  if ($result) $result.classList.remove('hidden');
+
+  // 10) 이제 차트를 처음부터 0에서 순차 애니메이션(단일 렌더, 재애니메이션 없음)
+  await renderEnergyComboChart({ years, series, cost });
+}
+
+/* ---------- ML Loader ---------- */
+const LOADER = {
+  timer: null,
+  TICK_MS: 200,
+  STEP_MIN: 1,
+  STEP_MAX: 3,
+  STEP_PAUSE_MS: [3000, 3000, 3000, 3000],
+  MIN_VISIBLE_MS: 16000,
+  cap: 20,                 // 20→40→60→80→100
+  CLOSE_DELAY_MS: 4000,
+  startedAt: 0
+};
+
+function startLoader() {
+  LOADER.startedAt = performance.now();
+
+  const $bar   = $('#progressBar');
+  const steps  = $all('.progress-map .step');
+  const $text  = $('#mlStatusText');
+  const labels = {
+    1: '데이터 로딩',
+    2: '정규화 / 스케일링',
+    3: '모델 피팅',
+    4: '예측 / 검증',
+    5: '차트 렌더링'
+  };
+
+  let progress = 0;  // %
+  let level    = 1;  // 1~5
+
+  if ($text) $text.textContent = '초기화';
+  LOADER.cap = 20;
+  if (LOADER.timer) clearInterval(LOADER.timer);
+  LOADER.timer = setInterval(tick, LOADER.TICK_MS);
+
+  function tick() {
+    if (!$bar) return;
+
+    if (progress < LOADER.cap) {
+      progress += rand(LOADER.STEP_MIN, LOADER.STEP_MAX);
+      if (progress > LOADER.cap) progress = LOADER.cap;
+      $bar.style.width = progress + '%';
+      $bar.setAttribute('aria-valuenow', String(progress));
+      return;
+    }
+
+    const stepEl = steps[level - 1];
+    if (stepEl) stepEl.classList.add('done');
+    if ($text) $text.textContent = labels[level] || '진행 중';
+
+    if (level === 5) {
+      clearInterval(LOADER.timer);
+      return;
+    }
+
+    level += 1;
+    LOADER.cap += 20;
+
+    clearInterval(LOADER.timer);
+    setTimeout(() => {
+      LOADER.timer = setInterval(tick, LOADER.TICK_MS);
+    }, LOADER.STEP_PAUSE_MS[level - 2] || 0);
+  }
+}
+
+async function ensureMinLoaderTime() {
+  const elapsed = performance.now() - LOADER.startedAt;
+  const waitMs = Math.max(0, LOADER.MIN_VISIBLE_MS - elapsed);
+  if (waitMs > 0) await sleep(waitMs);
+}
+
+function finishLoader() {
+  return new Promise((res) => {
+    clearInterval(LOADER.timer);
+    const bar = $('#progressBar');
+    if (bar) bar.style.width = '100%';
+    $all('.progress-map .step').forEach((el) => el.classList.add('done'));
+    setTimeout(res, LOADER.CLOSE_DELAY_MS);
+  });
+}
+
+/* ---------- Data ---------- */
+async function fetchForecast(buildingId, fromYear, toYear) {
+  const years = range(fromYear, toYear);
+  const url = `/api/buildings/${encodeURIComponent(buildingId)}/forecast?from=${fromYear}&to=${toYear}`;
 
   try {
-    // 1) API 호출
-    const res = await fetch(`/api/buildings/${buildingId}/forecast?from=2024&to=2026`);
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const j = await res.json();
-
-    // 2) 렌더링
-    applyBanner(j);
-    fillKpis(j);
-    drawComboChart(j);   // ✅ 막대=비용 절감(원/년, 우측축) + 선=에너지 After(kWh/년, 좌측축)
-    fillSummary(j);
-
-    // 3) 타임라인 종료 대기 → 100% → 닫기
-    await timelineP;
-    completeLoaderProgress();       // 100%
-    setTimeout(() => {
-      showPanel(false);             // 패널 닫기
-      document.getElementById('result-section').classList.remove('hidden');
-    }, CLOSE_DELAY_MS);
+    const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!rsp.ok) throw new Error(rsp.status);
+    const json = await rsp.json();
+    return normalizeForecast(json, years);
   } catch (e) {
-    console.error(e);
-    // 실패 시에도 로더는 정상 종료 흐름 유지
-    await timelineP.catch(()=>{});
-    completeLoaderProgress();
-    setTimeout(() => {
-      showPanel(false);
-      const b = document.getElementById('status-banner');
-      b.className = 'banner not-recommend';
-      document.getElementById('banner-message').textContent = '데이터를 불러오지 못했습니다.';
-      document.getElementById('banner-badge').textContent = '비추천';
-      document.getElementById('result-section').classList.remove('hidden');
-    }, CLOSE_DELAY_MS);
+    // 폴백(데모 데이터)
+    const after = [2150000, 2090000, 2070000, 2050000, 2030000, 2010000, 1990000];
+    const saving = [300000, 280000, 270000, 260000, 250000, 240000, 230000];
+    const savingCost = [36000000, 33600000, 32400000, 31200000, 30000000, 28800000, 27600000];
+    return { years, series: { after, saving }, cost: { saving: savingCost }, kpi: null };
   }
-
-  // 히어로 비디오 가시성 제어
-  bootHeroVideo();
 }
 
-/* ====== 5단계 타임라인 ======
-   체크 5개와 정확히 매칭: 20% / 40% / 60% / 80% / 100%
-   각 단계 사이를 STEP_PAUSE_MS로 '멈춤' 연출
-*/
-function runFiveStepTimeline() {
-  return new Promise(async (resolve) => {
-    // 1 → 2 단계
-    await delay(STEP_PAUSE_MS[0]);
-    _cap = 40; setStatus(STEP_STATUS[1]);
+function normalizeForecast(d, fallbackYears) {
+  const years  = Array.isArray(d?.years) ? d.years : fallbackYears;
+  const after  = d?.series?.after ?? [];
+  const saving = d?.series?.saving ?? [];
+  const cost   = d?.cost ?? {};
+  const kpi    = d?.kpi ?? null;
+  return { years, series: { after, saving }, cost, kpi };
+}
 
-    // 2 → 3 단계
-    await delay(STEP_PAUSE_MS[1]);
-    _cap = 60; setStatus(STEP_STATUS[2]);
+/* ---------- KPI / 상태 / 출력 ---------- */
+function computeKpis({ years, series, cost, kpiFromApi }) {
+  if (kpiFromApi && isFinite(kpiFromApi.savingCostYr)) return kpiFromApi;
 
-    // 3 → 4 단계
-    await delay(STEP_PAUSE_MS[2]);
-    _cap = 80; setStatus(STEP_STATUS[3]);
+  const i = years.length - 1;
+  const afterKwh  = +series.after[i] || 0;
+  const savingKwh = +series.saving[i] || 0;
+  const savingCostYr = +((cost?.saving || [])[i]) || Math.round(savingKwh * 120);
 
-    // 4 → 5 단계
-    await delay(STEP_PAUSE_MS[3]);
-    _cap = 100; setStatus(STEP_STATUS[4]); // 최종 단계 문구
-    resolve();
+  const beforeKwh = afterKwh + savingKwh;
+  const savingPct = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
+
+  const paybackYears = clamp((afterKwh / Math.max(1, savingKwh)) * 0.8, 3, 8);
+
+  return { savingCostYr, savingKwhYr: savingKwh, savingPct, paybackYears };
+}
+
+function estimateEnergyGrade(savingPct) {
+  if (savingPct >= 30) return 1;
+  if (savingPct >= 20) return 2;
+  if (savingPct >= 10) return 3;
+  return 4;
+}
+
+function decideStatusByKpi(kpi) {
+  if (kpi.savingPct >= 15 && kpi.paybackYears <= 5) return 'recommend';
+  if (kpi.paybackYears <= 8) return 'conditional';
+  return 'not-recommend';
+}
+
+function applyStatus(status) {
+  const banner = $('#status-banner');
+  const result = $('#result-section');
+  const classes = ['recommend', 'conditional', 'not-recommend'];
+
+  classes.forEach((c) => { banner?.classList.remove(c); result?.classList.remove(c); });
+  if (classes.includes(status)) { banner?.classList.add(status); result?.classList.add(status); }
+
+  const msg = $('#banner-message');
+  const badge = $('#banner-badge');
+  if (msg)   msg.textContent = BANNER_TEXTS[status] || '';
+  if (badge) badge.textContent =
+    status === 'recommend' ? '추천' :
+    status === 'conditional' ? '조건부' : '비추천';
+}
+
+function renderKpis(kpi, { gradeNow }) {
+  const g  = $('#kpi-grade');
+  const sc = $('#kpi-saving-cost');
+  const pb = $('#kpi-payback');
+  const sp = $('#kpi-saving-pct');
+
+  if (g)  g.textContent  = String(gradeNow);
+  if (sc) sc.textContent = nf(kpi.savingCostYr);
+  if (pb) pb.textContent = (Math.round(kpi.paybackYears * 10) / 10).toFixed(1);
+  if (sp) sp.textContent = kpi.savingPct + '%';
+}
+
+/* 결과 요약(피그마 문구) */
+function renderSummary({ gradeNow, kpi }) {
+  const ul = $('#summary-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+
+  const targetGrade   = Math.max(1, gradeNow - 1); // +1등급 목표
+  const currentEui    = euiRefForGrade(gradeNow);
+  const boundaryEui   = euiRefForGrade(targetGrade);
+  const needSavingPct = Math.max(0, Math.round(((currentEui - boundaryEui) / currentEui) * 100));
+
+  [
+    `현재 등급 : <strong>${gradeNow}등급(EUI ${currentEui} kWh/m^2/년)</strong>`,
+    `목표 : <strong>+1등급(${targetGrade}등급)</strong>`,
+    `등급 상승 기준(EUI 경계값) : <strong>${boundaryEui} kWh/m^2/년</strong>`,
+    `등급 상승 필요 절감률 : <strong>${needSavingPct}%</strong>`
+  ].forEach((html) => {
+    const li = document.createElement('li');
+    li.innerHTML = html;
+    ul.appendChild(li);
   });
 }
 
-/* ====== ML 패널 제어 ====== */
-function showPanel(flag) {
-  const el = document.getElementById('mlLoader');
-  if (!el) return;
-  el.style.display = flag ? 'block' : 'none';
-  el.style.opacity = flag ? '1' : '0';
-}
+/* ---------- Chart.js ---------- */
+let energyChart = null;
 
-function setModel(name) {
-  const el = document.getElementById('modelName');
-  if (el) el.textContent = name;
-}
+async function renderEnergyComboChart({ years, series, cost }) {
+  if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
 
-function setStatus(txt) {
-  const el = document.getElementById('mlStatusText');
-  if (el) el.textContent = txt;
-}
+  const canvas = document.getElementById('chart-energy-combo');
+  if (!canvas) { console.warn('#chart-energy-combo not found'); return; }
 
-/* 진행률 표시 + 체크 점등 (진행률 기반) */
-function setProgress(p) {
-  const clamped = Math.max(0, Math.min(100, p));
-  const bar = document.getElementById('progressBar');
-  if (bar) {
-    bar.style.width = clamped + '%';
-    bar.setAttribute('aria-valuenow', clamped);
+  // 기존 차트 제거
+  if (Chart.getChart) {
+    const existed = Chart.getChart(canvas);
+    if (existed) existed.destroy();
   }
-  // 체크 점등: 0~20~40~60~80~100 기준
-  const steps = document.querySelectorAll('.check');
-  const activeIdx = Math.min(steps.length, Math.ceil(clamped / 20));
-  steps.forEach((el, i) => {
-    el.textContent = (i < activeIdx) ? '✓' : '•';
-    el.style.background = (i < activeIdx)
-      ? 'rgba(34,211,238,.22)'
-      : 'rgba(34,211,238,.12)';
-  });
-}
+  if (energyChart) energyChart.destroy();
 
-/* 상한(_cap)까지 부드럽게 증가시키는 루프 */
-function startLoaderProgress() {
-  setProgress(0);
-  stopLoaderProgress();
-  _loaderTimer = setInterval(() => {
-    const now = parseInt(document.getElementById('progressBar')?.getAttribute('aria-valuenow') || '0', 10);
-    // 현재 상한(_cap)까지는 랜덤 step으로 부드럽게 증가
-    const step = STEP_MIN + Math.floor(Math.random() * (STEP_MAX - STEP_MIN + 1));
-    const next = Math.min(_cap, now + step);
-    setProgress(next);
-    // 상한 도달 시 멈춰 보임 (_cap이 다음 단계로 해제되면 다시 증가)
-  }, TICK_MS);
-}
+  const ctx = canvas.getContext('2d');
 
-function stopLoaderProgress() {
-  if (_loaderTimer) {
-    clearInterval(_loaderTimer);
-    _loaderTimer = null;
+  /* ===== 템포(요청값) ===== */
+  const BAR_GROW_MS  = 2000;  // 막대 하나 자라는 시간
+  const BAR_GAP_MS   = 500;   // 막대 간 간격
+  const POINT_MS     = 600;   // 점 하나 등장 시간
+  const POINT_GAP_MS = 200;   // 점 간 간격
+
+  const labels  = years.map(String);
+  const bars    = series.after.slice(0, labels.length);
+  const costs   = (cost?.saving || []).slice(0, labels.length);
+  const n       = labels.length;
+
+  /* ===== 색상 ===== */
+  // 막대: Chart.js 기본 파랑
+  const BAR_BG      = 'rgba(54, 162, 235, 0.5)';
+  const BAR_BORDER  = 'rgb(54, 162, 235)';
+  // 꺾은선/점: 주황
+  const LINE_ORANGE = '#F57C00';
+
+  // 베이스라인에서 시작 (0 → 값)
+  function fromBaseline(ctx) {
+    const chart  = ctx.chart;
+    const ds     = chart.data.datasets[ctx.datasetIndex];
+    const axisId = ds.yAxisID || (ds.type === 'line' ? 'yCost' : 'yEnergy');
+    const scale  = chart.scales[axisId];
+    return scale.getPixelForValue(0);
   }
-}
 
-function completeLoaderProgress() {
-  stopLoaderProgress();
-  setProgress(100);
-}
+  // 타이밍 계산: 막대 끝난 다음에 점/선
+  const totalBarDuration   = n * (BAR_GROW_MS + BAR_GAP_MS);
+  const pointStartAt       = totalBarDuration; // 막대 모두 끝난 뒤 포인트 시작
+  const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
+  const lineRevealAt       = pointStartAt + totalPointDuration; // 모든 점 등장 후 선 표시
 
-/* ====== 페이지 렌더링 ====== */
-function applyBanner(j) {
-  const banner = document.getElementById('status-banner');
-  const msgEl = document.getElementById('banner-message');
-  const badge = document.getElementById('banner-badge');
-  const label = (j.status?.label || '').toUpperCase();
-
-  const MAP = {
-    RECOMMEND:     { cls: 'recommend',     badge: '추천',   message: '투자 회수기간이 짧고 효과가 큽니다.' },
-    CONDITIONAL:   { cls: 'conditional',   badge: '조건부', message: '효과는 있지만 추가 검토가 필요합니다.' },
-    NOT_RECOMMEND: { cls: 'not-recommend', badge: '비추천', message: '현재 조건에서는 리모델링 효과가 제한적입니다.' }
+  // 꺾은선: 선은 나중에 켜고, 점은 반경 0에서 시작(타이밍에 3으로 올림)
+  const lineDs = {
+    type: 'line',
+    label: '비용 절감',
+    data: costs,                       // 값은 미리 넣음 (y 애니는 delay로 제어)
+    yAxisID: 'yCost',
+    tension: 0.3,
+    spanGaps: false,
+    fill: false,
+    showLine: false,                   // 마지막에 한 번에 선 보이기
+    pointRadius: new Array(n).fill(0), // 처음엔 점 숨김(반경 0)
+    borderColor: LINE_ORANGE,
+    backgroundColor: LINE_ORANGE,
+    pointBackgroundColor: LINE_ORANGE,
+    pointBorderColor: LINE_ORANGE,
+    animations: {
+      // 점의 y 위치만 "막대 이후" 순차로 0→값
+      y: {
+        from: fromBaseline,
+        duration: POINT_MS,
+        delay: (ctx) => {
+          if (ctx.type !== 'data' || ctx.mode !== 'default') return 0;
+          return pointStartAt + ctx.dataIndex * (POINT_MS + POINT_GAP_MS);
+        },
+        easing: 'easeOutCubic'
+      }
+      // radius 애니는 사용 안 함 → 반경은 아래 setTimeout으로 제어
+    }
   };
-  const m = MAP[label] || MAP.RECOMMEND;
 
-  banner.classList.remove('recommend', 'conditional', 'not-recommend');
-  banner.classList.add(m.cls);
-  msgEl.textContent = m.message;
-  badge.textContent = m.badge;
-}
-
-function fillKpis(j) {
-  setText('#kpi-saving-cost', fmtCurrency(j.kpi?.savingCostYr));
-  setText('#kpi-saving-kwh', fmtNumber(j.kpi?.savingKwhYr));
-
-  // 절감률은 BE에서 내려준 값을 그대로 사용 (before 제거 대응)
-  const pct = j.kpi?.savingPct;
-  setText('#kpi-saving-pct', pct != null ? fmtPercent(pct) : '-');
-
-  setText('#kpi-payback', j.kpi?.paybackYears ?? '-');
-}
-
-/* 혼합 차트(한 장):
-   - Line: 비용 절감 (원/년) → 우측 Y축 (yCost)
-   - Bar: 에너지 사용량 (kWh/년) → 좌측 Y축 (yEnergy)
-   - 애니메이션:
-     · 막대: 아래→위 상승 + 인덱스 순서 지연
-     · 선: 좌→우로 점 순차 등장(지연) + 선 연결
-*/
-function drawComboChart(j) {
-  const years    = range(j.meta?.fromYear ?? 2024, j.meta?.toYear ?? 2026);
-  const energy   = j.series?.after  ?? [];   // 에너지 사용량 (kWh/년) — 막대
-  const costSave = j.cost?.saving   ?? [];   // 비용 절감 (원/년) — 꺾은선
-
-  const ctx = document.getElementById('chart-energy-combo').getContext('2d');
-  new Chart(ctx, {
+  energyChart = new Chart(ctx, {
+    type: 'bar',
     data: {
-      labels: years,
+      labels,
       datasets: [
-        // ── Bar: 에너지 사용량(kWh/년) ──
         {
           type: 'bar',
-          label: '에너지 사용량 (kWh/년)',   // ✅ 라벨 교체
-          data: energy,
+          label: '에너지 사용량',
+          data: bars,
           yAxisID: 'yEnergy',
-          borderRadius: 6
+          backgroundColor: BAR_BG,     // 파란 막대(원래 파랑)
+          borderColor: BAR_BORDER,
+          borderWidth: 1,
+          animations: {
+            x: { duration: 0 },
+            y: {
+              from: fromBaseline,
+              duration: BAR_GROW_MS,
+              delay: (ctx) => {
+                if (ctx.type !== 'data' || ctx.mode !== 'default') return 0;
+                return ctx.dataIndex * (BAR_GROW_MS + BAR_GAP_MS);
+              },
+              easing: 'easeOutCubic'
+            }
+          }
         },
-        // ── Line: 비용 절감(원/년) ──
-        {
-          type: 'line',
-          label: '비용 절감 (원/년)',
-          data: costSave,
-          yAxisID: 'yCost',
-          fill: false,
-          tension: 0.3,
-          borderWidth: 2,
-          pointRadius: 3
-        }
+        lineDs
       ]
     },
     options: {
       responsive: true,
-      animation: { duration: 900, easing: 'easeOutQuart' },
-      scales: {
-        // 좌측: kWh
-        yEnergy: {
-          position: 'left',
-          beginAtZero: true,
-          title: { display: true, text: 'kWh/년' },
-          ticks: { callback: (v) => fmtNumber(v) }
-        },
-        // 우측: 원
-        yCost: {
-          position: 'right',
-          beginAtZero: true,
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: '원/년' },
-          ticks: { callback: (v) => fmtNumber(v) }
-        }
-      },
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
+        legend: { display: true },
         tooltip: {
           callbacks: {
-            label: (c) => {
-              const isCost = c.dataset.yAxisID === 'yCost';
-              const val = c.parsed.y;
-              return isCost
-                ? `${c.dataset.label}: ${fmtCurrency(val).replace(' 원','원/년')}`
-                : `${c.dataset.label}: ${fmtNumber(val)} kWh/년`;
+            // 툴팁엔 단위 표기
+            label: (ctx) => {
+              const isCost = ctx.dataset.yAxisID === 'yCost';
+              const val = ctx.parsed.y;
+              return `${ctx.dataset.label}: ${nf(val)} ${isCost ? '원/년' : 'kWh/년'}`;
             }
           }
+        }
+      },
+      scales: {
+        // ✅ 눈금엔 숫자만, 단위는 제목에만 한 번
+        yEnergy: {
+          type: 'linear',
+          position: 'left',
+          ticks: { callback: (v) => nf(v) },
+          title: { display: true, text: '에너지 사용량 (kWh/년)' }
         },
-        legend: { labels: { boxWidth: 14, boxHeight: 14 } }
+        yCost: {
+          type: 'linear',
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { callback: (v) => nf(v) },
+          title: { display: true, text: '비용 절감 (원/년)' }
+        },
+        x: { title: { display: false } }
       }
     }
   });
+
+  // === 점(포인트) 반경을 타이밍에 맞춰 0 → 3으로 올리기 ===
+  for (let i = 0; i < n; i++) {
+    const delay = pointStartAt + i * (POINT_MS + POINT_GAP_MS);
+    setTimeout(() => {
+      lineDs.pointRadius[i] = 3;   // 점 보이기
+      energyChart.update('none');  // 재애니메이션 없이 즉시 반영
+    }, delay);
+  }
+
+  // === 모든 점 등장 후, 선(stroke) 한 번에 보이기 ===
+  setTimeout(() => {
+    energyChart.data.datasets[0].animations = false; // bar 재애니 방지
+    lineDs.showLine = true;
+    energyChart.update('none');
+  }, lineRevealAt + 50);
+
+  // 디버깅용
+  window.energyChart = energyChart;
 }
 
 
-function fillSummary(j) {
-  const ul = document.getElementById('summary-list');
-  const items = [
-    `연간 비용 절감 약 ${fmtCurrency(j.kpi?.savingCostYr)} 수준`,
-    `예상 절감량 ${fmtNumber(j.kpi?.savingKwhYr)} kWh/년`,
-    `예상 절감률 ${fmtPercent(j.kpi?.savingPct)}`,
-    `투자 회수 기간 약 ${j.kpi?.paybackYears ?? '-'} 년`
-  ];
-  ul.innerHTML = items.map((t) => `<li>${t}</li>`).join('');
+
+
+
+
+/* ---------- Helpers ---------- */
+function getBuildingId() {
+  const el = $('#page-data');
+  return el?.dataset?.buildingId || 'default';
 }
 
-/* ====== Hero Video ====== */
-function bootHeroVideo() {
-  const v = document.getElementById('hero-video');
-  if (!v) return;
-  v.addEventListener('canplay', () => { try { v.play().catch(() => {}); } catch (_) {} }, { once: true });
-  const io = new IntersectionObserver(([e]) => {
-    if (!v) return;
-    if (e.isIntersecting) v.play().catch(() => {});
-    else v.pause();
-  }, { threshold: 0.2 });
-  io.observe(v);
+function nf(n) {
+  try { return new Intl.NumberFormat('ko-KR').format(Math.round(Number(n) || 0)); }
+  catch { return String(n); }
 }
 
-/* ====== utils ====== */
-function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
-function range(f, t) { const a = []; for (let y = f; y <= t; y++) a.push(y); return a; }
-function setText(sel, txt) { const el = document.querySelector(sel); if (el) el.textContent = txt; }
-function fmtNumber(n) { if (n == null) return '-'; return new Intl.NumberFormat('ko-KR').format(n); }
-function fmtCurrency(n) { if (n == null) return '-'; return new Intl.NumberFormat('ko-KR').format(n) + ' 원'; }
-function fmtPercent(p) { if (p == null) return '-'; return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(p) + '%'; }
+function range(a, b) {
+  const arr = [];
+  for (let y = a; y <= b; y++) arr.push(y);
+  return arr;
+}
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function $(s, root = document) {
+  return root.querySelector(s);
+}
+
+function $all(s, root = document) {
+  return Array.from(root.querySelectorAll(s));
+}
