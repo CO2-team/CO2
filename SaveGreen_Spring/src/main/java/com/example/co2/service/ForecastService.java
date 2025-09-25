@@ -25,12 +25,12 @@ public class ForecastService {
         var saving = List.of(350_000L,   420_000L,   460_000L,   500_000L,   530_000L,   570_000L,   620_000L);
 
         // 비용(원/년) — 2024부터 비용 절감 반영
-        List<Long> costBefore = null; // ✅ 누락되었던 선언 추가
+        List<Long> costBefore = null;
         var costAfter  = List.of(253_000_000L, 250_000_000L, 247_000_000L, 244_000_000L, 241_000_000L, 238_000_000L, 235_000_000L);
         var costSaving = List.of(41_000_000L,  34_000_000L,  32_000_000L,  30_000_000L,  28_000_000L,  26_000_000L,  24_000_000L);
 
         // CO2(kg/년) — 2024부터 감축 반영
-        List<Long> co2Before = null;  // ✅ 누락되었던 선언 추가
+        List<Long> co2Before = null;
         var co2After  = List.of(897_000L, 878_000L, 860_000L, 842_000L, 824_000L, 806_000L, 790_000L);
         var co2Saving = List.of(152_000L, 139_000L, 130_000L, 120_000L, 112_000L, 100_000L, 95_000L);
 
