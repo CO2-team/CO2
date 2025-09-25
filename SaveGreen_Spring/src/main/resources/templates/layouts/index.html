@@ -7,30 +7,120 @@
 </head>
 <body>
     <div th:replace="~{layouts/header :: header}"></div> <!-- header.html 불러오기 -->
-    
-    <main class="main-banner">
-        <div class="overlay">
-            <video autoplay muted loop playsinline>
-                <source src="/video/main_video_01.mp4" type="video/mp4">
-                <!-- 브라우저가 지원 안 하면 기본 이미지 보여주기 -->
-                <img src="/img/main_img_01.png" alt="background">
-            </video>
+    <div class="container">
+        <main class="main-banner">
+            <div class="overlay">
+                <video autoplay muted loop playsinline>
+                    <source src="/video/main_video_01.mp4" type="video/mp4">
+                    <!-- 브라우저가 지원 안 하면 기본 이미지 보여주기 -->
+                    <img src="/img/main_img_01.png" alt="background">
+                </video>
 
-            <div class="text-content">
-                <h2>산업시설 탄소절감 플랫폼</h2>
-                <h1>SAVE GREEN</h1>
-                <p>미래를 <span style="color: green; font-weight: bold; ">Green</span>하다</p>
-                <p class="desc">
-                    과거·현재·미래의 건축물 에너지 사용량을 분석하고,<br>
-                    녹색건축물·ZEB 전환을 통한 절세와 탄소 감축 효과를 시뮬레이션합니다.
-                </p>
+                <div class="text-content">
+                    <h2>산업시설 탄소절감 플랫폼</h2>
+                    <h1>SAVE GREEN</h1>
+                    <p class="text_green">: 미래를 <span class="text_green" style="color: #51FD56; font-weight: bold; ">Green</span>하다</p>
+                    <p class="next_show" id="scroll_show0">
+                        과거·현재·미래의 건축물 에너지 사용량을 분석하고,<br>
+                        녹색건축물·ZEB 전환을 통한 절세와 탄소 감축 효과를 시뮬레이션합니다.
+                    </p>
+                </div> 
             </div>
-            
-        </div>
-    </main>
+        </main>
+        <main class="main-banner"> 
+            <div class="overlay">
+                <video autoplay muted loop playsinline>
+                    <source src="/video/main_video_02.mp4" type="video/mp4">
+                    <!-- 브라우저가 지원 안 하면 기본 이미지 보여주기 -->
+                    <img src="/img/main_img_02.png" alt="background">
+                </video>
 
+                <div class="text-content">
+                    <h1>SERVICE</h1>
+                    <p>#녹색 건축물 #ZEB #건물 정보 검색</p>
+                    <p class="next_show" id="scroll_show1">
+                        녹색건축물 인증(G-seed)/ZEB 에 대해 설명하고,<br>
+                        건물 정보 검색을 통해 건물의 자세한 정보와,<br>
+                        월별, 연도별 에너지 배출량에 대해 확인합니다.
+                    </p>
+                </div> 
+            </div>
+        </main>
+        <main class="main-banner">
+            <div class="overlay">
+                <video autoplay muted loop playsinline>
+                    <source src="/video/main_video_03.mp4" type="video/mp4">
+                    <!-- 브라우저가 지원 안 하면 기본 이미지 보여주기 -->
+                    <img src="/img/main_img_03.png" alt="background">
+                </video>
+
+                <div class="text-content">
+                    <h1>Green Remodeling</h1>
+                    <p>#그린리모델링 #에너지 절감 예측</p>
+                    <p class="next_show" id="scroll_show2">
+                        그린 리모델링 적용 전후의 변화를 데이터를 통해  비교하고,<br>
+                        머신러닝을 통해 향후 데이터를 예측,<br>
+                        리모델링 적합도를 추천을 통해 나타냅니다.
+                    </p>
+                </div> 
+            </div>
+        </main>
+        <main class="main-banner">
+            <div class="overlay">
+                <video autoplay muted loop playsinline>
+                    <source src="/video/main_video_04.mp4" type="video/mp4">
+                    <!-- 브라우저가 지원 안 하면 기본 이미지 보여주기 -->
+                    <img src="/img/main_img_04.png" alt="background">
+                </video>
+
+                <div class="text-content">
+                    <h1>energy simulator</h1>
+                    <p>#에너지등급  #태양광패널  #시뮬레이터</p>
+                    <p class="next_show" id="scroll_show3">
+                        사용자 입력값을 기반으로 건물의 에너지 <br>
+                        자립도·녹색등급·비용 절감·탄소 절감 효과을 종합적으로 제공합니다.
+                    </p>
+                </div> 
+            </div>
+        </main>
+    </div>
     <div th:replace="~{layouts/footer :: footer}"></div>
+  <!-- 스크롤 시 헤더 숨김 스크립트 -->
+    <script>
+       document.addEventListener("DOMContentLoaded", () => {
+            let lastScrollTop = 0;
+            const navbar = document.getElementById("menubar");
 
+            window.addEventListener("scroll", function() {
+                let currentScroll = window.scrollY;
+
+                if (currentScroll > lastScrollTop) {
+                    navbar.style.top = "-80px"; // 아래로 스크롤 → 숨김
+                } else {
+                    navbar.style.top = "0"; // 위로 스크롤 → 보이기
+                }
+
+                lastScrollTop = currentScroll;
+            });
+        });
+
+        const banners = document.querySelectorAll('.main-banner');
+
+        window.addEventListener('scroll', () => {
+            console.log("스크롤 이벤트 작동!");
+            banners.forEach((banner, idx) => {
+                const rect = banner.getBoundingClientRect();
+
+                // 화면 중앙에 배너가 위치하면 active
+                if(rect.top < window.innerHeight/2 && rect.bottom > window.innerHeight/2){
+                    banner.classList.add('active');
+                } else {
+                    banner.classList.remove('active');
+                }
+            });
+        });
+    </script>
     <!-- <div th:replace="layouts/footer :: footer"></div>  -->
 </body>
+
 </html>
