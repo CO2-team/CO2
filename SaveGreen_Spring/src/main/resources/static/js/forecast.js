@@ -16,6 +16,75 @@ const BANNER_TEXTS = {
   'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
 
+/* ---------- Header offset (scroll 대응) ---------- */
+function applyHeaderOffset()
+{
+  const menubar = document.getElementById('menubar');
+  const spacer  = document.querySelector('.header-spacer');
+  const wrap    = document.querySelector('main.wrap');
+  if (!wrap || !spacer) return;
+
+  let overlay = false;
+  let h = 0;
+
+  if (menubar)
+  {
+    const cs   = getComputedStyle(menubar);
+    const rect = menubar.getBoundingClientRect();
+
+    const isFixed      = cs.position === 'fixed';
+    // sticky인 경우, 실제로 화면 상단에 “붙어 있는 순간”만 오버레이로 간주
+    const isStickyNow  = cs.position === 'sticky' && rect.top <= 0;
+
+    overlay = isFixed || isStickyNow;
+    h = rect.height;
+  }
+
+  // CSS 변수로 노출(필요 시 다른 요소에서 사용)
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+
+  // 오버레이일 때만 상단 패딩 적용
+  wrap.style.paddingTop = overlay ? (h + 'px') : '0px';
+
+  // JS 동작 시 스페이서는 항상 0으로 (중복 여백 방지)
+  spacer.style.height = '0px';
+}
+
+function initHeaderOffset()
+{
+  // 최초 1회
+  applyHeaderOffset();
+
+  // rAF로 스크롤 처리 스로틀링
+  let ticking = false;
+  const onScrollTick = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      applyHeaderOffset();
+      ticking = false;
+    });
+  };
+
+  // 창 리사이즈 / 회전
+  window.addEventListener('resize', applyHeaderOffset);
+  window.addEventListener('orientationchange', applyHeaderOffset);
+
+  // 스크롤: window + 메인 컨테이너(overflow가 wrap에 걸린 경우 대비)
+  window.addEventListener('scroll', onScrollTick, { passive: true });
+  const wrap = document.querySelector('main.wrap');
+  if (wrap) wrap.addEventListener('scroll', onScrollTick, { passive: true });
+
+  // 드롭다운으로 헤더 높이가 변하는 경우 대응
+  const menubar = document.getElementById('menubar');
+  if (window.ResizeObserver && menubar)
+  {
+    const ro = new ResizeObserver(applyHeaderOffset);
+    ro.observe(menubar);
+  }
+}
+
+
 /* 요약에 쓰는 라벨/계산 규칙 */
 function euiRefForGrade(grade) {
   const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
@@ -24,6 +93,9 @@ function euiRefForGrade(grade) {
 
 /* ---------- 초기화 ---------- */
 async function init() {
+  // 헤더 높이 보정 먼저 적용
+  initHeaderOffset();
+
   const $result = $('#result-section');
   const $ml = $('#mlLoader');
 
@@ -210,8 +282,14 @@ function applyStatus(status) {
   const result = $('#result-section');
   const classes = ['recommend', 'conditional', 'not-recommend'];
 
-  classes.forEach((c) => { banner?.classList.remove(c); result?.classList.remove(c); });
-  if (classes.includes(status)) { banner?.classList.add(status); result?.classList.add(status); }
+  classes.forEach((c) => {
+    banner?.classList.remove(c);
+    result?.classList.remove(c);
+  });
+  if (classes.includes(status)) {
+    banner?.classList.add(status);
+    result?.classList.add(status);
+  }
 
   const msg = $('#banner-message');
   const badge = $('#banner-badge');
@@ -220,6 +298,51 @@ function applyStatus(status) {
     status === 'recommend' ? '추천' :
     status === 'conditional' ? '조건부' : '비추천';
 }
+
+function applyHeaderOffset()
+{
+  const menubar = document.getElementById('menubar');
+  const spacer  = document.querySelector('.header-spacer');
+  const wrap    = document.querySelector('main.wrap');
+  if (!wrap || !spacer) return;
+
+  // 헤더가 정말로 “겹쳐올리는지” 판별
+  // - position: fixed 이면 무조건 오버레이
+  // - position: sticky 이고 top <= 0 이면 화면 상단에 달라붙어 오버레이
+  let overlay = false;
+  if (menubar)
+  {
+    const cs  = getComputedStyle(menubar);
+    const pos = cs.position;
+    const top = parseFloat(cs.top) || 0;
+    overlay = (pos === 'fixed') || (pos === 'sticky' && top <= 0);
+  }
+
+  const h = menubar ? menubar.getBoundingClientRect().height : 0;
+
+  // CSS 변수로 노출(필요시 다른 곳에서 사용)
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+
+  // 오버레이일 때만 패딩 적용, 아니면 0
+  wrap.style.paddingTop = overlay ? (h + 'px') : '0px';
+
+  // JS 동작 시 스페이서는 항상 0으로 (중복 여백 방지)
+  spacer.style.height = '0px';
+}
+
+function initHeaderOffset()
+{
+  applyHeaderOffset();
+  window.addEventListener('resize', applyHeaderOffset);
+
+  const menubar = document.getElementById('menubar');
+  if (window.ResizeObserver && menubar)
+  {
+    const ro = new ResizeObserver(applyHeaderOffset);
+    ro.observe(menubar);
+  }
+}
+
 
 function renderKpis(kpi, { gradeNow }) {
   const g  = $('#kpi-grade');
