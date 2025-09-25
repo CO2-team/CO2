@@ -1,19 +1,44 @@
+#introText {
+    max-width: 1060px;        /* 폭 제한 */
+    margin: 80px auto 0;   /* 화면 가운데 (위 80px, 아래 40px 여백) */
+    padding: 20px 20px;       /* 내부 여백 */
+    font-size: 15px;
+    text-align: center;       /* 글자 가운데 */
+    border-radius: 10px;
+    background-color: #d0dacf;
+}
 
 .simulator-index{
     display: flex;
     justify-content: center;
-    gap:20px
+    gap:40px;
+    
+    border-radius: 8px;
+    padding-top: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    flex-wrap: wrap;      /* 줄바꿈 허용 */
+   
+}
+.simulator-wrapper{
+    flex: 1;
+    min-width: 400px;
+    background-color: #d0dacf; /* 연녹색 */
+    padding: 20px;
+    border-radius: 10px;
+    justify-content: center;
 }
 
 .simulator-container {
-    flex:1;
-    max-width: 450px;
-    margin: 40px 0;
+    flex:1 1 400px;
+    max-width: 400px;
+    min-width: 400px;
+    margin: 10px auto;
     padding: 25px;
-    background: #fff;
+    background-color: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border: 2px solid #cde0d5;
+    
 }
 
 .simulator-input h3 {
@@ -72,7 +97,7 @@
     margin-left: 10px;  
     white-space: nowrap;
     font-size: 13px;
-    color: #888;
+    color: #333;
     order : 2;
     text-align: right;
 }
@@ -105,9 +130,25 @@
   margin-bottom: 10px;
 }
 
-.form-row input {
+.form-row select {
   flex: 1;
   border: 1px solid #ccc;
   border-radius: 10px;
   padding: 8px 12px;
+}
+
+@media (max-width: 768px) {
+  .simulator-index {
+    flex-direction: column;
+    align-items: center;
+    background-color: #d0dacf;   /* 모바일 전체 배경 연녹색 */
+    border-radius: 0;            /* 꼭짓점 둥글림 제거 (전체 배경이니까) */
+    padding: 20px;               /* 여백 살짝 추가 */
+  }
+  .simulator-wrapper {
+    width: 100%;                 /* 꽉 채우게 */
+    max-width: none;             /* 제한 없애기 */
+    background-color: transparent; /* wrapper 배경 제거 (겹치지 않게) */
+    box-shadow: none;            /* 필요시 그림자도 제거 */
+  }
 }
