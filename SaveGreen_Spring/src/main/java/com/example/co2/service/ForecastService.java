@@ -7,11 +7,23 @@ import com.example.co2.dto.ForecastDtos.Kpi;
 import com.example.co2.dto.ForecastDtos.Meta;
 import com.example.co2.dto.ForecastDtos.Series;
 import com.example.co2.dto.ForecastDtos.Status;
-import java.util.List;
+import com.example.co2.entity.ApiCache;
+import com.example.co2.repository.ApiCacheRepository;
+import com.example.co2.util.HashUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ForecastService {
+
+    // 설정값
+    @Value("${app.cache.ttl-minutes:10}")
+    private int ttlMinutes;
 
     // 기본 범위 / 가정값
     private static final int BASE_YEAR = 2024;
@@ -19,19 +31,58 @@ public class ForecastService {
     // 데모용 투자비용 : paybackYears 계산에 사용
     private static final long DEFAULT_RETROFIT_COST_WON = 90_000_000L;
 
-    // 연도 슬라이싱 유틸(양끝 포함)
-    private static <T> List<T> sliceInclusive(List<T> full, int fromYear, int toYear) {
-        int start = Math.max(fromYear, BASE_YEAR) - BASE_YEAR;
-        int end = Math.min(toYear, LAST_YEAR) - BASE_YEAR;
-        if (start < 0 || end > full.size() || start > end) {
-            throw new IllegalArgumentException("지원하지 않는 연도 범위 : " + fromYear + " - " + toYear);
-        }
-        return full.subList(start, end + 1);
+    private final ApiCacheRepository apiCacheRepository;
+    private final ObjectMapper objectMapper;
+
+    public ForecastService(ApiCacheRepository apiCacheRepository, ObjectMapper objectMapper) {
+        this.apiCacheRepository = apiCacheRepository;
+        this.objectMapper = objectMapper;
     }
 
+    // public API
     public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario) {
+        // 1. 캐시 키
+        String keyRaw = buildCacheKeyRaw(buildingId, fromYear, toYear, scenario);
+        String keyHash = HashUtils.sha256Hex(keyRaw);
 
-        // ---- Stub(풀시계열): 2024 ~ 2030 ----
+        // 2. 캐시 조회(미만료)
+        Optional<ApiCache> cached = apiCacheRepository.findTopByCacheKeyHashAndExpiresAtAfter(keyHash, LocalDateTime.now());
+        if (cached.isPresent()) {
+            try {
+                return objectMapper.readValue(cached.get().getPayloadJson(), ForecastResponse.class);
+            } catch (Exception ignore) {
+                // 파싱 실패시 무시하고 재 계산
+            }
+        }
+
+        // 3. 캐시 미스 -> 스텁 계산
+        ForecastResponse resp = computeStub(buildingId, fromYear, toYear);
+
+        // 4. 캐시 저장
+        try {
+            ApiCache entry = new ApiCache();
+            entry.setCacheKeyHash(keyHash);
+            entry.setCacheKeyRaw(keyRaw);
+            entry.setPayloadJson(objectMapper.writeValueAsString(resp));
+            entry.setExpiresAt(LocalDateTime.now().plusMinutes(ttlMinutes));
+            entry.setBuildingId(buildingId);
+            apiCacheRepository.save(entry);
+        } catch (Exception igonre) {}
+
+        // 5. 응답
+        return resp;
+    }
+
+    // 내부 구현
+    private String buildCacheKeyRaw(Long buildingId, int fromYear, int toYear, String scenario) {
+        String b = (buildingId == null) ? "none" : String.valueOf(buildingId);
+        String scen = (scenario == null || scenario.isBlank()) ? "default" : scenario;
+        // 추후 area / grade / price 등 시나리오 파라미터 추가되면 여기에 이어 붙이기
+        return "buildingId = " + b + ";from=" + fromYear + ";to=" + toYear + ";scenario=" + scen;
+    }
+
+    // 1단계에서 만든 "슬라이싱 + KPI 실제 계산" 스텁
+    private ForecastResponse computeStub(Long buildingId, int fromYear, int toYear) {
         List<Long> before = null;
 
         // 에너지(kWh/년)
@@ -88,7 +139,17 @@ public class ForecastService {
         );
     }
 
-    /** 추천/조건부/비추천 BE 판정 규칙(예시) */
+    // 연도 슬라이싱 유틸(양끝 포함)
+    private static <T> List<T> sliceInclusive(List<T> full, int fromYear, int toYear) {
+        int start = Math.max(fromYear, BASE_YEAR) - BASE_YEAR;
+        int end = Math.min(toYear, LAST_YEAR) - BASE_YEAR;
+        if (start < 0 || end >= full.size() || start > end) {
+            throw new IllegalArgumentException("지원하지 않는 연도 범위 : " + fromYear + " ~ " + toYear);
+        }
+        return full.subList(start, end + 1);
+    }
+
+    // 판정 규칙(rule-v1)
     private String decideLabel(double savingPct, double paybackYears) {
         if (savingPct >= 15.0 && paybackYears <= 5.0) return "RECOMMEND";
         if (paybackYears <= 8.0) return "CONDITIONAL";

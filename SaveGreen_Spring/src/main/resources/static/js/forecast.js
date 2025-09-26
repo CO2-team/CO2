@@ -1,13 +1,16 @@
 /* =========================
- * forecast.js  (FULL)
- * - 게이트: 로딩 끝나기 전 결과 숨김
- * - 5단계 로딩(각 단계 독립 진행) + 최소표시시간
- * - 단계 완료 시 .done 부여 → CSS가 동그라미 안에 ✓만 표시
- * - KPI/요약/배너: 피그마 문구/순서
- * - 차트: 로더 종료 후 최초 렌더 시작(빈 상태) → 막대 '완전 순차' → 점 순차 → 선 표시
+ * forecast.js (FULL, fixed)
+ * - DOMContentLoaded → init() 실행
+ * - 헤더 겹침 보정(스크롤/리사이즈/드롭다운 대응)
+ * - 5단계 로딩바(최소 표시시간 지원)
+ * - API 연동(건물 ID 유/무 모두 지원)
+ * - KPI/배너/요약 렌더
+ * - 차트: 막대 순차 → 점 순차 → 선 표시
  * ========================= */
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(err => console.error('[forecast] init failed:', err));
+});
 
 /* ---------- 피그마 고정 텍스트 ---------- */
 const BANNER_TEXTS = {
@@ -16,9 +19,8 @@ const BANNER_TEXTS = {
   'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
 
-/* ---------- Header offset (scroll 대응) ---------- */
-function applyHeaderOffset()
-{
+/* ---------- Header offset (scroll/resize/dropdown 대응) ---------- */
+function applyHeaderOffset() {
   const menubar = document.getElementById('menubar');
   const spacer  = document.querySelector('.header-spacer');
   const wrap    = document.querySelector('main.wrap');
@@ -27,115 +29,93 @@ function applyHeaderOffset()
   let overlay = false;
   let h = 0;
 
-  if (menubar)
-  {
+  if (menubar) {
     const cs   = getComputedStyle(menubar);
     const rect = menubar.getBoundingClientRect();
-
-    const isFixed      = cs.position === 'fixed';
-    // sticky인 경우, 실제로 화면 상단에 “붙어 있는 순간”만 오버레이로 간주
-    const isStickyNow  = cs.position === 'sticky' && rect.top <= 0;
-
+    const isFixed     = cs.position === 'fixed';
+    const isStickyNow = cs.position === 'sticky' && rect.top <= 0;
     overlay = isFixed || isStickyNow;
     h = rect.height;
   }
 
-  // CSS 변수로 노출(필요 시 다른 요소에서 사용)
   document.documentElement.style.setProperty('--header-h', h + 'px');
-
-  // 오버레이일 때만 상단 패딩 적용
   wrap.style.paddingTop = overlay ? (h + 'px') : '0px';
-
-  // JS 동작 시 스페이서는 항상 0으로 (중복 여백 방지)
-  spacer.style.height = '0px';
+  spacer.style.height = '0px'; // 이중 여백 방지
 }
 
-function initHeaderOffset()
-{
-  // 최초 1회
+function initHeaderOffset() {
   applyHeaderOffset();
 
-  // rAF로 스크롤 처리 스로틀링
+  // rAF 스로틀 기반 스크롤 핸들러
   let ticking = false;
   const onScrollTick = () => {
     if (ticking) return;
     ticking = true;
-    requestAnimationFrame(() => {
-      applyHeaderOffset();
-      ticking = false;
-    });
+    requestAnimationFrame(() => { applyHeaderOffset(); ticking = false; });
   };
 
-  // 창 리사이즈 / 회전
   window.addEventListener('resize', applyHeaderOffset);
   window.addEventListener('orientationchange', applyHeaderOffset);
-
-  // 스크롤: window + 메인 컨테이너(overflow가 wrap에 걸린 경우 대비)
   window.addEventListener('scroll', onScrollTick, { passive: true });
+
   const wrap = document.querySelector('main.wrap');
   if (wrap) wrap.addEventListener('scroll', onScrollTick, { passive: true });
 
-  // 드롭다운으로 헤더 높이가 변하는 경우 대응
   const menubar = document.getElementById('menubar');
-  if (window.ResizeObserver && menubar)
-  {
+  if (window.ResizeObserver && menubar) {
     const ro = new ResizeObserver(applyHeaderOffset);
     ro.observe(menubar);
   }
 }
 
-
-/* 요약에 쓰는 라벨/계산 규칙 */
-function euiRefForGrade(grade) {
-  const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
-  return map[grade] ?? 180;
-}
-
 /* ---------- 초기화 ---------- */
 async function init() {
-  // 헤더 높이 보정 먼저 적용
   initHeaderOffset();
 
+  const root = document.getElementById('forecast-root');
+  const bid  = root?.dataset.bid || '';
+  const from = Number(root?.dataset.from || '2024');
+  const to   = Number(root?.dataset.to   || '2030');
+
   const $result = $('#result-section');
-  const $ml = $('#mlLoader');
+  const $ml     = $('#mlLoader');
 
-  // 0) 게이트: 결과 숨김
-  if ($result) $result.classList.add('hidden');
-
-  // 1) 로더 시작
+  // 게이트: 결과 숨기고 로더 시작
+  show($ml); hide($result);
   startLoader();
 
-  // 2) 데이터 로드
-  const buildingId = getBuildingId();
-  const data = await fetchForecast(buildingId, 2024, 2030);
-  const { years, series, cost } = data;
+  // 데이터 로드
+  const data = await fetchForecast(bid, from, to);
+  window.FORECAST_DATA = data; // 디버깅 용
 
-  // 3) KPI 계산 (API 우선)
-  const kpi = computeKpis({ years, series, cost, kpiFromApi: data.kpi });
+  // KPI 계산 (API 제공값 우선)
+  const kpi = computeKpis({
+    years: data.years,
+    series: data.series,
+    cost: data.cost,
+    kpiFromApi: data.kpi
+  });
 
-  // 4) 등급 추정(피그마 카드/요약용)
+  // 등급/배너/요약
   const gradeNow = estimateEnergyGrade(kpi.savingPct);
-
-  // 5) 상태 → 배너/아이콘배경
-  const status = decideStatusByKpi(kpi);
+  const status   = decideStatusByKpi(kpi);
   applyStatus(status);
-
-  // 6) KPI 출력
   renderKpis(kpi, { gradeNow });
-
-  // 7) 결과 요약(피그마 문구)
   renderSummary({ gradeNow, kpi });
 
-  // 8) 최소 표시 시간 보장 → 로더 종료
+  // 로더 최소 표시시간 보장 후 종료
   await ensureMinLoaderTime();
   await finishLoader();
 
-  // 9) 결과 노출
-  if ($ml) $ml.classList.add('hidden');
-  if ($result) $result.classList.remove('hidden');
+  // 결과 노출
+  hide($ml); show($result);
 
-  // 10) 이제 차트를 처음부터 0에서 순차 애니메이션(단일 렌더, 재애니메이션 없음)
-  await renderEnergyComboChart({ years, series, cost });
+  // 차트 렌더(단일 렌더)
+  await renderEnergyComboChart({
+    years: data.years,
+    series: data.series,
+    cost: data.cost
+  });
 }
 
 /* ---------- ML Loader ---------- */
@@ -144,10 +124,10 @@ const LOADER = {
   TICK_MS: 200,
   STEP_MIN: 1,
   STEP_MAX: 3,
-  STEP_PAUSE_MS: [3000, 3000, 3000, 3000],
-  MIN_VISIBLE_MS: 16000,
-  cap: 20,                 // 20→40→60→80→100
-  CLOSE_DELAY_MS: 4000,
+  STEP_PAUSE_MS: [1500, 1200, 1200, 800], // 단계 사이 멈춤
+  MIN_VISIBLE_MS: 4000,   // 데모용: 최소 4초(운영 시 10~16초로 조정)
+  cap: 20,                // 20 → 40 → 60 → 80 → 100
+  CLOSE_DELAY_MS: 500,    // 완료 후 닫힘까지 지연
   startedAt: 0
 };
 
@@ -164,6 +144,10 @@ function startLoader() {
     4: '예측 / 검증',
     5: '차트 렌더링'
   };
+
+  if (!$bar || steps.length < 5 || !$text) {
+    console.warn('[loader] required elements missing');
+  }
 
   let progress = 0;  // %
   let level    = 1;  // 1~5
@@ -186,7 +170,7 @@ function startLoader() {
 
     const stepEl = steps[level - 1];
     if (stepEl) stepEl.classList.add('done');
-    if ($text) $text.textContent = labels[level] || '진행 중';
+    if ($text)  $text.textContent = labels[level] || '진행 중';
 
     if (level === 5) {
       clearInterval(LOADER.timer);
@@ -213,7 +197,10 @@ function finishLoader() {
   return new Promise((res) => {
     clearInterval(LOADER.timer);
     const bar = $('#progressBar');
-    if (bar) bar.style.width = '100%';
+    if (bar) {
+      bar.style.width = '100%';
+      bar.setAttribute('aria-valuenow', '100');
+    }
     $all('.progress-map .step').forEach((el) => el.classList.add('done'));
     setTimeout(res, LOADER.CLOSE_DELAY_MS);
   });
@@ -222,48 +209,56 @@ function finishLoader() {
 /* ---------- Data ---------- */
 async function fetchForecast(buildingId, fromYear, toYear) {
   const years = range(fromYear, toYear);
-    // 예: 2024~2030 예측
-    const url = `/api/forecast/${encodeURIComponent(buildingId)}?from=${fromYear}&to=${toYear}`;
 
+  const hasId = Number.isFinite(Number(buildingId)) &&
+                buildingId !== '' && buildingId !== 'default';
+
+  const url = hasId
+    ? `/api/forecast/${encodeURIComponent(buildingId)}?from=${fromYear}&to=${toYear}`
+    : `/api/forecast?from=${fromYear}&to=${toYear}`;
 
   try {
     const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!rsp.ok) throw new Error(rsp.status);
+    if (!rsp.ok) throw new Error(rsp.status + '');
     const json = await rsp.json();
     return normalizeForecast(json, years);
   } catch (e) {
+    console.error('[forecast] fetch failed, using fallback stub:', e);
     // 폴백(데모 데이터)
-    const after = [2150000, 2090000, 2070000, 2050000, 2030000, 2010000, 1990000];
-    const saving = [300000, 280000, 270000, 260000, 250000, 240000, 230000];
-    const savingCost = [36000000, 33600000, 32400000, 31200000, 30000000, 28800000, 27600000];
+    const after      = [2150000, 2090000, 2070000, 2050000, 2030000, 2010000, 1990000];
+    const saving     = [300000,  280000,  270000,  260000,  250000,  240000,  230000];
+    const savingCost = [36000000,33600000,32400000,31200000,30000000,28800000,27600000];
     return { years, series: { after, saving }, cost: { saving: savingCost }, kpi: null };
   }
 }
 
 function normalizeForecast(d, fallbackYears) {
   const years  = Array.isArray(d?.years) ? d.years : fallbackYears;
-  const after  = d?.series?.after ?? [];
-  const saving = d?.series?.saving ?? [];
-  const cost   = d?.cost ?? {};
+  const after  = Array.isArray(d?.series?.after)  ? d.series.after  : new Array(years.length).fill(0);
+  const saving = Array.isArray(d?.series?.saving) ? d.series.saving : new Array(years.length).fill(0);
+  const cost   = d?.cost ?? { saving: new Array(years.length).fill(0) };
   const kpi    = d?.kpi ?? null;
   return { years, series: { after, saving }, cost, kpi };
 }
 
 /* ---------- KPI / 상태 / 출력 ---------- */
 function computeKpis({ years, series, cost, kpiFromApi }) {
+  // 서버가 KPI를 주면 그걸 우선 사용
   if (kpiFromApi && isFinite(kpiFromApi.savingCostYr)) return kpiFromApi;
 
-  const i = years.length - 1;
-  const afterKwh  = +series.after[i] || 0;
-  const savingKwh = +series.saving[i] || 0;
-  const savingCostYr = +((cost?.saving || [])[i]) || Math.round(savingKwh * 120);
+  // 마지막 연도 기준 대표값
+  const i = Math.max(0, years.length - 1);
+  const afterKwh   = +series.after[i] || 0;
+  const savingKwh  = +series.saving[i] || 0;
+  const savingCost = +((cost?.saving || [])[i]) || Math.round(savingKwh * 120);
 
-  const beforeKwh = afterKwh + savingKwh;
-  const savingPct = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
+  const beforeKwh  = afterKwh + savingKwh;
+  const savingPct  = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
 
+  // 대략치: 절감이 클수록 회수기간 짧아지는 단순 모델(서버 KPI 없을 때만)
   const paybackYears = clamp((afterKwh / Math.max(1, savingKwh)) * 0.8, 3, 8);
 
-  return { savingCostYr, savingKwhYr: savingKwh, savingPct, paybackYears };
+  return { savingCostYr: savingCost, savingKwhYr: savingKwh, savingPct, paybackYears };
 }
 
 function estimateEnergyGrade(savingPct) {
@@ -284,10 +279,7 @@ function applyStatus(status) {
   const result = $('#result-section');
   const classes = ['recommend', 'conditional', 'not-recommend'];
 
-  classes.forEach((c) => {
-    banner?.classList.remove(c);
-    result?.classList.remove(c);
-  });
+  classes.forEach((c) => { banner?.classList.remove(c); result?.classList.remove(c); });
   if (classes.includes(status)) {
     banner?.classList.add(status);
     result?.classList.add(status);
@@ -300,51 +292,6 @@ function applyStatus(status) {
     status === 'recommend' ? '추천' :
     status === 'conditional' ? '조건부' : '비추천';
 }
-
-function applyHeaderOffset()
-{
-  const menubar = document.getElementById('menubar');
-  const spacer  = document.querySelector('.header-spacer');
-  const wrap    = document.querySelector('main.wrap');
-  if (!wrap || !spacer) return;
-
-  // 헤더가 정말로 “겹쳐올리는지” 판별
-  // - position: fixed 이면 무조건 오버레이
-  // - position: sticky 이고 top <= 0 이면 화면 상단에 달라붙어 오버레이
-  let overlay = false;
-  if (menubar)
-  {
-    const cs  = getComputedStyle(menubar);
-    const pos = cs.position;
-    const top = parseFloat(cs.top) || 0;
-    overlay = (pos === 'fixed') || (pos === 'sticky' && top <= 0);
-  }
-
-  const h = menubar ? menubar.getBoundingClientRect().height : 0;
-
-  // CSS 변수로 노출(필요시 다른 곳에서 사용)
-  document.documentElement.style.setProperty('--header-h', h + 'px');
-
-  // 오버레이일 때만 패딩 적용, 아니면 0
-  wrap.style.paddingTop = overlay ? (h + 'px') : '0px';
-
-  // JS 동작 시 스페이서는 항상 0으로 (중복 여백 방지)
-  spacer.style.height = '0px';
-}
-
-function initHeaderOffset()
-{
-  applyHeaderOffset();
-  window.addEventListener('resize', applyHeaderOffset);
-
-  const menubar = document.getElementById('menubar');
-  if (window.ResizeObserver && menubar)
-  {
-    const ro = new ResizeObserver(applyHeaderOffset);
-    ro.observe(menubar);
-  }
-}
-
 
 function renderKpis(kpi, { gradeNow }) {
   const g  = $('#kpi-grade');
@@ -381,6 +328,12 @@ function renderSummary({ gradeNow, kpi }) {
   });
 }
 
+/* 요약에 쓰는 라벨/계산 규칙 */
+function euiRefForGrade(grade) {
+  const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
+  return map[grade] ?? 180;
+}
+
 /* ---------- Chart.js ---------- */
 let energyChart = null;
 
@@ -399,25 +352,23 @@ async function renderEnergyComboChart({ years, series, cost }) {
 
   const ctx = canvas.getContext('2d');
 
-  /* ===== 템포(요청값) ===== */
-  const BAR_GROW_MS  = 2000;  // 막대 하나 자라는 시간
-  const BAR_GAP_MS   = 500;   // 막대 간 간격
-  const POINT_MS     = 600;   // 점 하나 등장 시간
-  const POINT_GAP_MS = 200;   // 점 간 간격
+  // 템포(요청값)
+  const BAR_GROW_MS  = 2000;
+  const BAR_GAP_MS   = 500;
+  const POINT_MS     = 600;
+  const POINT_GAP_MS = 200;
 
   const labels  = years.map(String);
   const bars    = series.after.slice(0, labels.length);
   const costs   = (cost?.saving || []).slice(0, labels.length);
   const n       = labels.length;
 
-  /* ===== 색상 ===== */
-  // 막대: Chart.js 기본 파랑
+  // 색상
   const BAR_BG      = 'rgba(54, 162, 235, 0.5)';
   const BAR_BORDER  = 'rgb(54, 162, 235)';
-  // 꺾은선/점: 주황
   const LINE_ORANGE = '#F57C00';
 
-  // 베이스라인에서 시작 (0 → 값)
+  // 베이스라인 픽셀(y=0)에서 시작
   function fromBaseline(ctx) {
     const chart  = ctx.chart;
     const ds     = chart.data.datasets[ctx.datasetIndex];
@@ -426,29 +377,27 @@ async function renderEnergyComboChart({ years, series, cost }) {
     return scale.getPixelForValue(0);
   }
 
-  // 타이밍 계산: 막대 끝난 다음에 점/선
+  // 타이밍 계산
   const totalBarDuration   = n * (BAR_GROW_MS + BAR_GAP_MS);
-  const pointStartAt       = totalBarDuration; // 막대 모두 끝난 뒤 포인트 시작
+  const pointStartAt       = totalBarDuration;
   const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
-  const lineRevealAt       = pointStartAt + totalPointDuration; // 모든 점 등장 후 선 표시
+  const lineRevealAt       = pointStartAt + totalPointDuration;
 
-  // 꺾은선: 선은 나중에 켜고, 점은 반경 0에서 시작(타이밍에 3으로 올림)
   const lineDs = {
     type: 'line',
     label: '비용 절감',
-    data: costs,                       // 값은 미리 넣음 (y 애니는 delay로 제어)
+    data: costs,
     yAxisID: 'yCost',
     tension: 0.3,
     spanGaps: false,
     fill: false,
-    showLine: false,                   // 마지막에 한 번에 선 보이기
-    pointRadius: new Array(n).fill(0), // 처음엔 점 숨김(반경 0)
+    showLine: false,
+    pointRadius: new Array(n).fill(0),
     borderColor: LINE_ORANGE,
     backgroundColor: LINE_ORANGE,
     pointBackgroundColor: LINE_ORANGE,
     pointBorderColor: LINE_ORANGE,
     animations: {
-      // 점의 y 위치만 "막대 이후" 순차로 0→값
       y: {
         from: fromBaseline,
         duration: POINT_MS,
@@ -458,7 +407,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
         },
         easing: 'easeOutCubic'
       }
-      // radius 애니는 사용 안 함 → 반경은 아래 setTimeout으로 제어
     }
   };
 
@@ -472,7 +420,7 @@ async function renderEnergyComboChart({ years, series, cost }) {
           label: '에너지 사용량',
           data: bars,
           yAxisID: 'yEnergy',
-          backgroundColor: BAR_BG,     // 파란 막대(원래 파랑)
+          backgroundColor: BAR_BG,
           borderColor: BAR_BORDER,
           borderWidth: 1,
           animations: {
@@ -499,7 +447,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
         legend: { display: true },
         tooltip: {
           callbacks: {
-            // 툴팁엔 단위 표기
             label: (ctx) => {
               const isCost = ctx.dataset.yAxisID === 'yCost';
               const val = ctx.parsed.y;
@@ -509,7 +456,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
         }
       },
       scales: {
-        // ✅ 눈금엔 숫자만, 단위는 제목에만 한 번
         yEnergy: {
           type: 'linear',
           position: 'left',
@@ -528,35 +474,29 @@ async function renderEnergyComboChart({ years, series, cost }) {
     }
   });
 
-  // === 점(포인트) 반경을 타이밍에 맞춰 0 → 3으로 올리기 ===
+  // 포인트 반경 0 → 3으로 순차 상승
   for (let i = 0; i < n; i++) {
     const delay = pointStartAt + i * (POINT_MS + POINT_GAP_MS);
     setTimeout(() => {
-      lineDs.pointRadius[i] = 3;   // 점 보이기
-      energyChart.update('none');  // 재애니메이션 없이 즉시 반영
+      lineDs.pointRadius[i] = 3;
+      energyChart.update('none');
     }, delay);
   }
 
-  // === 모든 점 등장 후, 선(stroke) 한 번에 보이기 ===
+  // 모든 점 등장 후 선을 한 번에 보이기
   setTimeout(() => {
     energyChart.data.datasets[0].animations = false; // bar 재애니 방지
     lineDs.showLine = true;
     energyChart.update('none');
   }, lineRevealAt + 50);
 
-  // 디버깅용
-  window.energyChart = energyChart;
+  window.energyChart = energyChart; // 디버깅
 }
-
-
-
-
-
 
 /* ---------- Helpers ---------- */
 function getBuildingId() {
-  const el = $('#page-data');
-  return el?.dataset?.buildingId || 'default';
+  const root = document.getElementById('forecast-root');
+  return root?.dataset?.bid ?? '';
 }
 
 function nf(n) {
@@ -589,3 +529,6 @@ function $(s, root = document) {
 function $all(s, root = document) {
   return Array.from(root.querySelectorAll(s));
 }
+
+function show(el){ if (el) el.classList.remove('hidden'); }
+function hide(el){ if (el) el.classList.add('hidden'); }

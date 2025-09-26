@@ -29,9 +29,17 @@ dependencies {
 	// 테스트
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 	// 롬복
 	compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // JPA & Hibernate (엔티티, @Entity/@Table, Repository 등 JPA 기능 제공)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // MySQL 드라이버 (실행 시 DB 연결용, 컴파일 시엔 불필요 → runtimeOnly)
+    runtimeOnly 'com.mysql:mysql-connector-j'
+
 	//수학,통계 계산 관련 빌드
 	// implementation 'org.apache.commons:commons-math3:3.6.1'
 

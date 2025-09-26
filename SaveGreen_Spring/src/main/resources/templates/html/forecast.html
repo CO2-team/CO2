@@ -20,7 +20,8 @@
 <div class="header-spacer" aria-hidden="true"></div>
 
 <!-- 메인 -->
-<main class="wrap" th:with="bid=${buildingId}">
+<main id="forecast-root" class="wrap" th:attr="data-bid=${buildingId}, data-from=${fromYear}, data-to=${toYear}">
+
 
     <!-- 상단 연두 면(히어로) : 라운드 통일 -->
     <section class="hero-block">
