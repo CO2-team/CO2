@@ -1,5 +1,5 @@
 #introText {
-    max-width: 1100px;        /* 폭 제한 */
+    max-width: 1000px;        /* 폭 제한 */
     margin: 80px auto 0;   /* 화면 가운데 (위 80px, 아래 40px 여백) */
     padding: 20px 20px;       /* 내부 여백 */
     font-size: 15px;
@@ -15,14 +15,14 @@
     
     border-radius: 8px;
     padding-top: 20px;
-    max-width: 1100px;
+    max-width: 1000px;
     margin: 0 auto;
     flex-wrap: wrap;      /* 줄바꿈 허용 */
    
 }
 .simulator-wrapper{
     flex: 1;
-    min-width: 320px;
+    min-width: 400px;
     background-color: #d0dacf; /* 연녹색 */
     padding: 20px;
     border-radius: 10px;
@@ -30,9 +30,9 @@
 }
 
 .simulator-container {
-    flex:1 1 320px;
+    flex:1 1 400px;
     max-width: 400px;
-    min-width: 320px;
+    min-width: 400px;
     margin: 10px auto;
     padding: 25px;
     background-color: #fff;
@@ -125,19 +125,19 @@
     margin-top: 56px;
 }
 .form-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
 .form-row select {
-  flex: 1;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 8px 12px;
+    flex: 1;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 8px 12px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 968px) {
   .simulator-index {
     margin-top: 20px;
     flex-direction: column;
@@ -151,11 +151,12 @@
     max-width: none;             /* 제한 없애기 */
     background-color: transparent; /* wrapper 배경 제거 (겹치지 않게) */
     box-shadow: none; 
-   
+    gap:40px
   }
   .simulator-container{
-    width: 95%;                 /* 꽉 채우게 */
-    margin: 0 auto;       /* 가운데 정렬 유지 */
+    width: 100%;                 /* 꽉 채우게 */
+    margin: 0 auto; 
+       /* 가운데 정렬 유지 */
   }
 }
 
@@ -163,3 +164,24 @@ html, body { margin: 0; padding: 0; }
 html, body { overflow-x: hidden; }
 html, body { min-width: 360px; }
 * { box-sizing: border-box; }
+
+.simulator-result {
+  
+    margin-top: 40px !important;
+    border-radius: 10px;
+    flex:1 1 400px;
+    max-width: 400px;
+    min-width: 400px;
+    margin: 10px auto;
+    padding: 25px;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+#result-text {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #333;
+}
