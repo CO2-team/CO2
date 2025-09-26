@@ -23,17 +23,17 @@
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <label></label>
-                    <input type="text" name="address" placeholder="주소">
+                    <input type="text" name="address" placeholder="주소(선택)">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" name="area" placeholder="건물 면적">
+                    <input type="number" name="area" placeholder="건물 면적" required title="건물 면적을 입력하세요">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/battery.png" alt="Battery Icon">
                     <label>kWh/년</label>
-                    <input type="number" name="energy" placeholder="에너지">
+                    <input type="number" name="energy" placeholder="에너지" required title="에너지 사용량을 입력하세요">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
@@ -47,25 +47,25 @@
                 </div>
                 <button type="submit" class="btn-submit">결과보기</button>
             </form>
-        </div>
-        
-        
-
-
-        <div id="resultBox" class="simulator-result" style="display:none;">
-            <h3>시뮬레이션 결과</h3>
-            <ul>
-                <li>에너지 효율 등급: <span id="grade"></span></li>
-                <li>녹색 건축물 등급: <span id="greenGrade"></span></li>
-                <li>에너지 자립도: <span id="energySelf"></span>%</li>
-                <li>ZEB 등급: <span id="zebGrade"></span></li>
-                <li>재산세 감면: <span id="propertyTax"></span>%</li>
-                <li>취득세 감면: <span id="acquireTax"></span>%</li>
-                <li>건물 기준 완화: <span id="buildingEase"></span>%</li>
-            </ul>
-        </div>
+        </div>        
+    </section>
+    <section class="simulator-result" id="resultBox" style="display: none;">
+        <h3 id="result-text">시뮬레이션 결과</h3>
+        <ul>
+            <li>에너지 효율 등급: <span id="grade"></span></li>
+            <li>녹색 건축물 등급: <span id="greenGrade"></span></li>
+            <li>에너지 자립도: <span id="energySelf"></span>%</li>
+            <li>ZEB 등급: <span id="zebGrade"></span></li>
+            <li>재산세 감면: <span id="propertyTax"></span>%</li>
+            <li>취득세 감면: <span id="acquireTax"></span>%</li>
+            <li>건물 기준 완화: <span id="areaBonus"></span>%</li>
+        </ul>
     </section>
     </div>
+    
+
+
+
     <div class="simulator-wrapper">  
     <section class="simulator-container">
         <div class="simulator-input">
@@ -135,7 +135,7 @@
                 <li>ZEB 등급: <span id="zebGrade"></span></li>
                 <li>재산세 감면: <span id="propertyTax"></span>%</li>
                 <li>취득세 감면: <span id="acquireTax"></span>%</li>
-                <li>건물 기준 완화: <span id="buildingEase"></span>%</li>
+                <li>건물 기준 완화: <span id="areaBonus"></span>%</li>
             </ul>
         </div>
     </section>
@@ -143,6 +143,6 @@
 </div>
    
     <div th:replace="layouts/footer :: footer"></div>
-
+<script th:src="@{/js/simulator.js}"></script>
 </body>
 </html>
