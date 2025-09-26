@@ -222,7 +222,9 @@ function finishLoader() {
 /* ---------- Data ---------- */
 async function fetchForecast(buildingId, fromYear, toYear) {
   const years = range(fromYear, toYear);
-  const url = `/api/buildings/${encodeURIComponent(buildingId)}/forecast?from=${fromYear}&to=${toYear}`;
+    // 예: 2024~2030 예측
+    const url = `/api/forecast/${encodeURIComponent(buildingId)}?from=${fromYear}&to=${toYear}`;
+
 
   try {
     const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });

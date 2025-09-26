@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.*;
 @Controller
 public class ForecastPageController {
 
-    @GetMapping("/buildings/{buildingId}/forecast/view")
-    public String showForecastPage(@PathVariable Long buildingId, Model model) {
-        model.addAttribute("buildingId", buildingId);
-        return "buildings/forecast";
+    @GetMapping("/forecast/{id}")
+    public String viewForecast(@PathVariable Long id, Model model) {
+        model.addAttribute("buildingId", id);
+        return "html/forecast";
     }
 }
