@@ -10,7 +10,19 @@ public class SimulatorDto {
     private int area;
     private int energy;
     private Integer panelCount;   //Integer -> (null 허용)
-    private Integer panelPower;   
+    private Integer panelPower;
+    // public Long getGreenGradeId() {
+    
+    //     throw new UnsupportedOperationException("Unimplemented method 'getGreenGradeId'");
+    // }
+    // public Long getEnergyGradeId() {
+   
+    //     throw new UnsupportedOperationException("Unimplemented method 'getEnergyGradeId'");
+    // }
+    // public Long getZebGradeId() {
+      
+    //     throw new UnsupportedOperationException("Unimplemented method 'getZebGradeId'");
+    // }   
 
   
 }
