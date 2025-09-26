@@ -88,6 +88,20 @@ async function init() {
   const data = await fetchForecast(bid, from, to);
   window.FORECAST_DATA = data; // 디버깅 용
 
+  /* ✅ 추가: ID가 없으면 라벨/데이터 길이를 from~to로 강제 */
+  if (!bid || bid === 'default') {
+    const expectedYears = makeYearsArray(from, to);     // ['2024', ... '2030']
+    const L = expectedYears.length;
+
+    data.years = expectedYears;
+    data.series = data.series || {};
+    data.cost   = data.cost   || {};
+
+    data.series.after  = fillTo(L, data.series.after, 0);
+    data.series.saving = fillTo(L, data.series.saving, 0);
+    data.cost.saving   = fillTo(L, data.cost.saving, 0);
+  }
+
   // KPI 계산 (API 제공값 우선)
   const kpi = computeKpis({
     years: data.years,
@@ -124,10 +138,10 @@ const LOADER = {
   TICK_MS: 200,
   STEP_MIN: 1,
   STEP_MAX: 3,
-  STEP_PAUSE_MS: [1500, 1200, 1200, 800], // 단계 사이 멈춤
-  MIN_VISIBLE_MS: 4000,   // 데모용: 최소 4초(운영 시 10~16초로 조정)
+  STEP_PAUSE_MS: [3000, 3000, 3000, 3000], // 단계 사이 멈춤
+  MIN_VISIBLE_MS: 16000,   // 데모용: 최소 4초(운영 시 10~16초로 조정)
   cap: 20,                // 20 → 40 → 60 → 80 → 100
-  CLOSE_DELAY_MS: 500,    // 완료 후 닫힘까지 지연
+  CLOSE_DELAY_MS: 4000,    // 완료 후 닫힘까지 지연
   startedAt: 0
 };
 
@@ -207,15 +221,40 @@ function finishLoader() {
 }
 
 /* ---------- Data ---------- */
+
+/* ID 없을 때 사용할 더미 데이터 생성기 */
+function makeDummyForecast(fromYear, toYear) {
+  const years = [];
+  for (let y = Number(fromYear); y <= Number(toYear); y++) {
+    years.push(String(y));
+  }
+
+  // 시작값/감소폭은 네 프로젝트 기준으로 맞춰둠
+  const baseKwh = 2_150_000;  // 시작 에너지 사용량(kWh/년)
+  const stepKwh = 20_000;     // 해마다 감소
+  const startSaving = 300_000;
+  const stepSaving  = 10_000;
+  const UNIT_PRICE  = 120;    // 1kWh당 원(원/년)
+
+  const after  = years.map((_, i) => baseKwh - i * stepKwh);
+  const saving = years.map((_, i) => Math.max(startSaving - i * stepSaving, 0));
+  const savingCost = saving.map(k => k * UNIT_PRICE);
+
+  return { years, series: { after, saving }, cost: { saving: savingCost }, kpi: null };
+}
+
 async function fetchForecast(buildingId, fromYear, toYear) {
   const years = range(fromYear, toYear);
 
   const hasId = Number.isFinite(Number(buildingId)) &&
                 buildingId !== '' && buildingId !== 'default';
 
-  const url = hasId
-    ? `/api/forecast/${encodeURIComponent(buildingId)}?from=${fromYear}&to=${toYear}`
-    : `/api/forecast?from=${fromYear}&to=${toYear}`;
+  /* ID가 없으면 API 호출하지 않고 즉시 더미 데이터 반환 */
+  if (!hasId) {
+    return makeDummyForecast(fromYear, toYear);
+  }
+
+  const url = `/api/forecast/${encodeURIComponent(buildingId)}?from=${fromYear}&to=${toYear}`;
 
   try {
     const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -224,7 +263,7 @@ async function fetchForecast(buildingId, fromYear, toYear) {
     return normalizeForecast(json, years);
   } catch (e) {
     console.error('[forecast] fetch failed, using fallback stub:', e);
-    // 폴백(데모 데이터)
+    // 폴백(네가 쓰던 값 유지)
     const after      = [2150000, 2090000, 2070000, 2050000, 2030000, 2010000, 1990000];
     const saving     = [300000,  280000,  270000,  260000,  250000,  240000,  230000];
     const savingCost = [36000000,33600000,32400000,31200000,30000000,28800000,27600000];
@@ -532,3 +571,13 @@ function $all(s, root = document) {
 
 function show(el){ if (el) el.classList.remove('hidden'); }
 function hide(el){ if (el) el.classList.add('hidden'); }
+
+/* == 안전 유틸: 라벨 강제 및 길이 맞추기 == */
+function fillTo(len, arr, val = 0) {
+  const a = Array.isArray(arr) ? arr.slice(0, len) : [];
+  while (a.length < len) a.push(val);
+  return a;
+}
+function makeYearsArray(from, to) {
+  return range(from, to).map(String);
+}
