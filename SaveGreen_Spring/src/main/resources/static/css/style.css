@@ -2,7 +2,9 @@ html, body {
     height: 100%;
     scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
-    
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
 }
 
 
@@ -41,6 +43,7 @@ main, .container {
     gap: 40px;
     margin: 0;
     padding: 0px 50px;
+
 }
 
 .nav-links > li {
@@ -55,6 +58,7 @@ main, .container {
     padding: 15px 10px;
     transition: color 0.3s;
     font-size: 1rem;
+    white-space: nowrap;
 }
 
 .logo{
@@ -88,7 +92,7 @@ nav:hover a {
     position: fixed;
     top: 0px;  /* navbar 높이에 맞춤 */
     left: 0;
-    width: 100vw;
+    width: 100%;
     background: #ffffff;
     display: none;
     justify-content: center;
@@ -105,6 +109,7 @@ nav:hover a {
     margin: 0 80px;
     padding: 0;
     list-style: none;
+    white-space: nowrap;
 }
 
 /* 카테고리 제목 (ul에 직접 텍스트 넣은 부분) */
@@ -124,6 +129,8 @@ nav:hover a {
     border-radius: 6px;
     transition: background 0.3s, color 0.3s;
     text-decoration: none;
+    white-space: nowrap;
+    
 }
 
 .dropdown-panel ul li a:hover {
@@ -148,19 +155,28 @@ nav:hover a {
 
 
 /* index main  */
-.main-banner {
+/* .main-banner {
     height: 100vh;
     background: url("/img/background.jpg") no-repeat center center/cover;
     position: relative;
+} */
+
+.main-banner {
+    position: relative;
+    width: 100%; 
+    height: auto;
+    overflow: hidden;
 }
 
 .overlay h1 {
     font-size: 4rem;
     margin: 10px 0;
+    white-space: nowrap;
 }
 
 .overlay h2 {
     font-size: 3.5rem;
+    white-space: nowrap;
 }
 
 .desc {
@@ -177,10 +193,14 @@ nav:hover a {
     overflow: hidden;
 }
 
-.main-banner video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* 동영상 꽉 채우기 */
+.main-banner video,
+.main-banner img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;    /* 가로 꽉차게 */
+    height: 100%;   /* 세로도 꽉차게 */
+    object-fit: cover; /* 화면 비율 맞춰 꽉 채움 */
 }
 
 .overlay .text-content {
@@ -251,4 +271,64 @@ nav:hover a {
 .main-banner.active .next_show {
     opacity: 1;
     transform: translateX(0);
+}
+
+.banner-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: white;
+    white-space: nowrap; /* 줄바꿈 금지 */
+}
+
+.banner-text h1, 
+.banner-text h2 {
+    margin: 0;
+    font-size: 4rem;
+}
+
+/* 반응형 처리 */
+@media (max-width: 768px) {
+    .banner-text h1, 
+    .banner-text h2 {
+        font-size: 2rem; /* 작은 화면에서는 글자 크기 줄임 */
+    }
+
+    .nav-menu {
+        display: flex;
+        flex-direction: column; /* 모바일에서는 세로로 정렬 */
+        align-items: center;    /* 가운데 정렬 */
+        gap: 10px;              /* 메뉴 간격 */
+    }
+
+    .nav-links {
+        flex-direction: column;  /* 세로 배치 */
+        align-items: center;
+        gap: 10px;
+    }
+    .nav-links a {
+        font-size: 0.9rem; /* 글자 크기 줄이기 */
+        padding: 8px 0;
+    }
+}
+
+/*반응형 글자크기 조절*/
+@media (max-width: 1024px) {
+    .nav-links a {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-links a {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-links a {
+        font-size: 0.7rem;
+    }
 }
