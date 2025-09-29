@@ -73,20 +73,25 @@
 
             <div class="spacer-12"></div>
 
-            <div class="chips" aria-live="polite">
-          <span class="chip" id="chip-model">
-            <span class="dot"></span>
-            <strong>모델</strong>: <span id="modelName">Linear Regression</span>
-          </span>
-                <span class="chip">
-            <span class="dot"></span>
-            <strong>데이터</strong>: 2024–2030 연간
-          </span>
-                <span class="chip">
-            <span class="dot"></span>
-            <strong>특성</strong>: 연도, 사용량, 비용
-          </span>
-            </div>
+        <div class="chips" aria-live="polite">
+            <span class="chip" id="chip-model">
+                <span class="dot" aria-hidden="true"></span>
+                <strong>모델</strong><span class="sep" aria-hidden="true">:</span>
+                <span class="truncate" id="modelName">Linear Regression</span>
+            </span>
+
+            <span class="chip">
+                <span class="dot" aria-hidden="true"></span>
+                <strong>데이터</strong><span class="sep" aria-hidden="ture">:</span>
+                <span class="truncate">2024–2030 연간</span>
+            </span>
+
+            <span class="chip">
+                <span class="dot" aria-hidden="true"></span>
+                <strong>특성</strong><span class="sep" aria-hidden="true">:</span>
+                <span class="truncate">연도, 사용량, 비용</span>
+            </span>
+        </div>
 
             <div class="progress" aria-label="예측 진행률">
                 <div

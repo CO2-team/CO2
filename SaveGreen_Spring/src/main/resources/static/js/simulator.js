@@ -1,30 +1,28 @@
 
-document.addEventListener("DOMContentLoaded", function() {
-    const form = document.querySelector("#simulatorForm");
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('simulatorForm');
+  if (!form) return;
 
-    if (form) {
-        form.addEventListener("submit", function(e) {
-            e.preventDefault();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
 
-            const formData = new FormData(form);
+    const resp = await fetch('/simulate', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await resp.json();
 
-            fetch("/simulate", {
-                method: "POST",
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-               
-                document.querySelector("#grade").innerText = data.grade;
-                document.querySelector("#greenGrade").innerText = data.greenGrade;
-                document.querySelector("#energySelf").innerText = data.energySelf;
-                document.querySelector("#zebGrade").innerText = data.zebGrade;
-                document.querySelector("#propertyTax").innerText = data.propertyTax;
-                document.querySelector("#acquireTax").innerText = data.acquireTax;
-                document.querySelector("#areaBonus").innerText = data.areaBonus;
-                document.querySelector("#resultBox").style.display = "block";
-            })
-            .catch(err => console.error("에러 발생:", err));
-        });
-    }
+    // TAX만 우선 표시
+    document.getElementById('propertyTax').textContent = data.propertyTax ?? '-';
+    document.getElementById('acquireTax').textContent  = data.acquireTax ?? '-';
+    document.getElementById('areaBonus').textContent   = data.areaBonus ?? '-';
+    document.getElementById('grade').textContent       = data.grade ?? '-';
+    document.getElementById('category').textContent    = data.category ?? '-';
+    // 결과 박스 보이기
+    const box = document.getElementById('resultBox');
+    if (box) box.style.display = 'block';
+
+   
+  });
 });
