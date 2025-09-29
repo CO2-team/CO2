@@ -2,45 +2,44 @@ package com.example.co2.api;
 
 import com.example.co2.dto.ForecastDtos.ForecastResponse;
 import com.example.co2.service.ForecastService;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
-@RequestMapping("/api/forecast") // ← 클래스 레벨 고정
+@RequestMapping(value = "/api/forecast", produces = MediaType.APPLICATION_JSON_VALUE)
 public class ForecastApiController {
 
     private final ForecastService forecastService;
+
     public ForecastApiController(ForecastService forecastService) {
         this.forecastService = forecastService;
     }
 
-    // id 있는 버전: /api/forecast/1?from=2024&to=2027
-    @GetMapping("/{buildingId}")
-    public ForecastResponse byBuilding(
-            @PathVariable long buildingId,         // primitive로 바꿔 바인딩 실패시 즉시 에러
-            @RequestParam int from,
-            @RequestParam int to,
-            @RequestParam(required = false) String scenario
-    ) {
-        return forecastService.forecast(buildingId, from, to, scenario);
-    }
-
-    // id 없는 버전: /api/forecast?from=2024&to=2027
+    /** id 없음: /api/forecast?from=2024&to=2030 */
     @GetMapping
-    public ForecastResponse byScenario(
-            @RequestParam int from,
-            @RequestParam int to,
-            @RequestParam(required = false) String scenario
+    public ResponseEntity<ForecastResponse> getForecastNoId(
+            @RequestParam(required = false, defaultValue = "2024") Integer from,
+            @RequestParam(required = false, defaultValue = "2030") Integer to,
+            @RequestParam(required = false, defaultValue = "default") String scenario
     ) {
-        return forecastService.forecast(null, from, to, scenario);
+        ForecastResponse res = forecastService.forecast(null, safe(from), safe(to), scenario);
+        return ResponseEntity.ok(res);
     }
 
-    // 잘못된 범위 등은 400으로
-    @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
-        return Map.of("error", ex.getMessage());
+    /** id 있음: /api/forecast/{buildingId}?from=2024&to=2030 */
+    @GetMapping("/{buildingId}")
+    public ResponseEntity<ForecastResponse> getForecastById(
+            @PathVariable Long buildingId,
+            @RequestParam(required = false, defaultValue = "2024") Integer from,
+            @RequestParam(required = false, defaultValue = "2030") Integer to,
+            @RequestParam(required = false, defaultValue = "default") String scenario
+    ) {
+        ForecastResponse res = forecastService.forecast(buildingId, safe(from), safe(to), scenario);
+        return ResponseEntity.ok(res);
+    }
+
+    private int safe(Integer v) {
+        return (v == null) ? 2024 : v;
     }
 }

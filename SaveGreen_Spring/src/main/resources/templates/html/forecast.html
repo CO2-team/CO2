@@ -20,7 +20,7 @@
 <div class="header-spacer" aria-hidden="true"></div>
 
 <!-- 메인 -->
-<main id="forecast-root" class="wrap" th:attr="data-bid=${buildingId}, data-from=${fromYear}, data-to=${toYear}">
+<main id="forecast-root" class="wrap" th:attr="data-bid=${buildingId}, data-from=${fromYear}, data-to=${toYear}, data-built-year=${builtYear}?:''">
 
 
     <!-- 상단 연두 면(히어로) : 라운드 통일 -->
@@ -82,7 +82,7 @@
 
             <span class="chip">
                 <span class="dot" aria-hidden="true"></span>
-                <strong>데이터</strong><span class="sep" aria-hidden="ture">:</span>
+                <strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
                 <span class="truncate">2024–2030 연간</span>
             </span>
 
@@ -93,14 +93,16 @@
             </span>
         </div>
 
-            <div class="progress" aria-label="예측 진행률">
+            <div class="progress">
                 <div
                         class="progress-bar"
                         id="progressBar"
-                        style="width:0%"
+                        role="progressbar"
+                        aria-label="예측 진행률"
                         aria-valuemin="0"
                         aria-valuemax="100"
                         aria-valuenow="0"
+                        style="width:0%"
                 ></div>
             </div>
 
