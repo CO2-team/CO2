@@ -1,27 +1,44 @@
-// package com.example.co2.entity;
+package com.example.co2.entity;
 
-// import jakarta.persistence.*;
-// import lombok.*;
 
-// @Getter @Setter
-// @NoArgsConstructor @AllArgsConstructor
-// @Entity
-// @Table(name = "tax_policy")
-// public class TaxPolicy {
+import jakarta.persistence.*;
+import lombok.*;
+import java.math.BigDecimal;
 
-//     @Id
-//     @GeneratedValue(strategy = GenerationType.IDENTITY)
-//     @Column(name = "tax_policy_id")
-//     private Integer taxPolicyId;
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "tax_policy")
+public class TaxPolicy {
 
-//     @Column(name = "tax1_discount")
-//     private Integer tax1Discount;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)        
+    @Column(name = "tax_policy_id")
+    private Long taxPolicyId;
 
-//     @Column(name = "tax2_discount")
-//     private Integer tax2Discount;
+    @Column(name = "energy_usage_min", nullable = false, precision = 10, scale = 3)
+    private BigDecimal energyUsageMin;
 
-//     @Column(name = "area_bonus")
-//     private Integer areaBonus;
+    @Column(name = "energy_usage_max", nullable = false, precision = 10, scale = 3)
+    private BigDecimal energyUsageMax;
 
-   
-// }
+    @Column(name = "tax1_discount", nullable = false)
+    private Integer tax1Discount;
+
+    @Column(name = "tax2_discount", nullable = false)
+    private Integer tax2Discount;
+
+    @Column(name = "area_bonus", nullable = false)
+    private Integer areaBonus;
+
+    @Column(name = "note", length = 255)
+    private String note;
+    
+    @Column(name = "energy_grade_label", nullable = false)
+    private String energyGradeLabel;
+
+    @Column(name = "energy_grade_category", nullable = false)
+    private String energyGradeCategory;
+}
