@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAVE GREEN</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}">
+  <link rel="stylesheet" th:href="@{/css/serviceMap.css}">
+  <script type="text/javascript" src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
+  <script type="text/javascript" src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=AED66EDE-3B3C-3034-AE11-9DBA47236C69"></script>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <div th:replace="layouts/header :: header"></div>
+    <!-- 메인 -->
+    <input type="hidden" id="lon" name="lon">
+    <input type="hidden" id="lat" name="lat">
+    <input type="hidden" id="height" name="height">
+    <input type="hidden" id="pnu" name="pnu">
+
+    <main class="service-container">
+        <div id="vmap"></div>
+
+        <!-- 팝업 (이미지로) -->
+        <div id="popup" class="popup">
+            <img src="/img/popup_guide.png" alt="팝업 가이드" />
+            <button class="close-btn" onclick="closePopup()">X</button>
+        </div>
+    </main>
+
+    <table>
+        <tr>
+            <td>아이디 : <input type="text" id="buildingId" name="buildingId" value=""></td>
+            <td>타입 : <input type="text" id="buildingType" name="buildingType" value=""></td>
+            <td>레이어 이름 : <input type="text" id="buildingLayerName" name="buildingLayerName" value=""></td>
+            <td><input type="button" value="div 올리기" onclick="openBookmarkPopup();"></td>
+        </tr>
+    </table>
+  
+    <div id="popup"></div>
+
+
+  <script th:src="@{/js/serviceMap.js}"></script>
+
+
+</body>
+</html>

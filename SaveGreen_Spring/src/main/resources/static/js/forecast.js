@@ -128,9 +128,15 @@ async function init() {
     kpiFromApi: data.kpi
   });
 
-  const gradeNow = estimateEnergyGrade(kpi.savingPct);
-  const status   = decideStatusByKpi(kpi);
-  applyStatus(status);
+    const gradeNow = estimateEnergyGrade(kpi.savingPct);
+    const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear);
+    const statusObj = decideStatusByScore(kpi, { builtYear });
+
+    console.debug('[forecast] status', statusObj); // 콘솔에서 {label, score, breakdown} 확인
+    applyStatus(statusObj.label);                   // 기존 함수 시그니처 유지(인자 1개)
+    window._STATUS_SCORE_ = statusObj.score;       // 콘솔에서 window._STATUS_SCORE_ 로 확인
+    window.__STATUS__ = statusObj;                 // 전체 객체 필요하면 window.__STATUS__
+
   renderKpis(kpi, { gradeNow });
   renderSummary({ gradeNow, kpi });
 
@@ -313,7 +319,7 @@ async function fetchForecast(buildingId, fromYear, toYear) {
     return normalizeForecast(json, years);
   } catch (e) {
     console.error('[forecast] fetch failed, using fallback dummy:', e);
-    // ★ 폴백도 더미 생성기와 동일 규칙 사용
+    // 폴백도 더미 생성기와 동일 규칙 사용
     return makeDummyForecast(lo, hi);
   }
 }
@@ -361,10 +367,55 @@ function estimateEnergyGrade(savingPct) {
   return 4;
 }
 
-function decideStatusByKpi(kpi) {
-  if (kpi.savingPct >= 15 && kpi.paybackYears <= 5) return 'recommend';
-  if (kpi.paybackYears <= 8) return 'conditional';
-  return 'not-recommend';
+
+/* 점수 기반 배너 판정
+
+점수 규칙:
+절감률: ≥15% → 2점 / 10–14% → 1점 / <10% → 0점
+회수기간: ≤5년 → 2점 / 6–8년 → 1점 / >8년 → 0점
+연식: ≥25년 → 2점 / 10–24년 → 1점 / <10년 → 0점
+(연식 미상은 1점 중립)
+
+savingPct(절감률) < 5 또는 paybackYears(회수기간) > 12 ⇒ 무조건 비추천
+(원치 않는 과대판정 방지)
+
+최종 배너:
+합계 ≥4 → 추천 / 2–3 → 조건부 / 0–1 → 비추천 (가드가 우선)
+*/
+
+function decideStatusByScore(kpi, opts = {}) {
+    const now = new Date().getFullYear();
+    const savingPct = Number(kpi?.savingPct ?? 0);
+    const payback = Number(kpi?.paybackYears ?? Infinity);
+    const builtYear = Number(opts?.builtYear);
+
+  let score = 0;
+
+  // 1. 절감률
+  if (savingPct >= 15) score += 2;
+  else if (savingPct >= 10) score += 1;
+
+  // 2. 회수기간
+  if (payback <= 5) score += 2;
+  else if (payback <= 8) score += 1;
+
+  // 3. 연식(없으면 중립 1점)
+  let agePt = 1;
+  if (Number.isFinite(builtYear) && builtYear > 0 && builtYear <= now) {
+    const age = now - builtYear;
+    if (age >= 25) agePt = 2;
+    else if (age >= 10) agePt = 1;
+    else agePt = 0;
+  }
+  score += agePt;
+
+  // 가드(원치않는 과대판정 방지)
+  if (savingPct < 5 || payback > 12) return { label: 'not-recommend', score};
+
+  const label = (score >= 4) ? 'recommend'
+                : (score >= 2) ? 'conditional'
+                : 'not-recommend';
+  return { label, score };
 }
 
 function applyStatus(status) {
@@ -526,7 +577,7 @@ async function renderEnergyComboChart({ years, series, cost }) {
     }
   };
 
-  // ✅ 막대 위에 라인을 '다시 그려' 항상 최상단으로 올리는 플러그인
+  // 막대 위에 라인을 '다시 그려' 항상 최상단으로 올리는 플러그인
   const forceLineFront = {
     id: 'forceLineFront',
     afterDatasetsDraw(chart, args, opts) {
