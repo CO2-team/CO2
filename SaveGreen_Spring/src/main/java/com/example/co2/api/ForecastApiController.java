@@ -21,9 +21,16 @@ public class ForecastApiController {
     public ResponseEntity<ForecastResponse> getForecastNoId(
             @RequestParam(required = false, defaultValue = "2024") Integer from,
             @RequestParam(required = false, defaultValue = "2030") Integer to,
-            @RequestParam(required = false, defaultValue = "default") String scenario
+            @RequestParam(required = false, defaultValue = "default") String scenario,
+            @RequestParam(required = false) Integer builtYear
     ) {
-        ForecastResponse res = forecastService.forecast(null, safe(from), safe(to), scenario);
+        ForecastResponse res = forecastService.forecast(
+                null,
+                safe(from, 2024),
+                safe(to, 2030),
+                scenario,
+                builtYear
+        );
         return ResponseEntity.ok(res);
     }
 
@@ -33,13 +40,20 @@ public class ForecastApiController {
             @PathVariable Long buildingId,
             @RequestParam(required = false, defaultValue = "2024") Integer from,
             @RequestParam(required = false, defaultValue = "2030") Integer to,
-            @RequestParam(required = false, defaultValue = "default") String scenario
+            @RequestParam(required = false, defaultValue = "default") String scenario,
+            @RequestParam(required = false) Integer builtYear
     ) {
-        ForecastResponse res = forecastService.forecast(buildingId, safe(from), safe(to), scenario);
+        ForecastResponse res = forecastService.forecast(
+                buildingId,
+                safe(from, 2024),
+                safe(to, 2030),
+                scenario,
+                builtYear
+        );
         return ResponseEntity.ok(res);
     }
 
-    private int safe(Integer v) {
-        return (v == null) ? 2024 : v;
+    private int safe(Integer v, int fallback) {
+        return (v == null) ? fallback : v;
     }
 }

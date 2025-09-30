@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.Year;
 
 @Service
 public class ForecastService {
@@ -130,13 +131,70 @@ public class ForecastService {
 
         double paybackYears = repSavingCost > 0
                 ? (double) DEFAULT_RETROFIT_COST_WON / (double) repSavingCost
-                : 0.0;
+                : Double.POSITIVE_INFINITY;
         paybackYears = Math.round(paybackYears * 100.0) / 100.0; // 소수 2자리
+
+        // === FE와 동일한 점수 / 라벨 계산(연식 미상 -> 중립 1점) ===
+        Integer builtYear = null; // 브이월드 연동전 전이므로 일단 null(중립 1점)
+        int score = computeStatusScore(pct, paybackYears, builtYear);
+        String label = decideLabelByScore(pct, paybackYears, builtYear);
+        // 확인용 로그
+        System.out.printf(
+                "[forecast] score = %d, label = %s (savingPct = %.1f%%, payback = %.2f years)%n",
+                score, label, pct, paybackYears
+        );
+
 
         Series series = new Series(after, saving); // Series(after, saving)
         Cost cost = new Cost(costSaving);          // Cost(saving)
         Kpi kpi = new Kpi(repSavingKwh, repSavingCost, savingPctInt, paybackYears);
 
         return new ForecastResponse(years, series, cost, kpi);
+    }
+
+    public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario, Integer builtYear) {
+        // TODO: 다음 단계에서 builtYear를 캐시 키/판정 로직에 반영
+        // 현재는 기존 구현에 위임 (동일 결과 보장)
+        return forecast(buildingId, fromYear, toYear, scenario);
+    }
+
+    /* FE와 동일한 점수 계산(가드 포함)*/
+    private int computeStatusScore(double savingPct, double paybackYears, Integer builtYear) {
+    // 가드 : 원치 않는 과대 판정 금지
+    if (savingPct < 5.0 || paybackYears > 12.0) return 0;
+
+    int score = 0;
+
+    // 1. 절감률
+    if (savingPct >= 15.0) score += 2;
+    else if (savingPct >= 10.0) score += 1;
+
+    // 2. 회수기간
+    if (paybackYears <= 5.0) score += 2;
+    else if (paybackYears <= 8.0) score += 1;
+
+    // 3. 연식(없으면 중립 1점)
+    int agePt = 1;
+    int now = Year.now().getValue();
+    if (builtYear != null && builtYear > 0 && builtYear <= now) {
+        int age = now - builtYear;
+        if (age >= 25)      agePt = 2;
+        else if (age >= 10) agePt = 1;
+        else                agePt = 0;
+    }
+    score += agePt;
+
+    return score;
+    }
+
+    /* FE와 동일한 판정 라벨(점수 기반) */
+    private String decideLabelByScore(double savingPct, double paybackYears, Integer builtYear) {
+        // 가드 우선
+        if (savingPct < 5.0 || paybackYears > 12.0) return "NOT_RECOMMEND";
+
+        int score = computeStatusScore(savingPct, paybackYears, builtYear);
+        if (score >= 4) return "RECOMMEND";
+        if (score >= 2) return "CONDITIONAL";
+        return "NOT_RECOMMEND";
     }
 }
