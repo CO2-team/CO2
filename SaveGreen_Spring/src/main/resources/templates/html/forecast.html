@@ -20,7 +20,23 @@
 <div class="header-spacer" aria-hidden="true"></div>
 
 <!-- 메인 -->
-<main id="forecast-root" class="wrap" th:attr="data-bid=${buildingId}, data-from=${fromYear}, data-to=${toYear}, data-built-year=${builtYear}?:''">
+<main id="forecast-root" class="wrap"
+      th:attr="data-bid=${buildingId},
+               data-from=${fromYear},
+               data-to=${toYear},
+               data-built-year=${builtYear}?:'',
+               data-pnu=${pnu}?:'',
+               data-use=${useName}?:'',
+               data-area=${area}?:'',
+               data-plot-area=${plotArea}?:'',
+               data-floors-above=${floorsAbove}?:'',
+               data-floors-below=${floorsBelow}?:'',
+               data-height=${height}?:'',
+               data-approval-date=${approvalDate}?:'',
+               data-bname=${buildingName}?:'',
+               data-bdong=${dongName}?:'',
+               data-bident=${buildingIdent}?:'',
+               data-lot-serial=${lotSerial}?:''">
 
 
     <!-- 상단 연두 면(히어로) : 라운드 통일 -->

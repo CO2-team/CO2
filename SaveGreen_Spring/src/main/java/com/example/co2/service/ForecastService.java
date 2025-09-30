@@ -63,7 +63,7 @@ public class ForecastService {
         }
 
         // 4) 계산 (지금은 기존 더미/스텁)
-        ForecastResponse resp = computeStub(buildingId, from, to);
+        ForecastResponse resp = computeStub(buildingId, from, to, builtYear);
         // NOTE: computeStub 내부 점수/라벨 계산은 현재 builtYear=null로 동작(응답 스키마 바꾸지 않기 위함)
 
         // 5) 캐시 저장
@@ -96,7 +96,7 @@ public class ForecastService {
     }
 
     /** 더미 생성 + KPI 계산 (FE 파라미터와 동일) */
-    private ForecastResponse computeStub(Long buildingId, int from, int to) {
+    private ForecastResponse computeStub(Long buildingId, int from, int to, Integer builtYear) {
         int len = (to - from) + 1;
 
         // years
@@ -137,13 +137,17 @@ public class ForecastService {
         paybackYears = Math.round(paybackYears * 100.0) / 100.0; // 소수 2자리
 
         // === FE와 동일한 점수 / 라벨 계산(연식 미상 -> 중립 1점) ===
-        Integer builtYear = null; // 브이월드 연동전 전이므로 일단 null(중립 1점)
         int score = computeStatusScore(pct, paybackYears, builtYear);
         String label = decideLabelByScore(pct, paybackYears, builtYear);
         // 확인용 로그
         System.out.printf(
-                "[forecast] score = %d, label = %s (savingPct = %.1f%%, payback = %.2f years)%n",
-                score, label, pct, paybackYears
+                "[forecast] score = %d, label = %s, builtYear = %s, age = %s (savingPct = %.1f%%, payback = %.2f years)%n",
+                score,
+                label,
+                (builtYear == null ? "na" : String.valueOf(builtYear)),
+                (builtYear == null ? "na" : String.valueOf(Year.now().getValue() - builtYear)),
+                pct,
+                paybackYears
         );
 
 

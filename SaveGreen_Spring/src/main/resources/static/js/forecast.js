@@ -71,6 +71,30 @@ async function init() {
 
 	const root = document.getElementById('forecast-root');
 
+	// Building info from dataset
+	const BUILD = (function(root){
+	    const get = (k) => (root?.dataset?.[k] ?? '').trim();
+	    const num = (k) => { const s = get(k).replace(/,/g,''); const n = Number(s); return Number.isFinite(n)?n:null; };
+	    const int = (k) => { const s = get(k); const n = parseInt(s, 10); return Number.isFinite(n)?n:null; };
+	    const by = Number(get('builtYear'));
+	    return {
+	        pnu: get('pnu'),
+	        use: get('use'),
+	        area: num('area'),
+	        plotArea: num('plotArea'),
+	        floorsAbove: int('floorsAbove'),
+	        floorsBelow: int('floorBelow'),
+	        height: num('height'),
+	        approvalDate: get('approvalDate'),
+	        buildingName: get('bname'),
+	        dongName: get('bdong'),
+	        buildingIdent: get('bident'),
+	        lotSerial: get('lotSerial'),
+	        builtYear: Number.isFinite(by)&&by>0?by:null
+	    };
+	})(root);
+	window.BUILDING_INFO = BUILD;
+
 	// from/to 안전 계산: 같으면 7년 확장
 	const rawFrom = root?.dataset.from ?? '2024';
 	const rawTo   = root?.dataset.to   ?? '2030';
@@ -559,7 +583,50 @@ function renderSummary({ gradeNow /*, kpi*/ }) {
 		li.innerHTML = html;
 		ul.appendChild(li);
 	});
+
+	// ▼ 추정 현재 EUI (연면적 우선, 없으면 건축면적)
+    const areaForEui = window.BUILDING_INFO?.floorArea || window.BUILDING_INFO?.area || null;
+    if (areaForEui && Array.isArray(window.FORECAST_DATA?.series?.after)) {
+    	const arr = window.FORECAST_DATA.series.after;
+    	const last = Number(arr[arr.length - 1] || 0);
+    	const euiNow = last > 0 ? Math.round(last / areaForEui) : 0; // kWh/m^2·년
+    	const li = document.createElement('li');
+    	li.innerHTML = `추정 현재 EUI : <strong>${nf(euiNow)} kWh/m^2/년</strong>`;
+    	ul.appendChild(li);
+    }
 }
+
+function renderBuildingCard() {
+    const box = document.getElementById('building-card');
+    if (!box) return;
+    const b = window.BUILDING_INFO || {};
+    const rows = [];
+    const row = (k,v)=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+    const esc = (t)=>String(t).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+
+    if (b.buildingName) rows.push(row('건물명', esc(b.buildingName)));
+    if (b.dongName)     rows.push(row('동명', esc(b.dongName)));
+    if (b.buildingIdent)rows.push(row('식별번호', esc(b.buildingIdent)));
+    if (b.pnu)          rows.push(row('PNU', esc(b.pnu)));
+    if (b.lotSerial)    rows.push(row('지번', esc(b.lotSerial)));
+    if (b.use)          rows.push(row('용도', esc(b.use)));
+    if (b.builtYear)    rows.push(row('준공연도', String(b.builtYear)));
+    if (b.approvalDate) rows.push(row('사용승인일', esc(fmtYmd(b.approvalDate))));
+    if (b.area)         rows.push(row('건축면적', nf(b.area)+' m²'));
+    if (b.plotArea)     rows.push(row('대지면적', nf(b.plotArea)+' m²'));
+    if (b.height)       rows.push(row('높이', nf(b.height)+' m'));
+    if (b.floorsAbove != null || b.floorsBelow != null) {
+    rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
+    }
+
+    if (!rows.length) { box.classList.add('hidden'); box.innerHTML=''; return; }
+    box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
+    box.classList.remove('hidden');
+
+    function fmtYmd(s){ s=String(s).replace(/\D/g,''); if(s.length<8) return s; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
+}
+
+renderBuildingCard();
 
 function euiRefForGrade(grade) {
 	const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
