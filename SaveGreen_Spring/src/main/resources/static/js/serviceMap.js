@@ -49,32 +49,29 @@ var requestParam = {
 
 // 건물 클릭 이벤트
 var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
+      if(windowPosition) {
+        lastClickPosition = windowPosition;
+    }
+    
     if (cartographic) {
-        var lon = cartographic.longitude * (180 / Math.PI); 
+        var lon = cartographic.longitude * (180 / Math.PI);
         var lat = cartographic.latitude * (180 / Math.PI);
         var height = cartographic.height;
 
         requestParam.lon = lon;
         requestParam.lat = lat;
         requestParam.height = height;
-        
-        console.log("클릭 좌표 저장됨:", requestParam.lon, requestParam.lat);
 
         $("#lon").val(lon);
         $("#lat").val(lat);
         $("#height").val(height);
 
-
-        // PNU 변환 호출
-        getPnuFromCoord(lon, lat);
+        getPnuFromCoord(lon, lat); // AJAX 호출
     }
 
-    if (modelObject) {
-        var attributes = modelObject.attributes;
-        if (attributes && attributes.PNU) {
-            requestParam.pnu = attributes.PNU; // 만약 바로 제공된다면 저장
-            console.log("건물 PNU 저장됨:", requestParam.pnu);
-        }
+    if (modelObject && modelObject.attributes && modelObject.attributes.PNU) {
+        requestParam.pnu = modelObject.attributes.PNU;
+        $("#pnu").val(modelObject.attributes.PNU);
     }
 };
 
@@ -125,7 +122,7 @@ function getBuildingInfo(pnu) {
 }
 
 //선택한 좌표 저장
-var lastClickPosition = null;
+var lastClickPosition =  { x: 0, y: 0 }; ;
 
 function getPnuFromCoord(lon, lat) {
     $.ajax({
