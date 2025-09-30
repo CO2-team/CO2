@@ -66,7 +66,14 @@ var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, mod
         $("#lat").val(lat);
         $("#height").val(height);
 
+        
+        // service.js (지도 클릭 시)
+        localStorage.setItem("lat", lat);
+        localStorage.setItem("lon", lon);
+
+
         getPnuFromCoord(lon, lat); // AJAX 호출
+      
     }
 
     if (modelObject && modelObject.attributes && modelObject.attributes.PNU) {

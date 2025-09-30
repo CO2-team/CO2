@@ -13,5 +13,10 @@ public class SimulatorDto {
     private BigDecimal energy;
     private Integer panelCount;   //Integer -> (null 허용)
     private Integer panelPower;
+
+    private Double lat;
+    private Double lon;
+    private String pnu;
    
+
 }

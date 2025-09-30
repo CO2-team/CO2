@@ -19,10 +19,27 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('areaBonus').textContent   = data.areaBonus ?? '-';
     document.getElementById('grade').textContent       = data.grade ?? '-';
     document.getElementById('category').textContent    = data.category ?? '-';
-    // 결과 박스 보이기
+
+    document.getElementById('energySelf').textContent = data.energySelf ?? '-';
+    document.getElementById('certificationDiscount').textContent = data.certificationDiscount ?? '-';
+    document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
+    document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';    // 결과 박스 보이기
+
     const box = document.getElementById('resultBox');
     if (box) box.style.display = 'block';
 
-   
+    const items = box.querySelectorAll('.result-item');
+        items.forEach((item, index) => {
+          setTimeout(() => item.classList.add('show'), index * 300);
+    });
   });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const lat = localStorage.getItem("lat");
+    const lon = localStorage.getItem("lon");
+    if (lat && lon) {
+        document.querySelector("#lat").value = lat;
+        document.querySelector("#lon").value = lon;
+    }
 });

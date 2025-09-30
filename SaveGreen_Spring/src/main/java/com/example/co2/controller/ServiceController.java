@@ -9,8 +9,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class ServiceController {
 
     @GetMapping("/service")
-    public String getMethodName() {
+    public String getServicePage() {
         return "html/serviceMap";
+        
+    }
+
+    @GetMapping("/service/text")
+    public String getTextPage() {
+        return "html/serviceText";
         
     }
     
