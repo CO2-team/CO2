@@ -53,48 +53,36 @@ function $id(id) {
     return document.getElementById(id);
 }
 
-
+var requestParam = {
+    lon: null,
+    lat: null,
+    height: null,
+    pnu: null
+};
 
 // 건물 클릭 이벤트
 var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
     if (cartographic) {
-        var lon = cartographic.longitude * (180 / Math.PI); // 라디안 → 도
+        var lon = cartographic.longitude * (180 / Math.PI); 
         var lat = cartographic.latitude * (180 / Math.PI);
         var height = cartographic.height;
 
-        // 좌표 → PNU 변환
-        console.log("클릭 좌표:", lon, lat, height);
-        getPnuFromCoord(lon, lat);
-        // 화면에 표시
-        $id("buildingInfo").innerHTML =
-            "<b>좌표:</b> " + lon.toFixed(6) + ", " + lat.toFixed(6) +
-            " (고도: " + height.toFixed(2) + "m)";
+        // ✅ 전역 requestParam에 저장
+        requestParam.lon = lon;
+        requestParam.lat = lat;
+        requestParam.height = height;
 
-        
+        console.log("클릭 좌표 저장됨:", requestParam);
+
+        // PNU 변환 호출
+        getPnuFromCoord(lon, lat);
     }
 
     if (modelObject) {
-        var mapElement = modelObject.element;
         var attributes = modelObject.attributes;
-        console.log("건물 attributes:", attributes);
-
-        if (attributes && mapElement) {
-            // 건물 강조 표시
-            mapElement.highlightFeatureByKey(attributes);
-
-            // 건물 기본 정보 표시
-            $id("buildingId").value = attributes.MODEL_NAME || "";
-            $id("buildingType").value = mapElement.elementType || "";
-            $id("buildingLayerName").value = mapElement.id || "";
-
-            // 🔑 여기서 PNU 추출 (브이월드 건물 객체 attributes 안에 있음)
-            var pnu = attributes.PNU || "";   // ← 실제 필드명 확인 필요 (대문자/소문자 구분)
-
-            if (pnu) {
-                getBuildingInfo(pnu);
-            } else {
-                console.warn("이 건물에는 PNU 정보가 없습니다.", attributes);
-            }
+        if (attributes && attributes.PNU) {
+            requestParam.pnu = attributes.PNU; // 만약 바로 제공된다면 저장
+            console.log("건물 PNU 저장됨:", requestParam.pnu);
         }
     }
 };
@@ -158,6 +146,7 @@ var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, mod
     }
 };
 
+
 function getPnuFromCoord(lon, lat) {
     $.ajax({
         type: "get",
@@ -167,7 +156,7 @@ function getPnuFromCoord(lon, lat) {
             service: "data",
             request: "getfeature",
             data: "lp_pa_cbnd_bubun",
-            key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69",
+            key: "YOUR_API_KEY",
             format: "json",
             geomFilter: "POINT(" + lon + " " + lat + ")"
         },
@@ -176,9 +165,11 @@ function getPnuFromCoord(lon, lat) {
                 var features = res.response.result.featureCollection.features;
                 if (features.length > 0) {
                     var pnu = features[0].properties.pnu;
-                    console.log("조회된 PNU:", pnu);
 
-                    // PNU로 건물정보 API 호출
+                    // ✅ 전역 requestParam에 저장
+                    requestParam.pnu = pnu;
+                    console.log("조회된 PNU 저장됨:", requestParam);
+
                     getBuildingInfo(pnu);
                 } else {
                     console.warn("해당 좌표에서 PNU를 찾을 수 없습니다.");
@@ -192,6 +183,7 @@ function getPnuFromCoord(lon, lat) {
         }
     });
 }
+
 
 //선택한 건물 정보 팝업
 function showPopup(windowPosition, html) {
