@@ -19,7 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('areaBonus').textContent   = data.areaBonus ?? '-';
     document.getElementById('grade').textContent       = data.grade ?? '-';
     document.getElementById('category').textContent    = data.category ?? '-';
-    // 결과 박스 보이기
+    document.getElementById('energySelf').textContent = data.energySelf ?? '-';
+    document.getElementById('certificationDiscount').textContent = data.certificationDiscount ?? '-';
+    document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
+    document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';    // 결과 박스 보이기
     const box = document.getElementById('resultBox');
     if (box) box.style.display = 'block';
 

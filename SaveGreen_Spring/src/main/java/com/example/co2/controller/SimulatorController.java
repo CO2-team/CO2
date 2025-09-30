@@ -20,7 +20,7 @@ public class SimulatorController {
 
     @PostMapping("/simulate")
     @ResponseBody
-    public SimulatorResultDto simulate(SimulatorDto dto) { 
+    public SimulatorResultDto simulate(SimulatorDto dto) throws Exception { 
         return simulatorService.calculate(dto);
 }
 
