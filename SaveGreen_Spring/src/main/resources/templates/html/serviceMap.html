@@ -32,6 +32,15 @@
             <td><input type="button" value="div 올리기" onclick="openBookmarkPopup();"></td>
         </tr>
     </table>
+    <input id="buildingId" placeholder="건물 ID">
+    <input id="buildingType" placeholder="건물 타입">
+    <input id="buildingLayerName" placeholder="건물 레이어">
+    <div id="buildingInfo" style="margin-top:10px; border:1px solid #ccc; padding:5px;">
+        건물 정보를 클릭하면 여기에 표시됩니다.
+    </div>
+
+    <div id="popup"></div>
+
 
   <script th:src="@{/js/serviceMap.js}"></script>
 

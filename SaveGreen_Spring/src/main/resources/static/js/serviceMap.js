@@ -54,60 +54,154 @@ function $id(id) {
 }
 
 
-var data = {};
-    data.key = "인증키"; /* key */
-    data.domain = "도메인"; /* domain */
-    data.pnu = "1111017400"; /* 고유번호(8자리 이상) */
-    data.mainPrposCode = "02000"; /* 주요용도코드 */
-    data.detailPrposCode = "02001"; /* 세부용도코드 */
-    data.format = "json"; /* 응답결과 형식(json) */
-    data.numOfRows = "10"; /* 검색건수 (최대 1000) */
-    data.pageNo = "1"; /* 페이지 번호 */
-    
-    
-    $.ajax({
-        type : "get",
-        dataType : "jsonp",
-        url : "http://api.vworld.kr/ned/data/getBuildingUse",
-        data : data,
-        async : false,
-        success : function(data) {
-            console.log(data);
 
-        },
-        error : function(xhr, stat, err) {}
-    });
+// 건물 클릭 이벤트
+var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
+    if (cartographic) {
+        var lon = cartographic.longitude * (180 / Math.PI); // 라디안 → 도
+        var lat = cartographic.latitude * (180 / Math.PI);
+        var height = cartographic.height;
 
+        // 좌표 → PNU 변환
+        console.log("클릭 좌표:", lon, lat, height);
+        getPnuFromCoord(lon, lat);
+        // 화면에 표시
+        $id("buildingInfo").innerHTML =
+            "<b>좌표:</b> " + lon.toFixed(6) + ", " + lat.toFixed(6) +
+            " (고도: " + height.toFixed(2) + "m)";
 
-
-//팝업 올리기 구현
-function openBookmarkPopup() {
-    var name = "iframe_popup";
-    var infopop = document.getElementById(name);
-    if (infopop == null) {
-        infopop = document.createElement("iframe");
-        infopop.src = "";
-        infopop.style.display = "none";
-        infopop.frameBorder = "0";
-        infopop.scrolling = "no";
-
-        document.getElementById("vmap").appendChild(infopop);
-        infopop.setAttribute("id", name);
-        infopop.setAttribute("name", name);
-        infopop.frameBorder = "0";
-        infopop.scrolling = "no";
-        infopop.style.position = "absolute";
-        infopop.style.overflow = "hidden";
-        infopop.style["background-color"] = "white";
-        infopop.style.margin = "auto";
+        
     }
 
-    infopop.style.width = "250px";
-    infopop.style.height = "120px";
-    infopop.style.left = "5px";
-    infopop.style.top = "5px";
-    infopop.style.zIndex = 2000; //Z index의 경우 2000이상 설정해야 함
-    infopop.setAttribute("src", "https://map.vworld.kr/images/v4map/map/logo.png");
+    if (modelObject) {
+        var mapElement = modelObject.element;
+        var attributes = modelObject.attributes;
+        console.log("건물 attributes:", attributes);
 
-    infopop.style.display = "inline-block";
+        if (attributes && mapElement) {
+            // 건물 강조 표시
+            mapElement.highlightFeatureByKey(attributes);
+
+            // 건물 기본 정보 표시
+            $id("buildingId").value = attributes.MODEL_NAME || "";
+            $id("buildingType").value = mapElement.elementType || "";
+            $id("buildingLayerName").value = mapElement.id || "";
+
+            // 🔑 여기서 PNU 추출 (브이월드 건물 객체 attributes 안에 있음)
+            var pnu = attributes.PNU || "";   // ← 실제 필드명 확인 필요 (대문자/소문자 구분)
+
+            if (pnu) {
+                getBuildingInfo(pnu);
+            } else {
+                console.warn("이 건물에는 PNU 정보가 없습니다.", attributes);
+            }
+        }
+    }
+};
+
+// 건물 정보 조회 함수
+function getBuildingInfo(pnu) {
+    var reqData = {
+        key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69", // 브이월드 발급 API KEY
+        pnu: pnu,                                   // 클릭한 건물의 PNU
+        format: "json",
+        numOfRows: "10"
+    };
+
+    $.ajax({
+        type: "get",
+        dataType: "jsonp",
+        url: "http://api.vworld.kr/ned/data/getBuildingUse",
+        data: reqData,
+        success: function(res) {
+            console.log("건물 정보 응답:", res);
+
+            if (res && res.buildingUses && res.buildingUses.field) {
+                var info = res.buildingUses.field[0];
+
+                var html = `
+                    <b>건물명:</b> ${info.buldNm || "-"}<br>
+                    <b>건물동명:</b> ${info.buldDongNm || "-"}<br>
+                    <b>지번:</b> ${info.mnnmSlno || "-"}<br>
+                    <b>식별번호:</b> ${info.buldIdntfcNo || "-"}<br>
+                    <b>건축면적:</b> ${info.buldBildngAr || "-"}㎡<br>
+                    <b>대지면적:</b> ${info.buldPlotAr || "-"}㎡<br>
+                    <b>사용승인일:</b> ${info.useConfmDe || "-"}<br>
+                    <b>지상층수:</b> ${info.groundFloorCo || "-"}<br>
+                    <b>지하층수:</b> ${info.undgrndFloorCo || "-"}<br>
+                    <b>건물높이:</b> ${info.buldHg || "-"}m<br>
+                    <b>용도:</b> ${info.buldPrposClCodeNm || "-"}
+                `;
+
+                // 🔑 팝업 표시
+                showPopup(lastClickPosition, html);
+            } else {
+                showPopup(lastClickPosition, "조회된 건물 정보가 없습니다.");
+            }
+        },
+        error: function(xhr, stat, err) {
+            console.error("건물정보 API 호출 실패:", err);
+        }
+    });
+}
+
+//선택한 좌표 저장
+var lastClickPosition = null;
+
+var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
+    lastClickPosition = windowPosition;  // 팝업 위치 저장
+
+    if (cartographic) {
+        var lon = cartographic.longitude * (180 / Math.PI);
+        var lat = cartographic.latitude * (180 / Math.PI);
+        getPnuFromCoord(lon, lat);
+    }
+};
+
+function getPnuFromCoord(lon, lat) {
+    $.ajax({
+        type: "get",
+        dataType: "jsonp",
+        url: "https://api.vworld.kr/req/data",
+        data: {
+            service: "data",
+            request: "getfeature",
+            data: "lp_pa_cbnd_bubun",
+            key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69",
+            format: "json",
+            geomFilter: "POINT(" + lon + " " + lat + ")"
+        },
+        success: function(res) {
+            try {
+                var features = res.response.result.featureCollection.features;
+                if (features.length > 0) {
+                    var pnu = features[0].properties.pnu;
+                    console.log("조회된 PNU:", pnu);
+
+                    // PNU로 건물정보 API 호출
+                    getBuildingInfo(pnu);
+                } else {
+                    console.warn("해당 좌표에서 PNU를 찾을 수 없습니다.");
+                }
+            } catch (e) {
+                console.error("PNU 조회 실패", e);
+            }
+        },
+        error: function(xhr, stat, err) {
+            console.error("PNU API 호출 오류:", err);
+        }
+    });
+}
+
+//선택한 건물 정보 팝업
+function showPopup(windowPosition, html) {
+    var popup = document.getElementById("popup");
+    popup.style.left = (windowPosition.x + 10) + "px";  // 클릭 위치 옆에 표시
+    popup.style.top = (windowPosition.y - 10) + "px";
+    popup.innerHTML = html;
+    popup.style.display = "block";
+}
+
+function hidePopup() {
+    document.getElementById("popup").style.display = "none";
 }
