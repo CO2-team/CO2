@@ -4,6 +4,7 @@ package com.example.co2.service;
 import com.example.co2.dto.SimulatorDto;
 import com.example.co2.dto.SimulatorResultDto;
 import com.example.co2.entity.TaxPolicy;
+<<<<<<< Updated upstream
 import com.example.co2.entity.ZebPolicy;
 import com.example.co2.repository.TaxPolicyRepository;
 import com.example.co2.repository.ZebPolicyRepository;
@@ -16,10 +17,26 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+=======
+import com.example.co2.repository.TaxPolicyRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
+
+>>>>>>> Stashed changes
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SimulatorService {
+<<<<<<< Updated upstream
 
     private final TaxPolicyRepository taxPolicyRepository;
     private final ZebPolicyRepository zebPolicyRepository;
@@ -50,6 +67,20 @@ public class SimulatorService {
                 .findFirstByEnergyUsageMinLessThanEqualAndEnergyUsageMaxGreaterThanEqual(usage, usage)
                 .orElse(null); // 스프링데이터 jpa의 파생쿼리
                                     // 구현을 쓰지않아도 메서드 이름으로 쿼리를 유추해서 알아서 구현해줌
+=======
+
+    private final TaxPolicyRepository taxPolicyRepository;
+
+    public SimulatorResultDto calculate(SimulatorDto dto) {
+        SimulatorResultDto res = new SimulatorResultDto();
+
+        BigDecimal usage = dto.getEnergy().divide(dto.getArea(),3,RoundingMode.HALF_UP); // 소수점 3자리 반올림
+        System.out.println("usage = " + usage);
+       
+        TaxPolicy p = taxPolicyRepository
+                .findFirstByEnergyUsageMinLessThanEqualAndEnergyUsageMaxGreaterThanEqual(usage, usage)
+                .orElse(null);
+>>>>>>> Stashed changes
         System.out.println("p = " + p);
         if (p == null) {
             res.setPropertyTax(0);
@@ -62,6 +93,7 @@ public class SimulatorService {
             res.setAreaBonus(p.getAreaBonus());
             res.setGrade(p.getEnergyGradeLabel());
             res.setCategory(p.getEnergyGradeCategory());
+<<<<<<< Updated upstream
             res.setEnergySelf(energySelf);
         }
         if (z != null) {
@@ -109,6 +141,19 @@ public class SimulatorService {
         return result;
     }   
    
+=======
+        }
+        return res;
+    }
+    // private final RestTemplate nasaRestTemplate;
+    // public SimulatorService(RestTemplateBuilder builder,TaxPolicyRepository taxPolicyRepository) {
+    //    this.taxPolicyRepository = taxPolicyRepository;
+    //    this.nasaRestTemplate= builder.connectTimeout(Duration.ofSeconds(5))
+    //            .readTimeout(Duration.ofSeconds(10))
+    //            .build();
+        
+    // }
+>>>>>>> Stashed changes
         
     
 }

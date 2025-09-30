@@ -41,6 +41,9 @@ public class TaxPolicy {
 
     @Column(name = "energy_grade_category", nullable = false)
     private String energyGradeCategory;
+<<<<<<< Updated upstream
 
     
+=======
+>>>>>>> Stashed changes
 }

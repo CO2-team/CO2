@@ -19,10 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('areaBonus').textContent   = data.areaBonus ?? '-';
     document.getElementById('grade').textContent       = data.grade ?? '-';
     document.getElementById('category').textContent    = data.category ?? '-';
+<<<<<<< Updated upstream
     document.getElementById('energySelf').textContent = data.energySelf ?? '-';
     document.getElementById('certificationDiscount').textContent = data.certificationDiscount ?? '-';
     document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
     document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';    // 결과 박스 보이기
+=======
+    // 결과 박스 보이기
+>>>>>>> Stashed changes
     const box = document.getElementById('resultBox');
     if (box) box.style.display = 'block';
 
