@@ -20,6 +20,9 @@
         <div class="simulator-input">
             <h3>에너지 효율 등급 시뮬레이터</h3>
             <form id="simulatorForm" th:action="@{/simulate}" method="post">
+                <input type="hidden" name="lat" id="lat">
+                <input type="hidden" name="lon" id="lon">
+                <input type="hidden" name="pnu" id="pnu">
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <label></label>
@@ -49,20 +52,46 @@
             </form>
         </div>        
     </section>
-    <section class="simulator-result" id="resultBox" style="display: none;">
-        <h3 id="result-text">시뮬레이션 결과</h3>
-        <ul>
-            <li>에너지 효율 등급: <span id="grade"></span></li>
-            <li>녹색 건축물 등급: <span id="category"></span></li>
-            <li>에너지 자립도: <span id="energySelf"></span>%</li>
-            <li>ZEB 등급: <span id="zebGrade"></span></li>
-            <li>재산세 감면: <span id="propertyTax"></span>%</li>
-            <li>취득세 감면: <span id="acquireTax"></span>%</li>
-            <li>건물 기준 완화: <span id="areaBonus"></span>%</li>
-            <li>제도 인증비용 감면: <span id="certificationDiscount"></span>%</li>
-            <li>신재생에너지 설치 지원 여부: <span id="renewableSupport"></span></li>
-        </ul>
-    </section>
+    <section id="resultBox" class="result-box" style="display: none;">
+        <h3 style="text-align:center !important;">시뮬레이션 결과</h3>
+        <div class="result-item">
+            <span class="label">에너지 효율 등급</span>
+            <span class="value" id="grade">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">녹색 건축물 등급</span>
+            <span class="value" id="category">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">에너지 자립도</span>
+            <span class="value" id="energySelf">%</span>
+        </div>
+        <div class="result-item">
+            <span class="label">ZEB 등급</span>
+            <span class="value" id="zebGrade">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">재산세 감면</span>
+            <span class="value" id="propertyTax">%</span>
+        </div>
+        <div class="result-item">
+            <span class="label">취득세 감면</span>
+            <span class="value" id="acquireTax">%</span>
+        </div>
+        <div class="result-item">
+            <span class="label">건물 기준 완화</span>
+            <span class="value" id="areaBonus">%</span>
+        </div>
+        <div class="result-item">
+            <span class="label">ZEB인증비용 감면</span>
+            <span class="value" id="certificationDiscount">%</span>
+        </div>
+        <div class="result-item">
+            <span class="label">추가 혜택</span>
+            <span class="value" id="renewableSupport">-</span>
+        </div>
+        </section>
+
     </div>
     
 
@@ -72,7 +101,7 @@
     <section class="simulator-container">
         <div class="simulator-input">
             <h3>태양광 에너지 효율·경제성 시뮬레이터</h3>
-            <form id="simulatorForm" th:action="@{/simulate}" method="post">
+            <form id="simulatorForm2" th:action="@{/simulate}" method="post">
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <label></label>
