@@ -115,7 +115,7 @@ function getBuildingInfo(pnu) {
                 showPopup(lastClickPosition, "조회된 건물 정보가 없습니다.");
             }
         },
-        error: function(xhr, stat, err) {
+        error: function(err) {
             console.error("건물정보 API 호출 실패:", err);
         }
     });
@@ -156,7 +156,7 @@ function getPnuFromCoord(lon, lat) {
                 console.error("PNU 조회 실패", e);
             }
         },
-        error: function(xhr, stat, err) {
+        error: function(err) {
             console.error("PNU API 호출 오류:", err);
         }
     });
