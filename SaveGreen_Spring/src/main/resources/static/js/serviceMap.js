@@ -67,7 +67,6 @@ var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, mod
         var lat = cartographic.latitude * (180 / Math.PI);
         var height = cartographic.height;
 
-        // ✅ 전역 requestParam에 저장
         requestParam.lon = lon;
         requestParam.lat = lat;
         requestParam.height = height;
@@ -156,7 +155,7 @@ function getPnuFromCoord(lon, lat) {
             service: "data",
             request: "getfeature",
             data: "lp_pa_cbnd_bubun",
-            key: "YOUR_API_KEY",
+            key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69",
             format: "json",
             geomFilter: "POINT(" + lon + " " + lat + ")"
         },
@@ -166,7 +165,6 @@ function getPnuFromCoord(lon, lat) {
                 if (features.length > 0) {
                     var pnu = features[0].properties.pnu;
 
-                    // ✅ 전역 requestParam에 저장
                     requestParam.pnu = pnu;
                     console.log("조회된 PNU 저장됨:", requestParam);
 
