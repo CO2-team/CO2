@@ -35,19 +35,6 @@ setTimeout(
         map.onClick.addEventListener(buildingInfoEvent);
     },
     100);
-var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
-    if (modelObject) {
-        var mapElement = modelObject.element;
-        var attributes = modelObject.attributes;
-
-        if (attributes && mapElement) {
-            mapElement.highlightFeatureByKey(attributes);
-            buildingId.value = attributes.MODEL_NAME;
-            buildingType.value = mapElement.elementType;
-            buildingLayerName.value = mapElement.id;
-        }
-    }
-};
 
 function $id(id) {
     return document.getElementById(id);
@@ -70,8 +57,13 @@ var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, mod
         requestParam.lon = lon;
         requestParam.lat = lat;
         requestParam.height = height;
+        
+        console.log("클릭 좌표 저장됨:", requestParam.lon, requestParam.lat);
 
-        console.log("클릭 좌표 저장됨:", requestParam);
+        $("#lon").val(lon);
+        $("#lat").val(lat);
+        $("#height").val(height);
+
 
         // PNU 변환 호출
         getPnuFromCoord(lon, lat);
@@ -135,17 +127,6 @@ function getBuildingInfo(pnu) {
 //선택한 좌표 저장
 var lastClickPosition = null;
 
-var buildingInfoEvent = function(windowPosition, ecefPosition, cartographic, modelObject) {
-    lastClickPosition = windowPosition;  // 팝업 위치 저장
-
-    if (cartographic) {
-        var lon = cartographic.longitude * (180 / Math.PI);
-        var lat = cartographic.latitude * (180 / Math.PI);
-        getPnuFromCoord(lon, lat);
-    }
-};
-
-
 function getPnuFromCoord(lon, lat) {
     $.ajax({
         type: "get",
@@ -166,6 +147,8 @@ function getPnuFromCoord(lon, lat) {
                     var pnu = features[0].properties.pnu;
 
                     requestParam.pnu = pnu;
+                    $("#pnu").val(pnu);
+
                     console.log("조회된 PNU 저장됨:", requestParam);
 
                     getBuildingInfo(pnu);
