@@ -74,8 +74,14 @@ main, .container {
 
 /* 상단 메뉴 hover 시 메뉴바 전체 배경 흰색 */
 
-.logo:hover{    
+.logo_bk{    
     color: #133D1E;
+    display: block;
+    position: absolute;
+    top: 8%;
+    font-weight: bold;
+    font-size: 1.5em;
+    left: 2%;
 }
 nav:hover {
   background-color: #ffffff;
