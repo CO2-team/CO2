@@ -17,6 +17,10 @@ import java.util.List;
 import java.util.Optional;
 import java.time.Year;
 
+// [ADD] 로깅 (save→upsert 변경 로그 위해 추가)
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j // [ADD]
 @Service
 public class ForecastService {
 
@@ -55,27 +59,60 @@ public class ForecastService {
                 keyHash, LocalDateTime.now()
         );
         if (cached.isPresent()) {
+            log.info("[forecast] cache HIT hash = {}", keyHash);
             try {
-                return objectMapper.readValue(cached.get().getPayloadJson(), ForecastResponse.class);
-            } catch (Exception ignore) {
-                // 파싱 실패 시 캐시 미스 처리
+                ForecastResponse r = objectMapper.readValue(
+                        cached.get().getPayloadJson(), ForecastResponse.class
+                );
+
+                // ↓ 캐시에서 읽어도 score/label 로그 출력 (record 접근자 사용)
+                Kpi k = r.kpi(); // record: r.kpi()
+                if (k != null) {
+                    int pctInt   = (k.savingPct() != null ? k.savingPct() : 0); // Integer → int
+                    double pct   = pctInt;                                      // double 승격
+                    double payback = k.paybackYears();                          // record: k.paybackYears()
+
+                    int score2   = computeStatusScore(pct, payback, builtYear);
+                    String label2 = decideLabelByScore(pct, payback, builtYear);
+
+                    log.info(
+                            "[forecast] (from cache) score = {}, label = {}, savingPct = {}%, payback = {}y, builtYear = {}",
+                            score2,
+                            label2,
+                            pctInt,
+                            String.format("%.2f", payback),
+                            (builtYear == null ? "na" : String.valueOf(builtYear))
+                    );
+                }
+
+                return r; // 캐시 반환
+            } catch (Exception e) {
+                log.warn("[forecast] cache parse failed; recomputing", e);
+                // 캐시 파싱 실패 → 아래로 내려가 새로 계산
             }
-        }
+        }  // ←←← 이 닫는 중괄호가 누락되어 있었습니다!!
+
+        log.info("[forecast] cache MISS hash = {}, computing...", keyHash);
 
         // 4) 계산 (지금은 기존 더미/스텁)
         ForecastResponse resp = computeStub(buildingId, from, to, builtYear);
-        // NOTE: computeStub 내부 점수/라벨 계산은 현재 builtYear=null로 동작(응답 스키마 바꾸지 않기 위함)
 
-        // 5) 캐시 저장
+        // 5) 캐시 저장 (UPSERT)
         try {
-            ApiCache entry = new ApiCache();
-            entry.setCacheKeyHash(keyHash);
-            entry.setCacheKeyRaw(keyRaw);
-            entry.setPayloadJson(objectMapper.writeValueAsString(resp));
-            entry.setExpiresAt(LocalDateTime.now().plusMinutes(ttlMinutes));
-            entry.setBuildingId(buildingId);
-            apiCacheRepository.save(entry);
-        } catch (Exception ignore) {}
+            final String payload = objectMapper.writeValueAsString(resp);
+            final LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(ttlMinutes);
+
+            apiCacheRepository.upsert(
+                    keyHash,
+                    keyRaw,
+                    payload,
+                    expiresAt,
+                    buildingId,
+                    null // guestIp 있으면 전달, 없으면 null
+            );
+        } catch (Exception e) {
+            log.warn("api_cache upsert failed hash = {}", keyHash, e);
+        }
 
         return resp;
     }
@@ -140,16 +177,15 @@ public class ForecastService {
         int score = computeStatusScore(pct, paybackYears, builtYear);
         String label = decideLabelByScore(pct, paybackYears, builtYear);
         // 확인용 로그
-        System.out.printf(
-                "[forecast] score = %d, label = %s, builtYear = %s, age = %s (savingPct = %.1f%%, payback = %.2f years)%n",
+        log.info(
+                "[forecast] score = {}, label = {}, builtYear = {}, age = {}, savingPct = {}%, payback = {}y",
                 score,
                 label,
                 (builtYear == null ? "na" : String.valueOf(builtYear)),
                 (builtYear == null ? "na" : String.valueOf(Year.now().getValue() - builtYear)),
-                pct,
-                paybackYears
+                String.format("%.1f", pct),
+                String.format("%.2f", paybackYears)
         );
-
 
         Series series = new Series(after, saving); // Series(after, saving)
         Cost cost = new Cost(costSaving);          // Cost(saving)
@@ -164,31 +200,31 @@ public class ForecastService {
 
     /* FE와 동일한 점수 계산(가드 포함)*/
     private int computeStatusScore(double savingPct, double paybackYears, Integer builtYear) {
-    // 가드 : 원치 않는 과대 판정 금지
-    if (savingPct < 5.0 || paybackYears > 12.0) return 0;
+        // 가드 : 원치 않는 과대 판정 금지
+        if (savingPct < 5.0 || paybackYears > 12.0) return 0;
 
-    int score = 0;
+        int score = 0;
 
-    // 1. 절감률
-    if (savingPct >= 15.0) score += 2;
-    else if (savingPct >= 10.0) score += 1;
+        // 1. 절감률
+        if (savingPct >= 15.0) score += 2;
+        else if (savingPct >= 10.0) score += 1;
 
-    // 2. 회수기간
-    if (paybackYears <= 5.0) score += 2;
-    else if (paybackYears <= 8.0) score += 1;
+        // 2. 회수기간
+        if (paybackYears <= 5.0) score += 2;
+        else if (paybackYears <= 8.0) score += 1;
 
-    // 3. 연식(없으면 중립 1점)
-    int agePt = 1;
-    int now = Year.now().getValue();
-    if (builtYear != null && builtYear > 0 && builtYear <= now) {
-        int age = now - builtYear;
-        if (age >= 25)      agePt = 2;
-        else if (age >= 10) agePt = 1;
-        else                agePt = 0;
-    }
-    score += agePt;
+        // 3. 연식(없으면 중립 1점)
+        int agePt = 1;
+        int now = Year.now().getValue();
+        if (builtYear != null && builtYear > 0 && builtYear <= now) {
+            int age = now - builtYear;
+            if (age >= 25)      agePt = 2;
+            else if (age >= 10) agePt = 1;
+            else                agePt = 0;
+        }
+        score += agePt;
 
-    return score;
+        return score;
     }
 
     /* FE와 동일한 판정 라벨(점수 기반) */

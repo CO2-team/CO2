@@ -71,6 +71,25 @@ async function init() {
 
 	const root = document.getElementById('forecast-root');
 
+	/* [ADD] 주소창 → data-* Fallback 주입 */
+	{
+		const urlp = new URLSearchParams(location.search);
+		if (root && !root.dataset.pnu && urlp.get('pnu')) {
+			root.dataset.pnu = urlp.get('pnu');
+		}
+		if (root && !root.dataset.builtYear && urlp.get('builtYear')) {
+			root.dataset.builtYear = urlp.get('builtYear');
+		}
+	}
+
+	console.log('[forecast] dataset', {
+    	from: root?.dataset.from,
+    	to: root?.dataset.to,
+    	builtYear: root?.dataset.builtYear,
+    	pnu: root?.dataset.pnu,
+    	bid: root?.dataset.bid
+    });
+
 	// Building info from dataset
 	const BUILD = (function(root){
 	    const get = (k) => (root?.dataset?.[k] ?? '').trim();
@@ -83,7 +102,7 @@ async function init() {
 	        area: num('area'),
 	        plotArea: num('plotArea'),
 	        floorsAbove: int('floorsAbove'),
-	        floorsBelow: int('floorBelow'),
+	        floorsBelow: int('floorsBelow'),   // [FIX] 키 오타
 	        height: num('height'),
 	        approvalDate: get('approvalDate'),
 	        buildingName: get('bname'),
@@ -94,6 +113,9 @@ async function init() {
 	    };
 	})(root);
 	window.BUILDING_INFO = BUILD;
+
+	/* [MOVE] 빌딩 카드 렌더는 데이터 세팅 직후 호출 */
+	renderBuildingCard();
 
 	// from/to 안전 계산: 같으면 7년 확장
 	const rawFrom = root?.dataset.from ?? '2024';
@@ -194,7 +216,7 @@ async function reloadForecast() {
 	const bid = String(root?.dataset.bid ?? '').trim();
 
 	const $result = $('#result-section');
-	const $ml = $('mlLoader');
+	const $ml = $('#mlLoader'); // [FIX] 올바른 셀렉터
 
 	// 로더 표시
 	show($ml);
@@ -223,7 +245,7 @@ async function reloadForecast() {
 
 		data.series.after = toNumArr(data.series.after, L);
 		data.series.saving = toNumArr(data.series.saving, L);
-		sata.cost.saving = toNumArr(data.cost.saving, L);
+		data.cost.saving = toNumArr(data.cost.saving, L); // [FIX] 오타
 	}
 
 	// KPI / 판정 / 요약
@@ -251,7 +273,7 @@ async function reloadForecast() {
 	show($result);
 
 	await renderEnergyComboChart({
-		year: data.years,
+		years: data.years,   // [FIX] key
 		series: data.series,
 		cost: data.cost
 	});
@@ -373,10 +395,10 @@ function makeDummyForecast(fromYear, toYear) {
 
 	// 3) 파라미터(원하면 여기만 조정)
 	const baseKwh       = 2_150_000; // 시작 에너지 사용량 (막대 첫 해)
-	const afterRate     = 0.06;     // 막대: 매년 5% 감소  (↗ 높이면 더 가파름)
-	const startSaving   = 360_000;   // 절감량 첫 해(kWh)    (꺾은선 첫 점 높이)
-	const savingRate    = 0.08;      // 절감량: 매년 8% 감소 (↗ 높이면 더 가파름)
-	const UNIT_PRICE    = 150;       // 1kWh당 원 (꺾은선 전체 스케일)
+	const afterRate     = 0.06;      // 막대: 매년 6% 감소
+	const startSaving   = 360_000;   // 절감량 첫 해(kWh)
+	const savingRate    = 0.08;      // 절감량: 매년 8% 감소
+	const UNIT_PRICE    = 150;       // 1kWh당 원
 
 	// 4) 기하(퍼센트) 감소 수식
 	const after  = Array.from({ length: L }, (_, i) =>
@@ -410,19 +432,23 @@ async function fetchForecast(buildingId, fromYear, toYear) {
 	const years = range(lo, hi);
 	const hasId = typeof buildingId === 'string' && /^\d+$/.test(buildingId);
 
-	// builtYear 준비 : data-built-year 또는 window.savegreen.builtYear
+	// builtYear & pnu 준비
 	const root = document.getElementById('forecast-root');
 	const by1 = Number(root?.dataset?.builtYear);
 	const by2 = Number(window?.savegreen?.builtYear);
 	const builtYear = Number.isFinite(by1) && by1 > 0 ? by1
 					: (Number.isFinite(by2) && by2 > 0 ? by2 : null);
+	const pnu = (root?.dataset?.pnu || '').trim();  // [ADD]
 
 	// 쿼리 구성
-	const q = new URLSearchParams({ from: lo, to: hi});
+	const q = new URLSearchParams({ from: lo, to: hi });
 	if (builtYear) q.append('builtYear', String(builtYear));
+	if (pnu)       q.append('pnu', pnu);            // [ADD]
 
 	const base = hasId ? `/api/forecast/${encodeURIComponent(buildingId)}` : `/api/forecast`;
 	const url  = `${base}?` + q.toString();
+
+	console.log('[forecast] API URL =>', url);
 
 	try {
 		const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -616,7 +642,7 @@ function renderBuildingCard() {
     if (b.plotArea)     rows.push(row('대지면적', nf(b.plotArea)+' m²'));
     if (b.height)       rows.push(row('높이', nf(b.height)+' m'));
     if (b.floorsAbove != null || b.floorsBelow != null) {
-    rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
+    	rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
     }
 
     if (!rows.length) { box.classList.add('hidden'); box.innerHTML=''; return; }
@@ -625,8 +651,6 @@ function renderBuildingCard() {
 
     function fmtYmd(s){ s=String(s).replace(/\D/g,''); if(s.length<8) return s; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
 }
-
-renderBuildingCard();
 
 function euiRefForGrade(grade) {
 	const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
@@ -835,12 +859,13 @@ function hide(el){ if (el) el.classList.add('hidden'); }
 		url.search = new URLSearchParams({
 			service: 'data',
 			request: 'GetFeature',
-			data: 'lp_pa_cbnd_bubun',
+			data: 'LP_PA_CBND',        // [FIX] 레이어명
 			format: 'json',
 			size: '1',
 			key: VWORLD_KEY,
-			geomFilter: 'point(${lon} ${lat}',
-			geometry: 'false'
+			crs: 'EPSG:4326',
+			geometry: 'false',
+			geomFilter: `point(${lon} ${lat})`   // [FIX] 템플릿/괄호
 		}).toString();
 
 		const res = await fetch(url);
