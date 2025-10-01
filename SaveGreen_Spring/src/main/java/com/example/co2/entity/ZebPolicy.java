@@ -22,7 +22,7 @@ public class ZebPolicy {
     private Long zebPolicyId;
 
     @Column(nullable = false , name="zeb_name")
-    private String zebName;   // '5등급', '4등급' ...
+    private String zebName;  
 
     @Column(nullable = false, name="min_percent")
     private BigDecimal minPercent;

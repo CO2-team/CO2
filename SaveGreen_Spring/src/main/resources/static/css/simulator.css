@@ -228,3 +228,26 @@ html, body { min-width: 360px; }
     transform: translateX(0);
   }
 }
+.dropdown {
+  position: absolute;
+  border: 1px solid #ccc;
+  background: #fff;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 300px;
+  display: none;
+  z-index: 1000;
+}
+
+.dropdown.show {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #f0f0f0;
+}

@@ -1,7 +1,6 @@
 package com.example.co2.dto;
 
 import java.math.BigDecimal;
-
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,10 +12,14 @@ public class SimulatorDto {
     private BigDecimal energy;
     private Integer panelCount;   //Integer -> (null 허용)
     private Integer panelPower;
-
     private Double lat;
     private Double lon;
-    private String pnu;
+    
+    private String siNm;
+    private String sggNm;
+    private String roadAddr;
+    private String jibunAddr;
+    private String zipNo;
    
 
 }

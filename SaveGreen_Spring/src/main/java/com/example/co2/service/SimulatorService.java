@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -104,7 +106,6 @@ public class SimulatorService {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode root = mapper.readTree(response);
         JsonNode values= root.path("properties").path("parameter").path("ALLSKY_SFC_SW_DWN");
-
         JsonNode annual = values.path("202413");
         System.out.println("annual = " + annual);
         if (annual.isMissingNode()||annual.isNull()) {
@@ -117,7 +118,39 @@ public class SimulatorService {
         return result;
     }   
    
+    public List<SimulatorDto> searchAddress(String keyword) throws Exception {
+        String url="https://www.juso.go.kr/addrlink/addrLinkApi.do?currentPage=1" +
+                "&countPerPage=5" +
+                "&keyword=" + keyword +
+                "&confmKey=devU01TX0FVVEgyMDI1MTAwMTEwMjQyMTExNjI5NjQ=" +
+                "&resultType=json";
+        RestTemplate rt = new RestTemplate();
+        String response = rt.getForObject(url, String.class);
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response);
+        JsonNode addressArray = root.path("results").path("juso");
+
+        System.out.println("행안부 응답: " + response);
+
+        List<SimulatorDto> list = new ArrayList<>();
+        for (int i = 0; i < addressArray.size(); i++) {
+            JsonNode node = addressArray.get(i);
+
+            SimulatorDto dto = new SimulatorDto();
+            dto.setSiNm(node.path("siNm").asText());
+            dto.setSggNm(node.path("sggNm").asText());
+            dto.setRoadAddr(node.path("roadAddr").asText());
+            dto.setJibunAddr(node.path("jibunAddr").asText());
+            dto.setZipNo(node.path("zipNo").asText());
+            list.add(dto);
+        }
+        return list;
+    }
+
         
     
 }
 
+
+    
