@@ -38,15 +38,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+
 document.addEventListener("DOMContentLoaded", () => {
-    const lat = localStorage.getItem("lat");
-    const lon = localStorage.getItem("lon");
-    if (lat && lon) {
-        document.querySelector("#lat").value = lat;
-        document.querySelector("#lon").value = lon;
+    const area = localStorage.getItem("BuildingArea");
+    console.log("로컬스토리지에서 가져온 건물면적:", area);
+    if (area) {
+        document.getElementById("area1").value = area;
+        document.getElementById("area2").value = area;
     }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    const lat = localStorage.getItem("lat");
+    const lon = localStorage.getItem("lon");
+    console.log("로컬스토리지에서 가져온 좌표:", lat, lon);
+    if (lat && lon) {
+        document.querySelector("#lat1").value = lat;
+        document.querySelector("#lon1").value = lon;
+
+        document.querySelector("#lat2").value = lat;
+        document.querySelector("#lon2").value = lon;
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const ldCodeNm = localStorage.getItem("ldCodeNm");
+    const mnnmSlno = localStorage.getItem("mnnmSlno");
+    console.log("로컬스토리지에서 가져온 주소:", ldCodeNm, mnnmSlno);
+    if (ldCodeNm && mnnmSlno) {
+        const combined = ldCodeNm+""+mnnmSlno;
+        document.getElementById("juso1").value = combined;
+        document.getElementById("juso2").value = combined; 
+    }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   const searchBoxes = document.querySelectorAll(".searchBox");
@@ -162,9 +186,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           });
         });
-
-
-       
 
         resultList.appendChild(item);
       });
