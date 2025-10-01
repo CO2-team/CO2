@@ -51,6 +51,7 @@
 
 
 .form-group {
+    position: relative;
     display: flex;
     background: #fff;
     border: 1px solid #ccc;
@@ -178,13 +179,7 @@ html, body { min-width: 360px; }
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-/* #result-text {
-    text-align: center;
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    color: #333;
-} */
+
  .result-box {
     background: #fff;
     padding: 20px;
@@ -229,25 +224,30 @@ html, body { min-width: 360px; }
   }
 }
 .dropdown {
-  position: absolute;
-  border: 1px solid #ccc;
-  background: #fff;
-  max-height: 200px;
-  overflow-y: auto;
-  width: 300px;
-  display: none;
-  z-index: 1000;
+    position: absolute;
+    top: 100%;        
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border: 1px solid #ccc;
+    background: #fff;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;       
+    display: none; 
 }
 
 .dropdown.show {
-  display: block;
+    display: block;
 }
 
 .dropdown-item {
-  padding: 8px 12px;
-  cursor: pointer;
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    cursor: pointer;
 }
 
 .dropdown-item:hover {
-  background: #f0f0f0;
+    background: #666;
 }
+

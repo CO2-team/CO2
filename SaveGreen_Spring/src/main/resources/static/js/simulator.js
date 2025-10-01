@@ -19,13 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
 
-        document.getElementById('propertyTax').textContent = data.propertyTax ?? '-';
-        document.getElementById('acquireTax').textContent  = data.acquireTax ?? '-';
-        document.getElementById('areaBonus').textContent   = data.areaBonus ?? '-';
+        document.getElementById('propertyTax').textContent = (data.propertyTax ?? '-')+"%";
+        document.getElementById('acquireTax').textContent  = (data.acquireTax ?? '-')+"%";
+        document.getElementById('areaBonus').textContent   = (data.areaBonus ?? '-')+"%";
         document.getElementById('grade').textContent       = data.grade ?? '-';
         document.getElementById('category').textContent    = data.category ?? '-';
-        document.getElementById('energySelf').textContent = data.energySelf ?? '-';
-        document.getElementById('certificationDiscount').textContent = data.certificationDiscount ?? '-';
+        document.getElementById('energySelf').textContent = (data.energySelf ?? '-')+"%";
+        document.getElementById('certificationDiscount').textContent = (data.certificationDiscount ?? '-')+"%";
         document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
@@ -49,74 +49,174 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 document.addEventListener("DOMContentLoaded", () => {
-    const input = document.getElementById("searchBox");
-    const resultList = document.getElementById("searchResult");
+  const searchBoxes = document.querySelectorAll(".searchBox");
 
-  
+  searchBoxes.forEach((input) => {
+    const resultList = input.parentElement.querySelector(".searchResult");
+
     input.addEventListener("keyup", async () => {
-        const keyword = input.value.trim();
-        if (keyword.length < 2) {
+      const keyword = input.value.trim();
+      if (keyword.length < 2) {
+        resultList.innerHTML = "";
+        resultList.classList.remove("show");
+        return;
+      }
+
+      const resp = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
+      const list = await resp.json();
+
+      resultList.innerHTML = "";
+      list.forEach(addr => {
+        const item = document.createElement("div");
+        item.classList.add("dropdown-item");
+        item.textContent = addr.roadAddr;
+
+        item.addEventListener("click", () => {
+          input.value = addr.roadAddr;
           resultList.innerHTML = "";
           resultList.classList.remove("show");
-          return;
-        }
+          // 주소->좌표 변환 AJAX
+          $.ajax({
+            url: "http://api.vworld.kr/req/address",
+            type: "GET",
+            dataType: "jsonp",   
+            data: {
+              service: "address",
+              request: "getcoord",
+              version: "2.0",
+              crs: "epsg:4326",
+              address: addr.roadAddr,   
+              format: "json",
+              type: "road",
+              key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"  
+            },
+            success: function(data) {
+              if (data && data.response && data.response.result && data.response.result.point) {
+                const lon = data.response.result.point.x;
+                const lat = data.response.result.point.y;
 
-        try {
-          const resp = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
-          const list = await resp.json();
+                const currentForm = input.closest("form");
+                $(currentForm).find("input[name='lon']").val(lon);
+                $(currentForm).find("input[name='lat']").val(lat);
 
-          resultList.innerHTML = "";
-          list.forEach(addr => {
-            const item = document.createElement("div");
-            item.classList.add("dropdown-item");
-            item.textContent = addr.roadAddr; // 화면에 표시할 주소
+                console.log("선택된 주소:", addr.roadAddr, "→ 좌표:", lat, lon);
 
-            // 🔹 클릭 이벤트 (주소 선택)
-            item.addEventListener("click", async () => {
-              input.value = addr.roadAddr; // 입력창에 선택 주소 넣기
-              resultList.innerHTML = "";
-              resultList.classList.remove("show");
 
-              // hidden input 채우기
-              document.getElementById("roadAddr").value = addr.roadAddr;
-              document.getElementById("jibunAddr").value = addr.jibunAddr;
-              document.getElementById("zipNo").value = addr.zipNo;
+                // 좌표 -> pnu
+                $.ajax({
+                  url: "http://api.vworld.kr/req/data",
+                  type: "GET",
+                  dataType: "jsonp",
+                  data: {
+                    service: "data",
+                    request: "getfeature",
+                    data: "lp_pa_cbnd_bubun",
+                    format: "json",
+                    geomFilter: `POINT(${lon} ${lat})`,
+                    crs: "EPSG:4326",
+                    key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"
+                  },
+                  success: function (pnuData) {
+                    const pnu = pnuData?.response?.result?.featureCollection?.features?.[0]?.properties?.pnu;
+                    if (!pnu) {
+                      console.warn("PNU 조회 실패:", pnuData);
+                      return;
+                    }
+                    console.log("PNU:", pnu);
 
-          
-              const geoResp = await fetch(
-                `http://api.vworld.kr/req/address?service=address
-                &request=getcoord
-                &version=2.0
-                &crs=epsg:4326
-                &address=${encodeURIComponent(addr.roadAddr)}
-                &format=json
-                &type=road
-                &key=AED66EDE-3B3C-3034-AE11-9DBA47236C69`
-              );
-              const geoData = await geoResp.json();
-              if (geoData.response && geoData.response.result && geoData.response.result.point) {
-                const lon = geoData.response.result.point.x;
-                const lat = geoData.response.result.point.y;
+                    // pnu로 건물면적조회
+                    $.ajax({
+                      url: "http://api.vworld.kr/ned/data/getBuildingUse",
+                      type: "GET",
+                      dataType: "jsonp",
+                      data: {
+                        key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69",
+                        pnu: pnu,
+                        format: "json"
+                      },
+                      success: function (buildData) {
+                        const area = buildData?.buildingUses?.field?.[0]?.buldBildngAr;
+                        if (area) {
+                          $(currentForm).find("input[name='area']").val(area);
 
-                document.getElementById("lat").value = lat;
-                document.getElementById("lon").value = lon;
-
-                console.log("선택된 주소:", addr.roadAddr, "좌표:", lat, lon);
+                          console.log("건물면적:", area);
+                        } else {
+                          console.warn("면적 정보 없음:", buildData);
+                        }
+                      },
+                      error: function (xhr, status, error) {
+                        console.error("건물정보 API 오류:", error);
+                      }
+                    });
+                  },
+                  error: function (xhr, status, error) {
+                    console.error("PNU API 오류:", error);
+                  }
+                });
               } else {
-                console.warn("지오코딩 실패:", geoData);
+                console.warn("지오코딩 결과 없음:", data);
               }
-            });
-
-          resultList.appendChild(item);
+            },
+            error: function(err) {
+              console.error("지오코딩 API 호출 실패:", err);
+            }
+          });
         });
 
-        if (list.length > 0) {
-          resultList.classList.add("show");
-        } else {
-          resultList.classList.remove("show");
-        }
-      } catch (err) {
-        console.error("주소 검색 오류:", err);
+
+       
+
+        resultList.appendChild(item);
+      });
+
+      if (list.length > 0) {
+        resultList.classList.add("show");
+      } else {
+        resultList.classList.remove("show");
       }
     });
+  });
 });
+
+// 주소검색을 위한 js
+ 
+// document.addEventListener("DOMContentLoaded", () => {
+//   const searchBoxes = document.querySelectorAll(".searchBox");
+
+//   searchBoxes.forEach((input, idx) => {
+//     const resultList = input.parentElement.querySelector(".searchResult");
+
+//     input.addEventListener("keyup", async () => {
+//       const keyword = input.value.trim();
+//       if (keyword.length < 2) {
+//         resultList.innerHTML = "";
+//         resultList.classList.remove("show");
+//         return;
+//       }
+
+//       const resp = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
+//       const list = await resp.json();
+
+//       resultList.innerHTML = "";
+//       list.forEach(addr => {
+//         const item = document.createElement("div");
+//         item.classList.add("dropdown-item");
+//         item.textContent = addr.roadAddr;
+
+//         item.addEventListener("click", () => {
+//           input.value = addr.roadAddr;
+//           resultList.innerHTML = "";
+//           resultList.classList.remove("show");
+//         });
+
+//         resultList.appendChild(item);
+//       });
+
+//       if (list.length > 0) {
+//         resultList.classList.add("show");
+//       } else {
+//         resultList.classList.remove("show");
+//       }
+//     });
+//   });
+// });
