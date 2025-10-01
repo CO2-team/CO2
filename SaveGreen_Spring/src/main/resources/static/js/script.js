@@ -17,7 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 const banners = document.querySelectorAll('.main-banner');
-window.addEventListener('scroll', () => {
+
+window.addEventListener('wheel', () => {
     console.log("스크롤 이벤트 작동!");
     banners.forEach((banner, idx) => {
         const rect = banner.getBoundingClientRect();
@@ -29,4 +30,5 @@ window.addEventListener('scroll', () => {
             banner.classList.remove('active');
         }
     });
-});
+
+});   

@@ -68,20 +68,30 @@ main, .container {
     font-weight: bold;   
     padding: 10px;
     z-index: 99;
+    
 }
+
+.logo_img{
+    display: block;
+    position: absolute;
+    height: auto;
+    top: 11%;
+    left: 8%;
+    
+}
+
+
 
 /* 드롭다운 패널 */
 
 /* 상단 메뉴 hover 시 메뉴바 전체 배경 흰색 */
 
 .logo_bk{    
-    color: #133D1E;
     display: block;
-    position: absolute;
-    top: 8%;
     font-weight: bold;
-    font-size: 1.5em;
-    left: 2%;
+    width: 1vh;
+    height: 1%;
+    size: 3px;
 }
 nav:hover {
   background-color: #ffffff;
@@ -110,9 +120,9 @@ nav:hover a {
 /* 각 큰 카테고리를 세로 정렬 */
 .dropdown-panel ul {
     display: flex;
-    flex-direction: column; /* 세로로 배치 */
-    align-items: center;    /* 가운데 정렬 */
-    margin: 0 80px;
+    flex-direction: column;
+    align-items: center;
+    margin: 1% 5%;
     padding: 0;
     list-style: none;
     white-space: nowrap;
@@ -131,11 +141,13 @@ nav:hover a {
     color: #333;
     font-size: 0.95rem;
     font-weight: 400;
-    padding: 10px 14px;
+    padding: 10% 0%;
     border-radius: 6px;
     transition: background 0.3s, color 0.3s;
     text-decoration: none;
     white-space: nowrap;
+    margin: 3% 0%;
+    display: block;
     
 }
 
