@@ -29,7 +29,8 @@ public class SimulatorService {
         
 
         BigDecimal annualUsage = dto.getEnergy();
-        BigDecimal solarRadiation = getSolarRadiation(37.494,126.917);
+        BigDecimal solarRadiation = getSolarRadiation(dto.getLat(),dto.getLon());
+        System.out.println(dto.getLat()+","+dto.getLon());
         BigDecimal efficiency = BigDecimal.valueOf(0.8); 
         Integer panelPowerInt = dto.getPanelPower();
         Integer panelCountInt = dto.getPanelCount();
@@ -65,12 +66,19 @@ public class SimulatorService {
             res.setEnergySelf(energySelf);
         }
         if (z != null) {
-            res.setZebGrade(z.getZebName());           // 등급명: 5등급, 4등급 …
-            res.setPropertyTax(z.getTax1Discount());       // 취득세 같은 항목
-            res.setAcquireTax(z.getTax2Discount());       // 재산세 같은 항목
-            res.setRenewableSupport(z.getRenewableSupport()); // 보조금 설명
+            res.setZebGrade(z.getZebName());         
+            if (z.getTax1Discount()>res.getPropertyTax()) {
+                res.setPropertyTax(z.getTax1Discount());
+            }
+            if (z.getTax2Discount()>res.getAcquireTax()) {
+                res.setAcquireTax(z.getTax2Discount());
+            }    
+            if (z.getAreaBonus()>res.getAreaBonus()) {
+                res.setAreaBonus(z.getAreaBonus());
+            }
+            res.setRenewableSupport(z.getRenewableSupport()); 
             res.setCertificationDiscount(z.getCertificationDiscount());
-            res.setAreaBonus(z.getAreaBonus()); 
+            
          
         } else {
             res.setZebGrade("등급없음");

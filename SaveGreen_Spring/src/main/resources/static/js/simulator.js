@@ -28,6 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const box = document.getElementById('resultBox');
     if (box) box.style.display = 'block';
 
-   
+    const items = box.querySelectorAll('.result-item');
+        items.forEach((item, index) => {
+          setTimeout(() => item.classList.add('show'), index * 300);
+    });
   });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const lat = localStorage.getItem("lat");
+    const lon = localStorage.getItem("lon");
+    if (lat && lon) {
+        document.querySelector("#lat").value = lat;
+        document.querySelector("#lon").value = lon;
+    }
 });

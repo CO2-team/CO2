@@ -76,6 +76,11 @@ function buildingInfoEvent(windowPosition, ecefPosition, cartographic, modelObje
             });
 
             getBuildingInfo(pnu);
+
+            // service.js (지도 클릭 시)
+            localStorage.setItem("lat", lat);
+            localStorage.setItem("lon", lon);
+
         }
     });
 }
@@ -193,7 +198,7 @@ function showPopup(windowPosition, html) {
     popup.style.left = (windowPosition.x + 10) + "px";
     popup.style.top = (windowPosition.y - 10) + "px";
     popup.innerHTML = html;
-    popup.style.display = "block";
+    popup.style.display = "block"; 
 }
 
 function hidePopup() {

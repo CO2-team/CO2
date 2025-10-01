@@ -178,10 +178,53 @@ html, body { min-width: 360px; }
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-#result-text {
+/* #result-text {
     text-align: center;
     font-size: 20px;
     font-weight: bold;
     margin-bottom: 20px;
     color: #333;
+} */
+ .result-box {
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 400px;
+    margin: 20px auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 12px 0;
+    opacity: 0;                /* 처음엔 안보이게 */
+    transform: translateX(-50px); /* 왼쪽으로 숨겨둠 */
+}
+
+.result-item.show {
+    animation: slideIn 0.6s ease forwards;    
+}
+
+.result-item .label {
+    font-weight: 500;
+    color: #333;
+}
+
+.result-item .value {
+    background: #e6f5e9;
+    color: #2c7a3f;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    min-width: 60px;
+    text-align: center;
+}
+
+@keyframes slideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

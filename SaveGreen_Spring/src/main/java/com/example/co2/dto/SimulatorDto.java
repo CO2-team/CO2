@@ -16,7 +16,7 @@ public class SimulatorDto {
 
     private Double lat;
     private Double lon;
-
+    private String pnu;
    
 
 }

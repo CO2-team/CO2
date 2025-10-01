@@ -3,6 +3,7 @@ package com.example.co2.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import com.example.co2.dto.SimulatorDto;
@@ -20,8 +21,10 @@ public class SimulatorController {
 
     @PostMapping("/simulate")
     @ResponseBody
-    public SimulatorResultDto simulate(SimulatorDto dto) throws Exception { 
+    public SimulatorResultDto simulate(@ModelAttribute SimulatorDto dto) throws Exception { 
+        System.out.println(  dto.getLat()  + dto.getLon());
         return simulatorService.calculate(dto);
+        
 }
 
 }
