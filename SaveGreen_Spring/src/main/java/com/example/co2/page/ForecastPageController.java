@@ -3,7 +3,9 @@ package com.example.co2.page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Controller
 @RequestMapping("/forecast") // 페이지 prefix 고정
 public class ForecastPageController {
@@ -47,10 +49,6 @@ public class ForecastPageController {
         if (buildingIdent != null && !buildingIdent.isBlank())  model.addAttribute("buildingIdent", buildingIdent);
         if (lotSerial != null && !lotSerial.isBlank())          model.addAttribute("lotSerial", lotSerial);
 
-
-
-
-
         return "html/forecast"; // templates/html/forecast.html
     }
 
@@ -75,6 +73,7 @@ public class ForecastPageController {
             @RequestParam(required = false) String lotSerial,
             Model model
     ) {
+        log.info("PAGE /forecast id = {}, builtYear = {}, pnu = {}", id, builtYear, pnu);
         model.addAttribute("buildingId", id); // 숫자 그대로
         model.addAttribute("fromYear", from);
         model.addAttribute("toYear", to);
