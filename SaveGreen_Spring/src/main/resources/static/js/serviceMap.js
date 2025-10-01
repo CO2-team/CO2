@@ -181,6 +181,10 @@ function getBuildingInfo(pnu) {
                 $("#ldCodeNm").val(info.ldCodeNm);
                 $("#mnnmSlno").val(info.mnnmSlno);
 
+                localStorage.setItem("ldCodeNm", info.ldCodeNm);
+                localStorage.setItem("mnnmSlno", info.mnnmSlno);
+                localStorage.setItem("BuildingArea", info.buldBildngAr);
+
             } else {
                 showPopup(lastClickPosition, "조회된 건물 정보가 없습니다.");
             }

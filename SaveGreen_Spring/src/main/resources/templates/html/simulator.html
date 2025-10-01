@@ -7,6 +7,7 @@
     <link rel="stylesheet" th:href="@{/css/simulator.css}">
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 
@@ -20,23 +21,23 @@
         <div class="simulator-input">
             <h3>에너지 효율 등급 시뮬레이터</h3>
             <form id="simulatorForm" th:action="@{/simulate}" method="post">
-                <input type="hidden" name="lat" id="lat">
-                <input type="hidden" name="lon" id="lon">
+                <input type="hidden" name="lat" id="lat1">
+                <input type="hidden" name="lon" id="lon1">
                 
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
-                    <label></label>
-                    <input type="text" name="address" placeholder="주소(선택)">
+                    <input type="text" id="juso1" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
+                    <div  class="dropdown searchResult"></div>
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" name="area" placeholder="건물 면적" required title="건물 면적을 입력하세요">
+                    <input type="number" name="area" step="any" id="area1" placeholder="건물 면적" required title="건물 면적을 입력하세요">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/battery.png" alt="Battery Icon">
                     <label>kWh/년</label>
-                    <input type="number" name="energy" placeholder="에너지" required title="에너지 사용량을 입력하세요">
+                    <input type="number" name="energy" step="any" placeholder="에너지" required title="에너지 사용량을 입력하세요">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
@@ -64,7 +65,7 @@
         </div>
         <div class="result-item">
             <span class="label">에너지 자립도</span>
-            <span class="value" id="energySelf">%</span>
+            <span class="value" id="energySelf">-</span>
         </div>
         <div class="result-item">
             <span class="label">ZEB 등급</span>
@@ -72,19 +73,19 @@
         </div>
         <div class="result-item">
             <span class="label">재산세 감면</span>
-            <span class="value" id="propertyTax">%</span>
+            <span class="value" id="propertyTax">-</span>
         </div>
         <div class="result-item">
             <span class="label">취득세 감면</span>
-            <span class="value" id="acquireTax">%</span>
+            <span class="value" id="acquireTax">-</span>
         </div>
         <div class="result-item">
             <span class="label">건물 기준 완화</span>
-            <span class="value" id="areaBonus">%</span>
+            <span class="value" id="areaBonus">-</span>
         </div>
         <div class="result-item">
             <span class="label">ZEB인증비용 감면</span>
-            <span class="value" id="certificationDiscount">%</span>
+            <span class="value" id="certificationDiscount">-</span>
         </div>
         <div class="result-item">
             <span class="label">추가 혜택</span>
@@ -103,8 +104,8 @@
             <h3>태양광 에너지 효율·경제성 시뮬레이터</h3>
             <form id="simulatorForm2" th:action="@{/simulate}" method="post">
 
-                <input type="hidden" name="lat" id="lat">
-                <input type="hidden" name="lon" id="lon">
+                <input type="hidden" name="lat" id="lat2">
+                <input type="hidden" name="lon" id="lon2">
 
                 <input type="hidden" id="roadAddr" name="roadAddr">
                 <input type="hidden" id="jibunAddr" name="jibunAddr">
@@ -112,13 +113,13 @@
                
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
-                    <input type="text" id="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
-                    <div id="searchResult" class="dropdown"></div>
+                    <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
+                    <div  class="dropdown searchResult"></div>
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" name="area" placeholder="건물 면적">
+                    <input type="number" id="area2" step="any" name="area" placeholder="건물 면적">
                 </div>
 
                 <div class="form-row">
@@ -170,5 +171,6 @@
    
     <div th:replace="layouts/footer :: footer"></div>
 <script th:src="@{/js/simulator.js}"></script>
+
 </body>
 </html>

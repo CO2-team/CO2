@@ -117,7 +117,7 @@ public class SimulatorService {
 
         return result;
     }   
-   
+   // 도로명 주소 검색
     public List<SimulatorDto> searchAddress(String keyword) throws Exception {
         String url="https://www.juso.go.kr/addrlink/addrLinkApi.do?currentPage=1" +
                 "&countPerPage=5" +
@@ -131,7 +131,7 @@ public class SimulatorService {
         JsonNode root = mapper.readTree(response);
         JsonNode addressArray = root.path("results").path("juso");
 
-        System.out.println("행안부 응답: " + response);
+      
 
         List<SimulatorDto> list = new ArrayList<>();
         for (int i = 0; i < addressArray.size(); i++) {
