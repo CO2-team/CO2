@@ -40,13 +40,14 @@ public class ForecastService {
     }
 
     /** 컨트롤러에서 호출되는 공개 메서드 */
-    public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario) {
+    public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario, Integer builtYear) {
         // 1) from==to → 7년 확장, from>to → 스왑
         int[] range = normalizeRange(fromYear, toYear);
         int from = range[0], to = range[1];
 
         // 2) 캐시 키 구성
-        String keyRaw = buildCacheKeyRaw(buildingId, from, to, scenario);
+        String keyRaw = buildCacheKeyRaw(buildingId, from, to, scenario)
+                + ";builtYear=" + ((builtYear == null || builtYear <= 0) ? "na" : String.valueOf(builtYear));
         String keyHash = HashUtils.sha256Hex(keyRaw);
 
         // 3) 캐시 조회(미만료)
@@ -61,8 +62,9 @@ public class ForecastService {
             }
         }
 
-        // 4) 계산(현재는 더미 데이터)
-        ForecastResponse resp = computeStub(buildingId, from, to);
+        // 4) 계산 (지금은 기존 더미/스텁)
+        ForecastResponse resp = computeStub(buildingId, from, to, builtYear);
+        // NOTE: computeStub 내부 점수/라벨 계산은 현재 builtYear=null로 동작(응답 스키마 바꾸지 않기 위함)
 
         // 5) 캐시 저장
         try {
@@ -94,7 +96,7 @@ public class ForecastService {
     }
 
     /** 더미 생성 + KPI 계산 (FE 파라미터와 동일) */
-    private ForecastResponse computeStub(Long buildingId, int from, int to) {
+    private ForecastResponse computeStub(Long buildingId, int from, int to, Integer builtYear) {
         int len = (to - from) + 1;
 
         // years
@@ -135,13 +137,17 @@ public class ForecastService {
         paybackYears = Math.round(paybackYears * 100.0) / 100.0; // 소수 2자리
 
         // === FE와 동일한 점수 / 라벨 계산(연식 미상 -> 중립 1점) ===
-        Integer builtYear = null; // 브이월드 연동전 전이므로 일단 null(중립 1점)
         int score = computeStatusScore(pct, paybackYears, builtYear);
         String label = decideLabelByScore(pct, paybackYears, builtYear);
         // 확인용 로그
         System.out.printf(
-                "[forecast] score = %d, label = %s (savingPct = %.1f%%, payback = %.2f years)%n",
-                score, label, pct, paybackYears
+                "[forecast] score = %d, label = %s, builtYear = %s, age = %s (savingPct = %.1f%%, payback = %.2f years)%n",
+                score,
+                label,
+                (builtYear == null ? "na" : String.valueOf(builtYear)),
+                (builtYear == null ? "na" : String.valueOf(Year.now().getValue() - builtYear)),
+                pct,
+                paybackYears
         );
 
 
@@ -152,10 +158,8 @@ public class ForecastService {
         return new ForecastResponse(years, series, cost, kpi);
     }
 
-    public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario, Integer builtYear) {
-        // TODO: 다음 단계에서 builtYear를 캐시 키/판정 로직에 반영
-        // 현재는 기존 구현에 위임 (동일 결과 보장)
-        return forecast(buildingId, fromYear, toYear, scenario);
+    public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario) {
+        return forecast(buildingId, fromYear, toYear, scenario, null);
     }
 
     /* FE와 동일한 점수 계산(가드 포함)*/
