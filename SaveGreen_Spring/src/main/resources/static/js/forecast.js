@@ -1,10 +1,10 @@
 /* =========================
- * forecast.js (FULL, final)
+ * forecast.js (A안: renderKpis만 사용)
  * - DOMContentLoaded → init()
  * - 헤더 겹침 보정
  * - 5단계 로딩바(최소 표시시간)
  * - API/더미 데이터 (from=to → 7년 확장)
- * - KPI/배너/요약 렌더
+ * - KPI/배너/요약 렌더 (renderKpis만 사용)
  * - 차트: 막대 순차 → 점 순차 → 선 표시 (항상 막대 위)
  * ========================= */
 
@@ -71,7 +71,7 @@ async function init() {
 
 	const root = document.getElementById('forecast-root');
 
-	/* [ADD] 주소창 → data-* Fallback 주입 */
+	/* 주소창 → data-* Fallback 주입 */
 	{
 		const urlp = new URLSearchParams(location.search);
 		if (root && !root.dataset.pnu && urlp.get('pnu')) {
@@ -83,38 +83,38 @@ async function init() {
 	}
 
 	console.log('[forecast] dataset', {
-    	from: root?.dataset.from,
-    	to: root?.dataset.to,
-    	builtYear: root?.dataset.builtYear,
-    	pnu: root?.dataset.pnu,
-    	bid: root?.dataset.bid
-    });
+		from: root?.dataset.from,
+		to: root?.dataset.to,
+		builtYear: root?.dataset.builtYear,
+		pnu: root?.dataset.pnu,
+		bid: root?.dataset.bid
+	});
 
 	// Building info from dataset
 	const BUILD = (function(root){
-	    const get = (k) => (root?.dataset?.[k] ?? '').trim();
-	    const num = (k) => { const s = get(k).replace(/,/g,''); const n = Number(s); return Number.isFinite(n)?n:null; };
-	    const int = (k) => { const s = get(k); const n = parseInt(s, 10); return Number.isFinite(n)?n:null; };
-	    const by = Number(get('builtYear'));
-	    return {
-	        pnu: get('pnu'),
-	        use: get('use'),
-	        area: num('area'),
-	        plotArea: num('plotArea'),
-	        floorsAbove: int('floorsAbove'),
-	        floorsBelow: int('floorsBelow'),   // [FIX] 키 오타
-	        height: num('height'),
-	        approvalDate: get('approvalDate'),
-	        buildingName: get('bname'),
-	        dongName: get('bdong'),
-	        buildingIdent: get('bident'),
-	        lotSerial: get('lotSerial'),
-	        builtYear: Number.isFinite(by)&&by>0?by:null
-	    };
+		const get = (k) => (root?.dataset?.[k] ?? '').trim();
+		const num = (k) => { const s = get(k).replace(/,/g,''); const n = Number(s); return Number.isFinite(n)?n:null; };
+		const int = (k) => { const s = get(k); const n = parseInt(s, 10); return Number.isFinite(n)?n:null; };
+		const by = Number(get('builtYear'));
+		return {
+			pnu: get('pnu'),
+			use: get('use'),
+			area: num('area'),
+			plotArea: num('plotArea'),
+			floorsAbove: int('floorsAbove'),
+			floorsBelow: int('floorsBelow'),
+			height: num('height'),
+			approvalDate: get('approvalDate'),
+			buildingName: get('bname'),
+			dongName: get('bdong'),
+			buildingIdent: get('bident'),
+			lotSerial: get('lotSerial'),
+			builtYear: Number.isFinite(by)&&by>0?by:null
+		};
 	})(root);
 	window.BUILDING_INFO = BUILD;
 
-	/* [MOVE] 빌딩 카드 렌더는 데이터 세팅 직후 호출 */
+	// 빌딩 카드 렌더(데이터 세팅 직후)
 	renderBuildingCard();
 
 	// from/to 안전 계산: 같으면 7년 확장
@@ -183,6 +183,7 @@ async function init() {
 	window._STATUS_SCORE_ = statusObj.score;
 	window.__STATUS__ = statusObj;
 
+	// 렌더(등급/KPI/요약)
 	renderKpis(kpi, { gradeNow });
 	renderSummary({ gradeNow, kpi });
 
@@ -216,7 +217,7 @@ async function reloadForecast() {
 	const bid = String(root?.dataset.bid ?? '').trim();
 
 	const $result = $('#result-section');
-	const $ml = $('#mlLoader'); // [FIX] 올바른 셀렉터
+	const $ml = $('#mlLoader');
 
 	// 로더 표시
 	show($ml);
@@ -245,7 +246,7 @@ async function reloadForecast() {
 
 		data.series.after = toNumArr(data.series.after, L);
 		data.series.saving = toNumArr(data.series.saving, L);
-		data.cost.saving = toNumArr(data.cost.saving, L); // [FIX] 오타
+		data.cost.saving = toNumArr(data.cost.saving, L);
 	}
 
 	// KPI / 판정 / 요약
@@ -273,7 +274,7 @@ async function reloadForecast() {
 	show($result);
 
 	await renderEnergyComboChart({
-		years: data.years,   // [FIX] key
+		years: data.years,
 		series: data.series,
 		cost: data.cost
 	});
@@ -350,9 +351,9 @@ function startLoader() {
 
 		clearInterval(LOADER.timer);
 		LOADER.stepTimer = setTimeout(() => {
-            if (LOADER.done) return;
-            LOADER.timer = setInterval(tick, LOADER.TICK_MS);
-        }, LOADER.STEP_PAUSE_MS[level - 2] || 0);
+			if (LOADER.done) return;
+			LOADER.timer = setInterval(tick, LOADER.TICK_MS);
+		}, LOADER.STEP_PAUSE_MS[level - 2] || 0);
 	}
 }
 
@@ -435,15 +436,15 @@ async function fetchForecast(buildingId, fromYear, toYear) {
 	// builtYear & pnu 준비
 	const root = document.getElementById('forecast-root');
 	const by1 = Number(root?.dataset?.builtYear);
-	const by2 = Number(window?.savegreen?.builtYear);
+    const by2 = Number(window?.savegreen?.builtYear);
 	const builtYear = Number.isFinite(by1) && by1 > 0 ? by1
 					: (Number.isFinite(by2) && by2 > 0 ? by2 : null);
-	const pnu = (root?.dataset?.pnu || '').trim();  // [ADD]
+	const pnu = (root?.dataset?.pnu || '').trim();
 
 	// 쿼리 구성
 	const q = new URLSearchParams({ from: lo, to: hi });
 	if (builtYear) q.append('builtYear', String(builtYear));
-	if (pnu)       q.append('pnu', pnu);            // [ADD]
+	if (pnu)       q.append('pnu', pnu);
 
 	const base = hasId ? `/api/forecast/${encodeURIComponent(buildingId)}` : `/api/forecast`;
 	const url  = `${base}?` + q.toString();
@@ -507,20 +508,7 @@ function estimateEnergyGrade(savingPct) {
 
 
 /* 점수 기반 배너 판정
-
-점수 규칙:
-절감률: ≥15% → 2점 / 10–14% → 1점 / <10% → 0점
-회수기간: ≤5년 → 2점 / 6–8년 → 1점 / >8년 → 0점
-연식: ≥25년 → 2점 / 10–24년 → 1점 / <10년 → 0점
-(연식 미상은 1점 중립)
-
-savingPct(절감률) < 5 또는 paybackYears(회수기간) > 12 ⇒ 무조건 비추천
-(원치 않는 과대판정 방지)
-
-최종 배너:
-합계 ≥4 → 추천 / 2–3 → 조건부 / 0–1 → 비추천 (가드가 우선)
-*/
-
+   (절감률/회수기간/연식 점수 + 가드) */
 function decideStatusByScore(kpi, opts = {}) {
 	const now = new Date().getFullYear();
 	const savingPct = Number(kpi?.savingPct ?? 0);
@@ -611,45 +599,45 @@ function renderSummary({ gradeNow /*, kpi*/ }) {
 	});
 
 	// ▼ 추정 현재 EUI (연면적 우선, 없으면 건축면적)
-    const areaForEui = window.BUILDING_INFO?.floorArea || window.BUILDING_INFO?.area || null;
-    if (areaForEui && Array.isArray(window.FORECAST_DATA?.series?.after)) {
-    	const arr = window.FORECAST_DATA.series.after;
-    	const last = Number(arr[arr.length - 1] || 0);
-    	const euiNow = last > 0 ? Math.round(last / areaForEui) : 0; // kWh/m^2·년
-    	const li = document.createElement('li');
-    	li.innerHTML = `추정 현재 EUI : <strong>${nf(euiNow)} kWh/m^2/년</strong>`;
-    	ul.appendChild(li);
-    }
+	const areaForEui = window.BUILDING_INFO?.floorArea || window.BUILDING_INFO?.area || null;
+	if (areaForEui && Array.isArray(window.FORECAST_DATA?.series?.after)) {
+		const arr = window.FORECAST_DATA.series.after;
+		const last = Number(arr[arr.length - 1] || 0);
+		const euiNow = last > 0 ? Math.round(last / areaForEui) : 0; // kWh/m^2·년
+		const li = document.createElement('li');
+		li.innerHTML = `추정 현재 EUI : <strong>${nf(euiNow)} kWh/m^2/년</strong>`;
+		ul.appendChild(li);
+	}
 }
 
 function renderBuildingCard() {
-    const box = document.getElementById('building-card');
-    if (!box) return;
-    const b = window.BUILDING_INFO || {};
-    const rows = [];
-    const row = (k,v)=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
-    const esc = (t)=>String(t).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+	const box = document.getElementById('building-card');
+	if (!box) return;
+	const b = window.BUILDING_INFO || {};
+	const rows = [];
+	const row = (k,v)=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+	const esc = (t)=>String(t).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 
-    if (b.buildingName) rows.push(row('건물명', esc(b.buildingName)));
-    if (b.dongName)     rows.push(row('동명', esc(b.dongName)));
-    if (b.buildingIdent)rows.push(row('식별번호', esc(b.buildingIdent)));
-    if (b.pnu)          rows.push(row('PNU', esc(b.pnu)));
-    if (b.lotSerial)    rows.push(row('지번', esc(b.lotSerial)));
-    if (b.use)          rows.push(row('용도', esc(b.use)));
-    if (b.builtYear)    rows.push(row('준공연도', String(b.builtYear)));
-    if (b.approvalDate) rows.push(row('사용승인일', esc(fmtYmd(b.approvalDate))));
-    if (b.area)         rows.push(row('건축면적', nf(b.area)+' m²'));
-    if (b.plotArea)     rows.push(row('대지면적', nf(b.plotArea)+' m²'));
-    if (b.height)       rows.push(row('높이', nf(b.height)+' m'));
-    if (b.floorsAbove != null || b.floorsBelow != null) {
-    	rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
-    }
+	if (b.buildingName) rows.push(row('건물명', esc(b.buildingName)));
+	if (b.dongName)     rows.push(row('동명', esc(b.dongName)));
+	if (b.buildingIdent)rows.push(row('식별번호', esc(b.buildingIdent)));
+	if (b.pnu)          rows.push(row('PNU', esc(b.pnu)));
+	if (b.lotSerial)    rows.push(row('지번', esc(b.lotSerial)));
+	if (b.use)          rows.push(row('용도', esc(b.use)));
+	if (b.builtYear)    rows.push(row('준공연도', String(b.builtYear)));
+	if (b.approvalDate) rows.push(row('사용승인일', esc(fmtYmd(b.approvalDate))));
+	if (b.area)         rows.push(row('건축면적', nf(b.area)+' m²'));
+	if (b.plotArea)     rows.push(row('대지면적', nf(b.plotArea)+' m²'));
+	if (b.height)       rows.push(row('높이', nf(b.height)+' m'));
+	if (b.floorsAbove != null || b.floorsBelow != null) {
+		rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
+	}
 
-    if (!rows.length) { box.classList.add('hidden'); box.innerHTML=''; return; }
-    box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
-    box.classList.remove('hidden');
+	if (!rows.length) { box.classList.add('hidden'); box.innerHTML=''; return; }
+	box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
+	box.classList.remove('hidden');
 
-    function fmtYmd(s){ s=String(s).replace(/\D/g,''); if(s.length<8) return s; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
+	function fmtYmd(s){ s=String(s).replace(/\D/g,''); if(s.length<8) return s; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
 }
 
 function euiRefForGrade(grade) {
@@ -859,13 +847,13 @@ function hide(el){ if (el) el.classList.add('hidden'); }
 		url.search = new URLSearchParams({
 			service: 'data',
 			request: 'GetFeature',
-			data: 'LP_PA_CBND',        // [FIX] 레이어명
+			data: 'LP_PA_CBND',
 			format: 'json',
 			size: '1',
 			key: VWORLD_KEY,
 			crs: 'EPSG:4326',
 			geometry: 'false',
-			geomFilter: `point(${lon} ${lat})`   // [FIX] 템플릿/괄호
+			geomFilter: `point(${lon} ${lat})`
 		}).toString();
 
 		const res = await fetch(url);

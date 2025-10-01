@@ -22,14 +22,20 @@ public class ForecastApiController {
             @RequestParam(required = false, defaultValue = "2024") Integer from,
             @RequestParam(required = false, defaultValue = "2030") Integer to,
             @RequestParam(required = false, defaultValue = "default") String scenario,
-            @RequestParam(required = false) Integer builtYear
+            @RequestParam(required = false) Integer builtYear,
+            @RequestParam(required = false) String use,
+            @RequestParam(required = false) Double floorArea,
+            @RequestParam(required = false) String pnu
     ) {
         ForecastResponse res = forecastService.forecast(
-                null,
-                safe(from, 2024),
-                safe(to, 2030),
-                scenario,
-                builtYear
+            null,
+            safe(from, 2024),
+            safe(to, 2030),
+            scenario,
+            builtYear,
+            use,
+            floorArea,
+            pnu
         );
         return ResponseEntity.ok(res);
     }
@@ -41,14 +47,19 @@ public class ForecastApiController {
             @RequestParam(required = false, defaultValue = "2024") Integer from,
             @RequestParam(required = false, defaultValue = "2030") Integer to,
             @RequestParam(required = false, defaultValue = "default") String scenario,
-            @RequestParam(required = false) Integer builtYear
+            @RequestParam(required = false) Integer builtYear,
+            @RequestParam(required = false) String use,
+            @RequestParam(required = false) Double floorArea
     ) {
         ForecastResponse res = forecastService.forecast(
                 buildingId,
                 safe(from, 2024),
                 safe(to, 2030),
                 scenario,
-                builtYear
+                builtYear,
+                use,
+                floorArea,
+                null // id 버전에서는 pnu 사용 안함
         );
         return ResponseEntity.ok(res);
     }

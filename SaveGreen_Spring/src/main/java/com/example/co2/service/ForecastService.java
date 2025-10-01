@@ -45,13 +45,30 @@ public class ForecastService {
 
     /** 컨트롤러에서 호출되는 공개 메서드 */
     public ForecastResponse forecast(Long buildingId, int fromYear, int toYear, String scenario, Integer builtYear) {
+        return forecast(buildingId, fromYear, toYear, scenario, builtYear, null, null, null);
+    }
+
+    // [ADD] 확장 오버로드: use, floorArea, pnu 포함
+    public ForecastResponse forecast(
+            Long buildingId,
+            int fromYear,
+            int toYear,
+            String scenario,
+            Integer builtYear,
+            String use,
+            Double floorArea,
+            String pnu
+    ) {
         // 1) from==to → 7년 확장, from>to → 스왑
         int[] range = normalizeRange(fromYear, toYear);
         int from = range[0], to = range[1];
 
-        // 2) 캐시 키 구성
+        // 2) 캐시 키 구성 (기존 + builtYear/use/floorArea/pnu 추가)
         String keyRaw = buildCacheKeyRaw(buildingId, from, to, scenario)
-                + ";builtYear=" + ((builtYear == null || builtYear <= 0) ? "na" : String.valueOf(builtYear));
+                + ";builtYear=" + ((builtYear == null || builtYear <= 0) ? "na" : String.valueOf(builtYear))
+                + ";use=" + ((use == null || use.isBlank()) ? "na" : use.trim())
+                + ";floorArea=" + ((floorArea == null) ? "na" : String.valueOf(floorArea))
+                + ";pnu=" + ((pnu == null || pnu.isBlank()) ? "na" : pnu.trim());
         String keyHash = HashUtils.sha256Hex(keyRaw);
 
         // 3) 캐시 조회(미만료)
@@ -64,37 +81,28 @@ public class ForecastService {
                 ForecastResponse r = objectMapper.readValue(
                         cached.get().getPayloadJson(), ForecastResponse.class
                 );
+                // 확인용 로그 (기존과 동일)
+                double pct = r.kpi().savingPct();
+                double payback = r.kpi().paybackYears();
 
-                // ↓ 캐시에서 읽어도 score/label 로그 출력 (record 접근자 사용)
-                Kpi k = r.kpi(); // record: r.kpi()
-                if (k != null) {
-                    int pctInt   = (k.savingPct() != null ? k.savingPct() : 0); // Integer → int
-                    double pct   = pctInt;                                      // double 승격
-                    double payback = k.paybackYears();                          // record: k.paybackYears()
+                // builtYear는 kpi에 없으므로, 메서드 파라미터 'builtYear'를 사용
+                Integer by = builtYear;
 
-                    int score2   = computeStatusScore(pct, payback, builtYear);
-                    String label2 = decideLabelByScore(pct, payback, builtYear);
+                // label도 kpi에 없으므로, 현재 응답 값(pct, payback, builtYear)로 재판정
+                String label = decideLabelByScore(pct, payback, by);
 
-                    log.info(
-                            "[forecast] (from cache) score = {}, label = {}, savingPct = {}%, payback = {}y, builtYear = {}",
-                            score2,
-                            label2,
-                            pctInt,
-                            String.format("%.2f", payback),
-                            (builtYear == null ? "na" : String.valueOf(builtYear))
-                    );
-                }
-
-                return r; // 캐시 반환
+                int score = computeStatusScore(pct, payback, by);
+                log.info("[forecast] score = {}, label = {}, builtYear = {}, savingPct = {}%, payback = {}y",
+                        score, label, by == null ? "na" : by, String.format("%.1f", pct), String.format("%.2f", payback));
+                return r;
             } catch (Exception e) {
                 log.warn("[forecast] cache parse failed; recomputing", e);
-                // 캐시 파싱 실패 → 아래로 내려가 새로 계산
             }
-        }  // ←←← 이 닫는 중괄호가 누락되어 있었습니다!!
+        }
 
         log.info("[forecast] cache MISS hash = {}, computing...", keyHash);
 
-        // 4) 계산 (지금은 기존 더미/스텁)
+        // 4) 계산 (지금은 기존 더미/스텁 유지)
         ForecastResponse resp = computeStub(buildingId, from, to, builtYear);
 
         // 5) 캐시 저장 (UPSERT)
@@ -116,6 +124,8 @@ public class ForecastService {
 
         return resp;
     }
+
+
 
     /* ===== 내부 구현 ===== */
 

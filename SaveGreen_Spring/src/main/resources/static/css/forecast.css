@@ -133,11 +133,15 @@
 /* 반응형: 한 컬럼 스택 시 비디오 컨테이너 폭/높이 보정 */
 @media (max-width: 960px) {
 	.hero-block .hero-inner {
-		grid-template-columns: 1fr;
+		grid-template-columns: 1fr; /* 한 컬럼 스택 */
+		gap: 20px; /* 모바일 간격 약간 축소(선택) */
+		padding: var(--hero-pad); /* ← 좌우 대칭 패딩(LEFT EXTRA 제거) */
 	}
+
 	.video-card {
 		width: 100%;
 		height: clamp(240px, 56vw, var(--video-h));
+		margin: 0; /* ← 우측 정렬 제거, 부모 패딩 기준 정렬 */
 	}
 }
 

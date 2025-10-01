@@ -22,22 +22,21 @@
 <!-- 메인 -->
 <main id="forecast-root" class="wrap"
       th:attr="data-bid=${buildingId},
-               data-from=${fromYear},
-               data-to=${toYear},
-               data-built-year=${builtYear}?:'',
-               data-pnu=${pnu}?:'',
-               data-use=${useName}?:'',
-               data-area=${area}?:'',
-               data-plot-area=${plotArea}?:'',
-               data-floors-above=${floorsAbove}?:'',
-               data-floors-below=${floorsBelow}?:'',
-               data-height=${height}?:'',
-               data-approval-date=${approvalDate}?:'',
-               data-bname=${buildingName}?:'',
-               data-bdong=${dongName}?:'',
-               data-bident=${buildingIdent}?:'',
-               data-lot-serial=${lotSerial}?:''">
-
+				data-from=${fromYear},
+				data-to=${toYear},
+				data-built-year=${builtYear}?:'',
+				data-pnu=${pnu}?:'',
+				data-use=${useName}?:'',
+				data-area=${area}?:'',
+				data-plot-area=${plotArea}?:'',
+				data-floors-above=${floorsAbove}?:'',
+				data-floors-below=${floorsBelow}?:'',
+				data-height=${height}?:'',
+				data-approval-date=${approvalDate}?:'',
+				data-bname=${buildingName}?:'',
+				data-bdong=${dongName}?:'',
+				data-bident=${buildingIdent}?:'',
+				data-lot-serial=${lotSerial}?:''">
 
     <!-- 상단 연두 면(히어로) : 라운드 통일 -->
     <section class="hero-block">
@@ -53,15 +52,15 @@
                 <video
                         id="hero-video"
                         class="hero-video video-media"
-                autoplay
-                muted
-                loop
-                playsinline
-                preload="metadata"
-                aria-label="그린 리모델링 소개 영상"
+                        autoplay
+                        muted
+                        loop
+                        playsinline
+                        preload="metadata"
+                        aria-label="그린 리모델링 소개 영상"
                 >
-                <source th:src="@{/video/solar2.mp4}" type="video/mp4" />
-                브라우저가 비디오를 지원하지 않습니다.
+                    <source th:src="@{/video/solar2.mp4}" type="video/mp4" />
+                    브라우저가 비디오를 지원하지 않습니다.
                 </video>
             </div>
         </div>
@@ -89,25 +88,25 @@
 
             <div class="spacer-12"></div>
 
-        <div class="chips" aria-live="polite">
-            <span class="chip" id="chip-model">
-                <span class="dot" aria-hidden="true"></span>
-                <strong>모델</strong><span class="sep" aria-hidden="true">:</span>
-                <span class="truncate" id="modelName">Linear Regression</span>
-            </span>
+            <div class="chips" aria-live="polite">
+					<span class="chip" id="chip-model">
+						<span class="dot" aria-hidden="true"></span>
+						<strong>모델</strong><span class="sep" aria-hidden="true">:</span>
+						<span class="truncate" id="modelName">Linear Regression</span>
+					</span>
 
-            <span class="chip">
-                <span class="dot" aria-hidden="true"></span>
-                <strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
-                <span class="truncate">2024–2030 연간</span>
-            </span>
+                <span class="chip">
+						<span class="dot" aria-hidden="true"></span>
+						<strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
+						<span class="truncate">2024–2030 연간</span>
+					</span>
 
-            <span class="chip">
-                <span class="dot" aria-hidden="true"></span>
-                <strong>특성</strong><span class="sep" aria-hidden="true">:</span>
-                <span class="truncate">연도, 사용량, 비용</span>
-            </span>
-        </div>
+                <span class="chip">
+						<span class="dot" aria-hidden="true"></span>
+						<strong>특성</strong><span class="sep" aria-hidden="true">:</span>
+						<span class="truncate">연도, 사용량, 비용</span>
+					</span>
+            </div>
 
             <div class="progress">
                 <div
@@ -124,7 +123,7 @@
 
             <div class="progress-map" id="progressMap">
                 <div class="step">
-                    <span class="check" data-step="1" ></span>데이터 로딩
+                    <span class="check" data-step="1"></span>데이터 로딩
                 </div>
                 <div class="step">
                     <span class="check" data-step="2"></span>정규화 / 스케일링
@@ -168,9 +167,9 @@
                 <!-- 에너지 등급 -->
                 <article class="kpi-card kpi-grade">
                     <div class="icon-wrap">
-              <span class="icon-bg">
-                <i class="icon icon-card1" aria-hidden="true"></i>
-              </span>
+							<span class="icon-bg">
+								<i class="icon icon-card1" aria-hidden="true"></i>
+							</span>
                     </div>
                     <div class="meta">
                         <div class="label">에너지 등급</div>
@@ -182,9 +181,9 @@
                 <!-- 절감 비용(원/년) -->
                 <article class="kpi-card kpi-cost">
                     <div class="icon-wrap">
-              <span class="icon-bg">
-                <i class="icon icon-card2" aria-hidden="true"></i>
-              </span>
+							<span class="icon-bg">
+								<i class="icon icon-card2" aria-hidden="true"></i>
+							</span>
                     </div>
                     <div class="meta">
                         <div class="label">절감 비용(원/년)</div>
@@ -196,9 +195,9 @@
                 <!-- 투자 회수 기간 -->
                 <article class="kpi-card kpi-payback">
                     <div class="icon-wrap">
-              <span class="icon-bg">
-                <i class="icon icon-card3" aria-hidden="true"></i>
-              </span>
+							<span class="icon-bg">
+								<i class="icon icon-card3" aria-hidden="true"></i>
+							</span>
                     </div>
                     <div class="meta">
                         <div class="label">투자 회수 기간</div>
@@ -210,9 +209,9 @@
                 <!-- 에너지 절감률(%) -->
                 <article class="kpi-card kpi-pct">
                     <div class="icon-wrap">
-              <span class="icon-bg">
-                <i class="icon icon-card4" aria-hidden="true"></i>
-              </span>
+							<span class="icon-bg">
+								<i class="icon icon-card4" aria-hidden="true"></i>
+							</span>
                     </div>
                     <div class="meta">
                         <div class="label">에너지 절감률(%)</div>
@@ -221,6 +220,9 @@
                     </div>
                 </article>
             </section>
+
+            <!-- [ADD] 건물 정보 카드 컨테이너 -->
+            <div id="building-card" class="hidden"></div>
 
             <!-- 결과 요약(피그마 고정 텍스트) -->
             <section class="summary card">
