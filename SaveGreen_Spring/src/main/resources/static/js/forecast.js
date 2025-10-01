@@ -1,5 +1,5 @@
 /* =========================
- * forecast.js (A안: renderKpis만 사용)
+ * forecast.js
  * - DOMContentLoaded → init()
  * - 헤더 겹침 보정
  * - 5단계 로딩바(최소 표시시간)
@@ -22,17 +22,17 @@ const BANNER_TEXTS = {
 /* ---------- Header offset ---------- */
 function applyHeaderOffset() {
 	const menubar = document.getElementById('menubar');
-	const spacer  = document.querySelector('.header-spacer');
-	const wrap    = document.querySelector('main.wrap');
+	const spacer = document.querySelector('.header-spacer');
+	const wrap = document.querySelector('main.wrap');
 	if (!wrap || !spacer) return;
 
 	let overlay = false;
 	let h = 0;
 
 	if (menubar) {
-		const cs   = getComputedStyle(menubar);
+		const cs = getComputedStyle(menubar);
 		const rect = menubar.getBoundingClientRect();
-		const isFixed     = cs.position === 'fixed';
+		const isFixed = cs.position === 'fixed';
 		const isStickyNow = cs.position === 'sticky' && rect.top <= 0;
 		overlay = isFixed || isStickyNow;
 		h = rect.height;
@@ -71,14 +71,16 @@ async function init() {
 
 	const root = document.getElementById('forecast-root');
 
-	/* 주소창 → data-* Fallback 주입 */
+	/* 주소창 → data-* Fallback 주입 (+출처 플래그 qs) */
 	{
 		const urlp = new URLSearchParams(location.search);
 		if (root && !root.dataset.pnu && urlp.get('pnu')) {
 			root.dataset.pnu = urlp.get('pnu');
+			root.dataset.pnuFrom = 'qs';
 		}
 		if (root && !root.dataset.builtYear && urlp.get('builtYear')) {
 			root.dataset.builtYear = urlp.get('builtYear');
+			root.dataset.builtYearFrom = 'qs';
 		}
 	}
 
@@ -91,10 +93,10 @@ async function init() {
 	});
 
 	// Building info from dataset
-	const BUILD = (function(root){
+	const BUILD = (function (root) {
 		const get = (k) => (root?.dataset?.[k] ?? '').trim();
-		const num = (k) => { const s = get(k).replace(/,/g,''); const n = Number(s); return Number.isFinite(n)?n:null; };
-		const int = (k) => { const s = get(k); const n = parseInt(s, 10); return Number.isFinite(n)?n:null; };
+		const num = (k) => { const s = get(k).replace(/,/g, ''); const n = Number(s); return Number.isFinite(n) ? n : null; };
+		const int = (k) => { const s = get(k); const n = parseInt(s, 10); return Number.isFinite(n) ? n : null; };
 		const by = Number(get('builtYear'));
 		return {
 			pnu: get('pnu'),
@@ -109,7 +111,7 @@ async function init() {
 			dongName: get('bdong'),
 			buildingIdent: get('bident'),
 			lotSerial: get('lotSerial'),
-			builtYear: Number.isFinite(by)&&by>0?by:null
+			builtYear: Number.isFinite(by) && by > 0 ? by : null
 		};
 	})(root);
 	window.BUILDING_INFO = BUILD;
@@ -119,18 +121,18 @@ async function init() {
 
 	// from/to 안전 계산: 같으면 7년 확장
 	const rawFrom = root?.dataset.from ?? '2024';
-	const rawTo   = root?.dataset.to   ?? '2030';
+	const rawTo = root?.dataset.to ?? '2030';
 	let from = parseInt(String(rawFrom).trim(), 10);
-	let to   = parseInt(String(rawTo).trim(), 10);
+	let to = parseInt(String(rawTo).trim(), 10);
 	if (!Number.isFinite(from)) from = 2024;
-	if (!Number.isFinite(to))   to   = 2030;
+	if (!Number.isFinite(to)) to = 2030;
 	if (to < from) [from, to] = [to, from];
 	if (to === from) to = from + 6;
 
-	const bid  = String(root?.dataset.bid ?? '').trim();
+	const bid = String(root?.dataset.bid ?? '').trim();
 
 	const $result = $('#result-section');
-	const $ml     = $('#mlLoader');
+	const $ml = $('#mlLoader');
 
 	// 게이트: 결과 숨기고 로더 시작
 	show($ml); hide($result);
@@ -145,9 +147,9 @@ async function init() {
 		const expectedYears = range(from, to).map(String);
 		const L = expectedYears.length;
 
-		data.years  = expectedYears;
+		data.years = expectedYears;
 		data.series = data.series || {};
-		data.cost   = data.cost   || {};
+		data.cost = data.cost || {};
 
 		const toNumArr = (arr, len) =>
 			Array.from({ length: len }, (_, i) => {
@@ -156,15 +158,19 @@ async function init() {
 				return Number.isFinite(n) ? n : 0;
 			});
 
-		data.series.after  = toNumArr(data.series.after,  L);
+		data.series.after = toNumArr(data.series.after, L);
 		data.series.saving = toNumArr(data.series.saving, L);
-		data.cost.saving   = toNumArr(data.cost.saving,   L);
+		data.cost.saving = toNumArr(data.cost.saving, L);
 	}
 
 	console.debug('[forecast] aligned lengths',
-		{ years: data.years.length, after: data.series.after.length,
-			saving: data.series.saving.length, costSaving: data.cost.saving.length,
-			from, to, bid });
+		{
+			years: data.years.length,
+			after: data.series.after.length,
+			saving: data.series.saving.length,
+			costSaving: data.cost.saving.length,
+			from, to, bid
+		});
 
 	// KPI & 출력
 	const kpi = computeKpis({
@@ -238,7 +244,7 @@ async function reloadForecast() {
 		data.cost = data.cost || {};
 
 		const toNumArr = (arr, len) =>
-			Array.from({length: len}, (_, i) => {
+			Array.from({ length: len }, (_, i) => {
 				const v = (Array.isArray(arr) ? arr[i] : undefined);
 				const n = Number(v);
 				return Number.isFinite(n) ? n : 0;
@@ -259,14 +265,14 @@ async function reloadForecast() {
 
 	const gradeNow = estimateEnergyGrade(kpi.savingPct);
 	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear);
-	const statusObj = decideStatusByScore(kpi, {builtYear});
+	const statusObj = decideStatusByScore(kpi, { builtYear });
 
 	applyStatus(statusObj.label);
 	window._STATUS_SCORE_ = statusObj.score;
 	window.__STATUS__ = statusObj;
 
-	renderKpis(kpi, {gradeNow});
-	renderSummary({gradeNow, kpi});
+	renderKpis(kpi, { gradeNow });
+	renderSummary({ gradeNow, kpi });
 
 	await ensureMinLoaderTime();
 	await finishLoader();
@@ -301,9 +307,9 @@ function startLoader() {
 	if (LOADER.timer) clearInterval(LOADER.timer);
 	if (LOADER.stepTimer) clearTimeout(LOADER.stepTimer);
 
-	const $bar   = $('#progressBar');
-	const steps  = $all('.progress-map .step');
-	const $text  = $('#mlStatusText');
+	const $bar = $('#progressBar');
+	const steps = $all('.progress-map .step');
+	const $text = $('#mlStatusText');
 	const labels = {
 		1: '데이터 로딩',
 		2: '정규화 / 스케일링',
@@ -317,7 +323,7 @@ function startLoader() {
 	}
 
 	let progress = 0;
-	let level    = 1;
+	let level = 1;
 
 	if ($text) $text.textContent = '초기화';
 	LOADER.cap = 20;
@@ -339,7 +345,7 @@ function startLoader() {
 
 		const stepEl = steps[level - 1];
 		if (stepEl) stepEl.classList.add('done');
-		if ($text)  $text.textContent = labels[level] || '진행 중';
+		if ($text) $text.textContent = labels[level] || '진행 중';
 
 		if (level === 5) {
 			clearInterval(LOADER.timer);
@@ -380,29 +386,24 @@ function finishLoader() {
 }
 
 /* ---------- Data ---------- */
-// 더미(그리고 API 실패 폴백도 동일 로직을 사용)
-// 1. 범위 보정
 function makeDummyForecast(fromYear, toYear) {
 	const a = parseInt(fromYear, 10);
 	const b = parseInt(toYear, 10);
 	const from = Number.isFinite(a) ? a : 2024;
-	const to   = Number.isFinite(b) ? b : 2030;
+	const to = Number.isFinite(b) ? b : 2030;
 	const [lo, hi] = from <= to ? [from, to] : [to, from];
 
-	// 2. 라벨
 	const years = [];
 	for (let y = lo; y <= hi; y++) years.push(String(y));
 	const L = years.length;
 
-	// 3) 파라미터(원하면 여기만 조정)
-	const baseKwh       = 2_150_000; // 시작 에너지 사용량 (막대 첫 해)
-	const afterRate     = 0.06;      // 막대: 매년 6% 감소
-	const startSaving   = 360_000;   // 절감량 첫 해(kWh)
-	const savingRate    = 0.08;      // 절감량: 매년 8% 감소
-	const UNIT_PRICE    = 150;       // 1kWh당 원
+	const baseKwh = 2_150_000;
+	const afterRate = 0.06;
+	const startSaving = 360_000;
+	const savingRate = 0.08;
+	const UNIT_PRICE = 150;
 
-	// 4) 기하(퍼센트) 감소 수식
-	const after  = Array.from({ length: L }, (_, i) =>
+	const after = Array.from({ length: L }, (_, i) =>
 		Math.max(0, Math.round(baseKwh * Math.pow(1 - afterRate, i)))
 	);
 
@@ -425,7 +426,7 @@ async function fetchForecast(buildingId, fromYear, toYear) {
 	const a = parseInt(fromYear, 10);
 	const b = parseInt(toYear, 10);
 	let from = Number.isFinite(a) ? a : 2024;
-	let to   = Number.isFinite(b) ? b : 2030;
+	let to = Number.isFinite(b) ? b : 2030;
 	if (to < from) [from, to] = [to, from];
 	if (to === from) to = from + 6;
 
@@ -436,18 +437,18 @@ async function fetchForecast(buildingId, fromYear, toYear) {
 	// builtYear & pnu 준비
 	const root = document.getElementById('forecast-root');
 	const by1 = Number(root?.dataset?.builtYear);
-    const by2 = Number(window?.savegreen?.builtYear);
+	const by2 = Number(window?.savegreen?.builtYear);
 	const builtYear = Number.isFinite(by1) && by1 > 0 ? by1
-					: (Number.isFinite(by2) && by2 > 0 ? by2 : null);
+		: (Number.isFinite(by2) && by2 > 0 ? by2 : null);
 	const pnu = (root?.dataset?.pnu || '').trim();
 
 	// 쿼리 구성
 	const q = new URLSearchParams({ from: lo, to: hi });
 	if (builtYear) q.append('builtYear', String(builtYear));
-	if (pnu)       q.append('pnu', pnu);
+	if (pnu) q.append('pnu', pnu);
 
 	const base = hasId ? `/api/forecast/${encodeURIComponent(buildingId)}` : `/api/forecast`;
-	const url  = `${base}?` + q.toString();
+	const url = `${base}?` + q.toString();
 
 	console.log('[forecast] API URL =>', url);
 
@@ -458,14 +459,13 @@ async function fetchForecast(buildingId, fromYear, toYear) {
 		return normalizeForecast(json, years);
 	} catch (e) {
 		console.error('[forecast] fetch failed, using fallback dummy:', e);
-		// 폴백도 더미 생성기와 동일 규칙 사용
 		return makeDummyForecast(lo, hi);
 	}
 }
 
 function normalizeForecast(d, fallbackYears) {
-	const years  = Array.isArray(d?.years) ? d.years : fallbackYears.map(String);
-	const L      = years.length;
+	const years = Array.isArray(d?.years) ? d.years : fallbackYears.map(String);
+	const L = years.length;
 
 	const toNumArr = (arr, len) =>
 		Array.from({ length: len }, (_, i) => {
@@ -474,10 +474,10 @@ function normalizeForecast(d, fallbackYears) {
 			return Number.isFinite(n) ? n : 0;
 		});
 
-	const after  = toNumArr(d?.series?.after,  L);
+	const after = toNumArr(d?.series?.after, L);
 	const saving = toNumArr(d?.series?.saving, L);
-	const cost   = { saving: toNumArr(d?.cost?.saving, L) };
-	const kpi    = d?.kpi ?? null;
+	const cost = { saving: toNumArr(d?.cost?.saving, L) };
+	const kpi = d?.kpi ?? null;
 
 	return { years, series: { after, saving }, cost, kpi };
 }
@@ -487,12 +487,12 @@ function computeKpis({ years, series, cost, kpiFromApi }) {
 	if (kpiFromApi && isFinite(kpiFromApi.savingCostYr)) return kpiFromApi;
 
 	const i = Math.max(0, years.length - 1);
-	const afterKwh   = +series.after[i] || 0;
-	const savingKwh  = +series.saving[i] || 0;
+	const afterKwh = +series.after[i] || 0;
+	const savingKwh = +series.saving[i] || 0;
 	const savingCost = +((cost?.saving || [])[i]) || Math.round(savingKwh * 120);
 
-	const beforeKwh  = afterKwh + savingKwh;
-	const savingPct  = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
+	const beforeKwh = afterKwh + savingKwh;
+	const savingPct = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
 
 	const paybackYears = clamp((afterKwh / Math.max(1, savingKwh)) * 0.8, 3, 8);
 
@@ -506,9 +506,6 @@ function estimateEnergyGrade(savingPct) {
 	return 4;
 }
 
-
-/* 점수 기반 배너 판정
-   (절감률/회수기간/연식 점수 + 가드) */
 function decideStatusByScore(kpi, opts = {}) {
 	const now = new Date().getFullYear();
 	const savingPct = Number(kpi?.savingPct ?? 0);
@@ -535,12 +532,12 @@ function decideStatusByScore(kpi, opts = {}) {
 	}
 	score += agePt;
 
-	// 가드(원치않는 과대판정 방지)
-	if (savingPct < 5 || payback > 12) return { label: 'not-recommend', score};
+	// 가드
+	if (savingPct < 5 || payback > 12) return { label: 'not-recommend', score };
 
 	const label = (score >= 4) ? 'recommend'
-				: (score >= 2) ? 'conditional'
-				: 'not-recommend';
+		: (score >= 2) ? 'conditional'
+			: 'not-recommend';
 	return { label, score };
 }
 
@@ -558,19 +555,19 @@ function applyStatus(status) {
 
 	const msg = $('#banner-message');
 	const badge = $('#banner-badge');
-	if (msg)   msg.textContent = BANNER_TEXTS[status] || '';
+	if (msg) msg.textContent = BANNER_TEXTS[status] || '';
 	if (badge) badge.textContent =
 		status === 'recommend' ? '추천' :
-		status === 'conditional' ? '조건부' : '비추천';
+			status === 'conditional' ? '조건부' : '비추천';
 }
 
 function renderKpis(kpi, { gradeNow }) {
-	const g  = $('#kpi-grade');
+	const g = $('#kpi-grade');
 	const sc = $('#kpi-saving-cost');
 	const pb = $('#kpi-payback');
 	const sp = $('#kpi-saving-pct');
 
-	if (g)  g.textContent  = String(gradeNow);
+	if (g) g.textContent = String(gradeNow);
 	if (sc) sc.textContent = nf(kpi.savingCostYr);
 	if (pb) pb.textContent = (Math.round(kpi.paybackYears * 10) / 10).toFixed(1);
 	if (sp) sp.textContent = kpi.savingPct + '%';
@@ -582,9 +579,9 @@ function renderSummary({ gradeNow /*, kpi*/ }) {
 	if (!ul) return;
 	ul.innerHTML = '';
 
-	const targetGrade   = Math.max(1, gradeNow - 1);
-	const currentEui    = euiRefForGrade(gradeNow);
-	const boundaryEui   = euiRefForGrade(targetGrade);
+	const targetGrade = Math.max(1, gradeNow - 1);
+	const currentEui = euiRefForGrade(gradeNow);
+	const boundaryEui = euiRefForGrade(targetGrade);
 	const needSavingPct = Math.max(0, Math.round(((currentEui - boundaryEui) / currentEui) * 100));
 
 	[
@@ -598,12 +595,11 @@ function renderSummary({ gradeNow /*, kpi*/ }) {
 		ul.appendChild(li);
 	});
 
-	// ▼ 추정 현재 EUI (연면적 우선, 없으면 건축면적)
 	const areaForEui = window.BUILDING_INFO?.floorArea || window.BUILDING_INFO?.area || null;
 	if (areaForEui && Array.isArray(window.FORECAST_DATA?.series?.after)) {
 		const arr = window.FORECAST_DATA.series.after;
 		const last = Number(arr[arr.length - 1] || 0);
-		const euiNow = last > 0 ? Math.round(last / areaForEui) : 0; // kWh/m^2·년
+		const euiNow = last > 0 ? Math.round(last / areaForEui) : 0;
 		const li = document.createElement('li');
 		li.innerHTML = `추정 현재 EUI : <strong>${nf(euiNow)} kWh/m^2/년</strong>`;
 		ul.appendChild(li);
@@ -613,31 +609,41 @@ function renderSummary({ gradeNow /*, kpi*/ }) {
 function renderBuildingCard() {
 	const box = document.getElementById('building-card');
 	if (!box) return;
-	const b = window.BUILDING_INFO || {};
-	const rows = [];
-	const row = (k,v)=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
-	const esc = (t)=>String(t).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 
+	const b = window.BUILDING_INFO || {};
+	const root = document.getElementById('forecast-root');
+
+	const fromQs = (k) => (root?.dataset?.[k + 'From'] === 'qs');
+
+	const rows = [];
+	const row = (k, v) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+	const esc = (t) => String(t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+	// 핵심 필드(표시 여부 결정)
 	if (b.buildingName) rows.push(row('건물명', esc(b.buildingName)));
-	if (b.dongName)     rows.push(row('동명', esc(b.dongName)));
-	if (b.buildingIdent)rows.push(row('식별번호', esc(b.buildingIdent)));
-	if (b.pnu)          rows.push(row('PNU', esc(b.pnu)));
-	if (b.lotSerial)    rows.push(row('지번', esc(b.lotSerial)));
-	if (b.use)          rows.push(row('용도', esc(b.use)));
-	if (b.builtYear)    rows.push(row('준공연도', String(b.builtYear)));
+	if (b.dongName) rows.push(row('동명', esc(b.dongName)));
+	if (b.buildingIdent) rows.push(row('식별번호', esc(b.buildingIdent)));
+	if (b.lotSerial) rows.push(row('지번', esc(b.lotSerial)));
+	if (b.use) rows.push(row('용도', esc(b.use)));
 	if (b.approvalDate) rows.push(row('사용승인일', esc(fmtYmd(b.approvalDate))));
-	if (b.area)         rows.push(row('건축면적', nf(b.area)+' m²'));
-	if (b.plotArea)     rows.push(row('대지면적', nf(b.plotArea)+' m²'));
-	if (b.height)       rows.push(row('높이', nf(b.height)+' m'));
+	if (b.area) rows.push(row('건축면적', nf(b.area) + ' m²'));
+	if (b.plotArea) rows.push(row('대지면적', nf(b.plotArea) + ' m²'));
+	if (b.height) rows.push(row('높이', nf(b.height) + ' m'));
 	if (b.floorsAbove != null || b.floorsBelow != null) {
 		rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
 	}
 
-	if (!rows.length) { box.classList.add('hidden'); box.innerHTML=''; return; }
+	// 핵심 정보 없으면 카드 숨김 (URL 파라미터만 들어온 경우 노출 X)
+	if (!rows.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+	// 보조 필드 (쿼리출처 qs면 비노출, 서버/VWorld 값은 노출)
+	if (b.pnu && !fromQs('pnu')) rows.push(row('PNU', esc(b.pnu)));
+	if (b.builtYear && !fromQs('builtYear')) rows.push(row('준공연도', String(b.builtYear)));
+
 	box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
 	box.classList.remove('hidden');
 
-	function fmtYmd(s){ s=String(s).replace(/\D/g,''); if(s.length<8) return s; return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`; }
+	function fmtYmd(s) { s = String(s).replace(/\D/g, ''); if (s.length < 8) return s; return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`; }
 }
 
 function euiRefForGrade(grade) {
@@ -663,34 +669,33 @@ async function renderEnergyComboChart({ years, series, cost }) {
 
 	const ctx = canvas.getContext('2d');
 
-	const BAR_GROW_MS  = 2000;
-	const BAR_GAP_MS   = 500;
-	const POINT_MS     = 600;
+	const BAR_GROW_MS = 2000;
+	const BAR_GAP_MS = 500;
+	const POINT_MS = 600;
 	const POINT_GAP_MS = 200;
 
-	const labels  = years.map(String);
-	const bars    = series.after.slice(0, labels.length);
-	const costs   = (cost?.saving || []).slice(0, labels.length);
-	const n       = labels.length;
+	const labels = years.map(String);
+	const bars = series.after.slice(0, labels.length);
+	const costs = (cost?.saving || []).slice(0, labels.length);
+	const n = labels.length;
 
-	const BAR_BG      = 'rgba(54, 162, 235, 0.5)'; // 막대 반투명
-	const BAR_BORDER  = 'rgb(54, 162, 235)';
+	const BAR_BG = 'rgba(54, 162, 235, 0.5)';
+	const BAR_BORDER = 'rgb(54, 162, 235)';
 	const LINE_ORANGE = '#F57C00';
 
 	function fromBaseline(ctx) {
-		const chart  = ctx.chart;
-		const ds     = chart.data.datasets[ctx.datasetIndex];
+		const chart = ctx.chart;
+		const ds = chart.data.datasets[ctx.datasetIndex];
 		const axisId = ds.yAxisID || (ds.type === 'line' ? 'yCost' : 'yEnergy');
-		const scale  = chart.scales[axisId];
+		const scale = chart.scales[axisId];
 		return scale.getPixelForValue(0);
 	}
 
-	const totalBarDuration   = n * (BAR_GROW_MS + BAR_GAP_MS);
-	const pointStartAt       = totalBarDuration + 200; // 버퍼 200ms
+	const totalBarDuration = n * (BAR_GROW_MS + BAR_GAP_MS);
+	const pointStartAt = totalBarDuration + 200;
 	const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
-	const lineRevealAt       = pointStartAt + totalPointDuration;
+	const lineRevealAt = pointStartAt + totalPointDuration;
 
-	// 라인(선/점) 데이터셋
 	const lineDs = {
 		type: 'line',
 		order: 9999,
@@ -720,7 +725,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
 		}
 	};
 
-	// 막대 데이터셋
 	const barDs = {
 		type: 'bar',
 		order: 1,
@@ -744,7 +748,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
 		}
 	};
 
-	// 막대 위에 라인을 항상 올리는 플러그인
 	const forceLineFront = {
 		id: 'forceLineFront',
 		afterDatasetsDraw(chart) {
@@ -801,7 +804,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
 		plugins: [forceLineFront]
 	});
 
-	// 포인트 순차 등장
 	for (let i = 0; i < n; i++) {
 		const delay = pointStartAt + i * (POINT_MS + POINT_GAP_MS);
 		setTimeout(() => {
@@ -810,7 +812,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
 		}, delay);
 	}
 
-	// 모든 점 등장 후 선을 보이기
 	setTimeout(() => {
 		barDs.animations = false;
 		lineDs.showLine = true;
@@ -835,8 +836,8 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 function $(s, root = document) { return root.querySelector(s); }
 function $all(s, root = document) { return Array.from(root.querySelectorAll(s)); }
-function show(el){ if (el) el.classList.remove('hidden'); }
-function hide(el){ if (el) el.classList.add('hidden'); }
+function show(el) { if (el) el.classList.remove('hidden'); }
+function hide(el) { if (el) el.classList.add('hidden'); }
 
 /* VWorld Bridge : 좌표 + PNU + 건물정보 + builtYear */
 (function () {
@@ -912,8 +913,14 @@ function hide(el){ if (el) el.classList.add('hidden'); }
 			window.savegreen.builtYear = by;
 
 			const root = document.getElementById('forecast-root');
-			if (root) root.dataset.builtYear = String(by);
+			if (root) {
+				root.dataset.builtYear = String(by);
+				root.dataset.builtYearFrom = 'vworld';
+				root.dataset.pnu = pnu;
+				root.dataset.pnuFrom = 'vworld';
+			}
 
+			renderBuildingCard();
 			await reloadForecast();
 		} catch (e) {
 			console.error('[vworld] builtYear set failed : ', e);
@@ -934,8 +941,14 @@ function hide(el){ if (el) el.classList.add('hidden'); }
 			window.savegreen.builtYear = by;
 
 			const root = document.getElementById('forecast-root');
-			if (root) root.dataset.builtYear = String(by);
+			if (root) {
+				root.dataset.builtYear = String(by);
+				root.dataset.builtYearFrom = 'vworld';
+				root.dataset.pnu = pnu;
+				root.dataset.pnuFrom = 'vworld';
+			}
 
+			renderBuildingCard();
 			await reloadForecast();
 		} catch (e) {
 			console.error('[vworld] builtYear set (from pnu) failed : ', e);
