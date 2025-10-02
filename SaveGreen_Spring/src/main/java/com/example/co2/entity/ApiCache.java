@@ -1,61 +1,45 @@
 package com.example.co2.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "Api_Cache",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_api_cache_hash",
-                columnNames = {"cache_key_hash"}
-        )
-)
+@Table(name = "api_cache") // 윈도우/리눅스 호환 위해 소문자 고정
+@Getter @Setter
 public class ApiCache {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "Cache_Id")
-    private Long id;
+    @Column(name = "cache_id")
+    private Long cacheId;
 
-    // 기존 FK 컬럼(선택 사용)
-    @Column(name = "Guest_IP", length = 45)
+    @Column(name = "guest_ip", length = 45)
     private String guestIp;
 
-    @Column(name = "Building_ID")
+    @Column(name = "building_id")
     private Long buildingId;
 
-    @Column(name = "Cache_Key_Hash", nullable = false, length = 64)
+    @Column(name = "cache_key_hash", length = 64, nullable = false, unique = true)
     private String cacheKeyHash;
 
-    @Column(name = "Cache_Key_Raw", length = 512)
+    @Column(name = "cache_key_raw", length = 512)
     private String cacheKeyRaw;
 
-    // MySQL 8 JSON 컬럼
-    @Lob
-    @Column(name = "Payload_Json", nullable = false, columnDefinition = "JSON")
+    // MySQL 8 JSON 컬럼 - 문자열로 매핑 (유효한 JSON 문자열만 넣으세요)
+    @Column(name = "payload_json", columnDefinition = "json", nullable = false)
     private String payloadJson;
 
-    @Column(name = "Created_At", nullable = false, insertable = false, updatable = false) // DB default CURRENT_TIMESTAMP
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "Expires_At", nullable = false)
+    @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
-    // ===== getters/setters =====
-    public Long getId() { return id; }
-    public String getGuestIp() { return guestIp; }
-    public void setGuestIp(String guestIp) { this.guestIp = guestIp; }
-    public Long getBuildingId() { return buildingId; }
-    public void setBuildingId(Long buildingId) { this.buildingId = buildingId; }
-    public String getCacheKeyHash() { return cacheKeyHash; }
-    public void setCacheKeyHash(String cacheKeyHash) { this.cacheKeyHash = cacheKeyHash; }
-    public String getCacheKeyRaw() { return cacheKeyRaw; }
-    public void setCacheKeyRaw(String cacheKeyRaw) { this.cacheKeyRaw = cacheKeyRaw; }
-    public String getPayloadJson() { return payloadJson; }
-    public void setPayloadJson(String payloadJson) { this.payloadJson = payloadJson; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
 }
