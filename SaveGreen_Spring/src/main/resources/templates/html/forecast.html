@@ -21,22 +21,25 @@
 
 <!-- 메인 -->
 <main id="forecast-root" class="wrap"
-      th:attr="data-bid=${buildingId},
-				data-from=${fromYear},
-				data-to=${toYear},
-				data-built-year=${builtYear}?:'',
-				data-pnu=${pnu}?:'',
-				data-use=${useName}?:'',
-				data-area=${area}?:'',
-				data-plot-area=${plotArea}?:'',
-				data-floors-above=${floorsAbove}?:'',
-				data-floors-below=${floorsBelow}?:'',
-				data-height=${height}?:'',
-				data-approval-date=${approvalDate}?:'',
-				data-bname=${buildingName}?:'',
-				data-bdong=${dongName}?:'',
-				data-bident=${buildingIdent}?:'',
-				data-lot-serial=${lotSerial}?:''">
+      th:with="bid=${buildingId}"
+      th:data-bid="${buildingId}"
+      th:data-from="${fromYear}"
+      th:data-to="${toYear}"
+      th:data-built-year="${builtYear != null ? builtYear : ''}"
+      th:data-pnu="${pnu != null ? pnu : ''}"
+      th:data-use="${useName != null ? useName : ''}"
+      th:data-area="${area != null ? area : ''}"
+      th:data-plot-area="${plotArea != null ? plotArea : ''}"
+      th:data-floors-above="${floorsAbove != null ? floorsAbove : ''}"
+      th:data-floors-below="${floorsBelow != null ? floorsBelow : ''}"
+      th:data-bname="${#strings.defaultString(buildingName, '')}"
+      th:data-height="${height != null ? height : ''}"
+      th:data-approval-date="${approvalDate != null ? approvalDate : ''}"
+      th:data-dong-name="${dongName != null ? dongName : ''}"
+      th:data-building-ident="${buildingIdent != null ? buildingIdent : ''}"
+      th:data-lot-serial="${lotSerial != null ? lotSerial : ''}">
+    <!-- [수정] 표준화: lot-serial → dataset.lotSerial -->
+
 
     <!-- 상단 연두 면(히어로) : 라운드 통일 -->
     <section class="hero-block">

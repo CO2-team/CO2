@@ -840,6 +840,26 @@ async function renderEnergyComboChart({ years, series, cost }) {
 		}
 	};
 
+    // 차트 부제에 표시할 텍스트를 조합한다(빌딩명 → 동/지번 → 동 → 연도 → 기본문구)
+    const root = document.getElementById('forecast-root');
+    const bname = root?.dataset?.bname?.trim() || '';
+    const dong  = root?.dataset?.dongName?.trim() || '';
+    const lot   = root?.dataset?.lotSerial?.trim() || '';
+    const byear = root?.dataset?.builtYear ? parseInt(root.dataset.builtYear, 10) : null;
+
+    let subtitleText = '';
+    if (bname) {
+    	subtitleText = `🏢 ${bname}`;
+    } else if (dong && lot) {
+    	subtitleText = `📍 ${dong} ${lot}`;
+    } else if (dong) {
+    	subtitleText = `📍 ${dong}`;
+    } else if (byear) {
+    	subtitleText = `🗓 사용승인연도 ${byear}년`;
+    } else {
+    	subtitleText = '건물명 미확정';
+    }
+
 	energyChart = new Chart(ctx, {
 		type: 'bar',
 		data: { labels, datasets: [barDs, lineDs] },
@@ -858,6 +878,13 @@ async function renderEnergyComboChart({ years, series, cost }) {
 						}
 					}
 				},
+                subtitle: {									// 차트 부제(빌딩 정보)
+                    display: !!subtitleText,				// 값이 있으면 표시
+                    text: subtitleText,						// 위에서 조합한 문구
+                    padding: { bottom: 8 },					// 제목과의 간격
+                    color: '#6b7280',						// 보조 텍스트 색(선택)
+                    font: { size: 12, weight: '600' }		// 가독성(선택)
+                },
 				forceLineFront: {}
 			},
 			elements: { point: { hoverRadius: 5 } },
