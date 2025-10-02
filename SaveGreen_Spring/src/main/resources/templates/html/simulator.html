@@ -8,6 +8,7 @@
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
 <body>
 
@@ -41,7 +42,7 @@
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
-                    <label>개수</label>
+                    <label>대</label>
                     <input type="number" name="panelCount" placeholder="태양광 패널 개수(선택)">
                 </div>
                 <div class="form-group">
@@ -53,8 +54,12 @@
             </form>
         </div>        
     </section>
-    <section id="resultBox1" class="result-box" style="display: none;">
-        <h3 style="text-align:center !important;">시뮬레이션 결과</h3>
+    <section id="loadingBox1" class="loading-box" style="display:none;">
+        <div class="spinner"></div>
+        <p>계산 중입니다. 잠시만 기다려주세요...</p>
+    </section>
+    <section id="resultBox1" class="result-box1" style="display: none;">
+        <h3 style="text-align:center !important;">시뮬레이션 결과<button type="button" id="guideBtn1" class="info-btn"><i class="fas fa-info-circle"></i></h3>
         <div class="result-item">
             <span class="label">에너지 효율 등급</span>
             <span class="value" id="grade">-</span>
@@ -159,30 +164,43 @@
             </form>
         </div>
     </section>
-    <section id="resultBox2" class="result-box" style="display: none;">
-        <h3 style="text-align:center !important;">시뮬레이션 결과</h3>
-        <div class="result-item">
-            <span class="label">연간 에너지 절감량</span>
-            <span class="value" id="total">-</span>
-        </div>
-        <div class="result-item">
-            <span class="label">연간 전기세 절감량</span>
-            <span class="value" id="annualSaveElectric">-</span>
-        </div>
-        <div class="result-item">
-            <span class="label">연간 탄소배출 절감량</span>
-            <span class="value" id="annualSaveCO2">-</span>
-        </div>
-        <div class="result-item">
-            <span class="label">필요 태양광 패널 개수</span>
-            <span class="value" id="requiredPanels">-</span>
-        </div>
+    <section id="loadingBox2" class="loading-box" style="display:none;">
+        <div class="spinner"></div>
+        <p>계산 중입니다. 잠시만 기다려주세요...</p>
     </section>
+    <section id="resultBox2" class="result-box2" style="display: none;">
+    <h3 style="text-align:center !important;">시뮬레이션 결과<button type="button" id="guideBtn2" class="info-btn"><i class="fas fa-info-circle"></i></button></h3>
+    <div class="dashboard">
+        <div class="card">
+        <div class="card-label">연간 에너지 절감량</div>
+        <div class="card-value" id="total">-</div>
+        <div class="card-unit">(kWh/년)</div>
+        </div>
+        <div class="card">
+        <div class="card-label">필요 태양광 패널 개수</div>
+        <div class="card-value" id="requiredPanels">-</div>
+        <div class="card-unit">(대)</div>
+        </div>
+        <div class="card">
+        <div class="card-label">연간 전기세 절감량</div>
+        <div class="card-value" id="annualSaveElectric">-</div>
+        <div class="card-unit">(만원)</div>
+        </div>
+        <div class="card">
+        <div class="card-label">연간 탄소배출 절감량</div>
+        <div class="card-value" id="annualSaveCO2">-</div>
+        <div class="card-unit">(톤)</div>
+        </div>
+    </div>
+    </section>
+
     </div>
 </div>
    
     <div th:replace="layouts/footer :: footer"></div>
 <script th:src="@{/js/simulator.js}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 
 </body>
 </html>
