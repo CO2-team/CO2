@@ -42,7 +42,7 @@ main, .container {
     display: flex;
     gap: 40px;
     margin: 0;
-    padding: 0px 50px;
+    padding: 0px 8%;
 
 }
 
@@ -78,6 +78,22 @@ main, .container {
     top: 11%;
     left: 8%;
     
+}
+
+.symbol_img{
+    display: block;
+    position: absolute;
+    height: auto;
+    top: 11%;
+    left: 6%;
+}
+
+.symbol_img_C{
+    display: block;
+    position: absolute;
+    height: auto;
+    top: 10.5%;
+    left: 5%;
 }
 
 
