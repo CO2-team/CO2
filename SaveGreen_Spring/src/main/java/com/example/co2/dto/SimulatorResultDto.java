@@ -18,4 +18,10 @@ public class SimulatorResultDto {
     private String message;      
     private String zebName;    
     private String category;    
+
+    
+    private BigDecimal requiredPanels;
+    private BigDecimal annualSaveElectric;
+    private BigDecimal annualSaveCO2;
+    private BigDecimal total;
 }

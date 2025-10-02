@@ -1,13 +1,13 @@
-
+//에너지 등급 시뮬레이터
 document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('simulatorForm');
+    const form = document.getElementById('simulatorForm1');
     if (!form) return;
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(form);
 
-        const resp = await fetch('/simulate', {
+        const resp = await fetch('/simulate1', {
           method: 'POST',
           body: formData
         });
@@ -37,10 +37,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+//태양광 시뮬레이터
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('simulatorForm2');
+    if (!form) return;
 
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
 
+        const resp = await fetch('/simulate2', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await resp.json();
+
+        const box = document.getElementById('resultBox2');
+        if (!box) return;
+
+        const items = box.querySelectorAll('.result-item');
+        items.forEach(item => item.classList.remove('show'));
+
+        
+        document.getElementById('annualSaveElectric').textContent  = (data.annualSaveElectric ?? '-')+" kWh";
+        document.getElementById('annualSaveCO2').textContent   = (data.annualSaveCO2 ?? '-')+" 톤 CO2";
+        document.getElementById('total').textContent       = (data.total ?? '-')+"만 원";
+        document.getElementById('requiredPanels').textContent    = (data.requiredPanels ?? '-')+" 개";
+
+       
+        box.style.display = 'block';
+
+      
+        items.forEach((item, index) => {
+          setTimeout(() => item.classList.add('show'), index * 300);
+        });
+    });
+});
+
+// 빌딩에어리어 가져오기
 document.addEventListener("DOMContentLoaded", () => {
-    const area = localStorage.getItem("BuildingArea");
+    const area = sessionStorage.getItem("BuildingArea");
     console.log("로컬스토리지에서 가져온 건물면적:", area);
     if (area) {
         document.getElementById("area1").value = area;
@@ -48,9 +84,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// 위도경도가져오기
 document.addEventListener("DOMContentLoaded", () => {
-    const lat = localStorage.getItem("lat");
-    const lon = localStorage.getItem("lon");
+    const lat = sessionStorage.getItem("lat");
+    const lon = sessionStorage.getItem("lon");
     console.log("로컬스토리지에서 가져온 좌표:", lat, lon);
     if (lat && lon) {
         document.querySelector("#lat1").value = lat;
@@ -61,12 +98,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// 주소가져오기
 document.addEventListener("DOMContentLoaded", () => {
-    const ldCodeNm = localStorage.getItem("ldCodeNm");
-    const mnnmSlno = localStorage.getItem("mnnmSlno");
-    console.log("로컬스토리지에서 가져온 주소:", ldCodeNm, mnnmSlno);
+    const ldCodeNm = sessionStorage.getItem("ldCodeNm");
+    const mnnmSlno = sessionStorage.getItem("mnnmSlno");
+    console.log("세션스토리지에서 가져온 주소:", ldCodeNm, mnnmSlno);
     if (ldCodeNm && mnnmSlno) {
-        const combined = ldCodeNm+""+mnnmSlno;
+        const combined = ldCodeNm+" "+mnnmSlno;
         document.getElementById("juso1").value = combined;
         document.getElementById("juso2").value = combined; 
     }
@@ -198,6 +236,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+
+
+// document.addEventListener("DOMContentLoaded", () => {
+//     const current = document.getElementById("currentGrade");
+//     const target = document.getElementById("targetGrade");
+
+//     const allOptions = Array.from(target.options);
+
+//     current.addEventListener("change", () => {
+//         const currentVal = parseInt(current.value, 10);
+//         target.innerHTML = "";
+//         allOptions.forEach(opt => {
+//             if (parseInt(opt.value, 10) < currentVal) {
+//                 target.appendChild(opt.cloneNode(true));
+//             }
+//         });
+//     });
+// });
+
 
 // 주소검색을 위한 js
  

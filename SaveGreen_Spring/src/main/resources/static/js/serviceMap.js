@@ -78,8 +78,8 @@ function buildingInfoEvent(windowPosition, ecefPosition, cartographic, modelObje
             getBuildingInfo(pnu);
 
             // service.js (지도 클릭 시)
-            localStorage.setItem("lat", lat);
-            localStorage.setItem("lon", lon);
+            sessionStorage.setItem("lat", lat);
+            sessionStorage.setItem("lon", lon);
 
         }
     });
@@ -181,9 +181,9 @@ function getBuildingInfo(pnu) {
                 $("#ldCodeNm").val(info.ldCodeNm);
                 $("#mnnmSlno").val(info.mnnmSlno);
 
-                localStorage.setItem("ldCodeNm", info.ldCodeNm);
-                localStorage.setItem("mnnmSlno", info.mnnmSlno);
-                localStorage.setItem("BuildingArea", info.buldBildngAr);
+                sessionStorage.setItem("ldCodeNm", info.ldCodeNm);
+                sessionStorage.setItem("mnnmSlno", info.mnnmSlno);
+                sessionStorage.setItem("BuildingArea", info.buldBildngAr);
 
             } else {
                 showPopup(lastClickPosition, "조회된 건물 정보가 없습니다.");

@@ -16,7 +16,9 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -26,7 +28,7 @@ public class SimulatorService {
     private final TaxPolicyRepository taxPolicyRepository;
     private final ZebPolicyRepository zebPolicyRepository;
 
-    public SimulatorResultDto calculate(SimulatorDto dto) throws Exception {
+    public SimulatorResultDto calculate1(SimulatorDto dto) throws Exception {
         SimulatorResultDto res = new SimulatorResultDto();
         
 
@@ -44,6 +46,13 @@ public class SimulatorService {
         System.out.println("energySelf = " + energySelf);
         BigDecimal usage = dto.getEnergy().divide(dto.getArea(),3,RoundingMode.HALF_UP); // 소수점 3자리 반올림
         System.out.println("usage = " + usage);
+
+       
+
+
+
+
+
 
         ZebPolicy z = zebPolicyRepository
         .findFirstByMinPercentLessThanEqualAndMaxPercentGreaterThanEqual(energySelf, energySelf)
@@ -85,6 +94,75 @@ public class SimulatorService {
         } else {
             res.setZebGrade("등급없음");
         }
+
+
+        return res;
+    }
+
+    public SimulatorResultDto calculate2 (SimulatorDto dto) throws Exception {
+        SimulatorResultDto res = new SimulatorResultDto();
+
+        BigDecimal solarRadiation = getSolarRadiation(dto.getLat(),dto.getLon());
+        BigDecimal efficiency = BigDecimal.valueOf(0.8); 
+        Integer panelPowerInt = dto.getPanelPower();
+        BigDecimal panelPower = panelPowerInt == null ? BigDecimal.ZERO : BigDecimal.valueOf(panelPowerInt);
+
+         Map<Integer,int[]> gradeRange = new HashMap<>();
+        gradeRange.put(1, new int[]{0, 80});
+        gradeRange.put(2, new int[]{80, 140});
+        gradeRange.put(3, new int[]{140, 200});
+        gradeRange.put(4, new int[]{200, 260});
+        gradeRange.put(5, new int[]{260, 320});
+        gradeRange.put(6, new int[]{320, 380});
+        gradeRange.put(7, new int[]{380, 450});
+        gradeRange.put(8, new int[]{450, 520});
+        gradeRange.put(9, new int[]{520, 610});
+        gradeRange.put(10, new int[]{610, 700});
+
+        int currentGrade = dto. getCurrentGrade();
+        int targetGrade = dto.getTargetGrade();
+        BigDecimal currentMid = BigDecimal.ZERO;
+        BigDecimal targetMid = BigDecimal.ZERO;
+
+        
+        if (gradeRange.containsKey(currentGrade)) {
+            int[] range = gradeRange.get(currentGrade);
+            currentMid = BigDecimal.valueOf((range[0] + range[1]) / 2.0);
+        }
+        if (gradeRange.containsKey(targetGrade)) {
+            int[] range = gradeRange.get(targetGrade);
+            targetMid = BigDecimal.valueOf((range[0] + range[1]) / 2.0);
+        }
+
+        BigDecimal energyDiff = currentMid.subtract(targetMid);
+        BigDecimal totalEnergyDiff = energyDiff.multiply(dto.getArea());
+        
+        BigDecimal onePanelGeneration = panelPower.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP)
+                .multiply(solarRadiation)
+                .multiply(efficiency);
+
+        BigDecimal requiredPanels = BigDecimal.ZERO;
+        if (onePanelGeneration.compareTo(BigDecimal.ZERO) > 0) {
+            requiredPanels = totalEnergyDiff.divide(onePanelGeneration, 0, RoundingMode.CEILING);
+        }
+        BigDecimal total = requiredPanels.multiply(onePanelGeneration).setScale(1,RoundingMode.HALF_UP);
+       
+        BigDecimal annualSaveElectric = total.multiply(BigDecimal
+                                            .valueOf(185.5))
+                                            .divide(BigDecimal.valueOf(10000),1,RoundingMode.HALF_UP); // kWh
+        BigDecimal annualSaveCO2 = total.multiply(BigDecimal.valueOf(0.415))
+                                        .divide(BigDecimal.valueOf(1000),1,RoundingMode.HALF_UP); // TonCO2
+
+
+        System.out.println("annualSaveElectric = " + annualSaveElectric);
+        System.out.println("annualSaveCO2 = " + annualSaveCO2);
+        System.out.println("requiredPanels = " + requiredPanels);
+        System.out.println("total = " + total);
+
+        res.setAnnualSaveElectric(annualSaveElectric);
+        res.setAnnualSaveCO2(annualSaveCO2);
+        res.setTotal(total);
+        res.setRequiredPanels(requiredPanels);
 
 
         return res;

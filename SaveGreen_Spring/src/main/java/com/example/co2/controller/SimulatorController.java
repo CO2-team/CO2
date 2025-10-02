@@ -22,12 +22,20 @@ public class SimulatorController {
     @Autowired  
     private SimulatorService simulatorService;
 
-    @PostMapping("/simulate")
+    @PostMapping("/simulate1")
     @ResponseBody
-    public SimulatorResultDto simulate(@ModelAttribute SimulatorDto dto) throws Exception { 
-        System.out.println(  dto.getLat()  + dto.getLon());
-        return simulatorService.calculate(dto);
+    public SimulatorResultDto simulate1(@ModelAttribute SimulatorDto dto) throws Exception { 
+        
+        return simulatorService.calculate1(dto);
     }
+
+    @PostMapping("/simulate2")
+    @ResponseBody
+    public SimulatorResultDto simulate2(@ModelAttribute SimulatorDto dto) throws Exception { 
+        
+        return simulatorService.calculate2(dto);
+    }
+    
 
     @ResponseBody
     @GetMapping("/search")

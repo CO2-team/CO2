@@ -20,7 +20,7 @@
     <section class="simulator-container">
         <div class="simulator-input">
             <h3>에너지 효율 등급 시뮬레이터</h3>
-            <form id="simulatorForm" th:action="@{/simulate}" method="post">
+            <form id="simulatorForm1" th:action="@{/simulate1}" method="post">
                 <input type="hidden" name="lat" id="lat1">
                 <input type="hidden" name="lon" id="lon1">
                 
@@ -53,7 +53,7 @@
             </form>
         </div>        
     </section>
-    <section id="resultBox" class="result-box" style="display: none;">
+    <section id="resultBox1" class="result-box" style="display: none;">
         <h3 style="text-align:center !important;">시뮬레이션 결과</h3>
         <div class="result-item">
             <span class="label">에너지 효율 등급</span>
@@ -102,7 +102,7 @@
     <section class="simulator-container">
         <div class="simulator-input">
             <h3>태양광 에너지 효율·경제성 시뮬레이터</h3>
-            <form id="simulatorForm2" th:action="@{/simulate}" method="post">
+            <form id="simulatorForm2" th:action="@{/simulate2}" method="post">
 
                 <input type="hidden" name="lat" id="lat2">
                 <input type="hidden" name="lon" id="lon2">
@@ -123,8 +123,8 @@
                 </div>
 
                 <div class="form-row">
-                    <select>
-                        <option value="">건물 등급 (현재)</option>
+                    <select name="currentGrade">
+                        <option value="0">건물 등급 (현재)</option>
                         <option value="1">1+++등급</option>
                         <option value="2">1++등급</option>
                         <option value="3">1+등급</option>
@@ -136,8 +136,8 @@
                         <option value="9">6등급</option>
                         <option value="10">7등급</option>
                     </select>
-                    <select>
-                        <option value="">건물 등급 (목표)</option>
+                    <select name="targetGrade">
+                        <option value="0">건물 등급 (목표)</option>
                         <option value="1">1+++등급</option>
                         <option value="2">1++등급</option>
                         <option value="3">1+등급</option>
@@ -159,11 +159,23 @@
             </form>
         </div>
     </section>
-    <section id="resultBox" class="result-box" style="display: none;">
+    <section id="resultBox2" class="result-box" style="display: none;">
         <h3 style="text-align:center !important;">시뮬레이션 결과</h3>
         <div class="result-item">
-            <span class="label">에너지 효율 등급</span>
-            <span class="value" id="grade">-</span>
+            <span class="label">연간 에너지 절감량</span>
+            <span class="value" id="total">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">연간 전기세 절감량</span>
+            <span class="value" id="annualSaveElectric">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">연간 탄소배출 절감량</span>
+            <span class="value" id="annualSaveCO2">-</span>
+        </div>
+        <div class="result-item">
+            <span class="label">필요 태양광 패널 개수</span>
+            <span class="value" id="requiredPanels">-</span>
         </div>
     </section>
     </div>

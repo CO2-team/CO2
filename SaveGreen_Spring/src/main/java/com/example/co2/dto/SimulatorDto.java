@@ -21,5 +21,6 @@ public class SimulatorDto {
     private String jibunAddr;
     private String zipNo;
    
-
+    private int currentGrade;
+    private int targetGrade;
 }
