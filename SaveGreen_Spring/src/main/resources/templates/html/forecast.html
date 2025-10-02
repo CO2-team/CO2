@@ -98,7 +98,7 @@
                 <span class="chip">
 						<span class="dot" aria-hidden="true"></span>
 						<strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
-						<span class="truncate">2024–2030 연간</span>
+						<span class="truncate" id="meta-data-range">-</span>
 					</span>
 
                 <span class="chip">
@@ -254,7 +254,12 @@
 
 <div th:replace="~{layouts/footer :: footer}"></div>
 
+<!-- 라이브러리 -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script th:src="@{/js/forecast.js}"></script>
+
+<!-- 페이지 전용 스크립트: providers → vworld → forecast 순으로! -->
+<script th:src="@{/js/forecast.providers.js?v=20251002-1}"></script>
+<script th:src="@{/js/vworldClient.js?v=20251002-1}"></script>
+<script th:src="@{/js/forecast.js?v=20251002-1}"></script>
 </body>
 </html>

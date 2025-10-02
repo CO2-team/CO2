@@ -1,23 +1,29 @@
 /* =========================
- * forecast.js
- * - DOMContentLoaded → init()
- * - 헤더 겹침 보정
- * - 5단계 로딩바(최소 표시시간)
- * - API/더미 데이터 (from=to → 7년 확장)
- * - KPI/배너/요약 렌더 (renderKpis만 사용)
- * - 차트: 막대 순차 → 점 순차 → 선 표시 (항상 막대 위)
+ * forecast.js (FINAL)
+ * - 컨텍스트 확보 후 로더 시작
+ * - 컨텍스트 없으면 더미만 렌더(백엔드 호출 X)
+ * - builtYear=0/무효 → API 쿼리에 포함하지 않음
+ * - 기본 기간: 현재연도(NOW_YEAR) ~ NOW_YEAR+HORIZON_YEARS
  * ========================= */
 
 document.addEventListener('DOMContentLoaded', () => {
 	init().catch(err => console.error('[forecast] init failed:', err));
 });
 
-/* ---------- 피그마 고정 텍스트 ---------- */
+/* ---------- 고정 텍스트 ---------- */
 const BANNER_TEXTS = {
 	recommend: '연식과 향후 비용 리스크를 고려할 때, 리모델링을 권장합니다.',
 	conditional: '일부 항목은 적정하나, 향후 효율과 수익성 검토가 필요합니다.',
 	'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
+
+/* ---------- 예측 기간 상수(전역) ----------
+ * NOW_YEAR       : 현재 연도
+ * HORIZON_YEARS  : NOW_YEAR로부터 몇 년까지 예측할지(포함)
+ * 예) NOW_YEAR=2025, HORIZON_YEARS=10 → 2025 ~ 2035
+ * ---------------------------------------- */
+const NOW_YEAR = new Date().getFullYear();
+const HORIZON_YEARS = 10;
 
 /* ---------- Header offset ---------- */
 function applyHeaderOffset() {
@@ -65,6 +71,27 @@ function initHeaderOffset() {
 	}
 }
 
+/* ---------- Provider 쿼리 빌더 ----------
+ * 컨텍스트를 쿼리스트링으로 직렬화(정의된 필드만 포함)
+ * builtYear는 양수(>0)일 때만 포함
+ * -------------------------------------- */
+function buildCtxQuery(ctx) {
+	const params = new URLSearchParams();
+	params.set('from', String(ctx.from ?? NOW_YEAR));
+	params.set('to', String(ctx.to ?? (NOW_YEAR + HORIZON_YEARS)));
+	if (Number(ctx.builtYear) > 0) params.set('builtYear', String(ctx.builtYear));
+	setIf(params, 'useName', ctx.useName);
+	setIf(params, 'floorArea', ctx.floorArea);
+	setIf(params, 'area', ctx.area);
+	setIf(params, 'pnu', ctx.pnu);
+	// 필요 시 lat/lon 등 추가 가능
+	return params.toString();
+}
+function setIf(params, key, value) {
+	if (value == null || String(value).trim() === '') return;
+	params.set(key, String(value));
+}
+
 /* ---------- 초기화 ---------- */
 async function init() {
 	initHeaderOffset();
@@ -82,6 +109,8 @@ async function init() {
 			root.dataset.builtYear = urlp.get('builtYear');
 			root.dataset.builtYearFrom = 'qs';
 		}
+		if (root && !root.dataset.from && urlp.get('from')) root.dataset.from = urlp.get('from');
+		if (root && !root.dataset.to && urlp.get('to')) root.dataset.to = urlp.get('to');
 	}
 
 	console.log('[forecast] dataset', {
@@ -119,32 +148,32 @@ async function init() {
 	// 빌딩 카드 렌더(데이터 세팅 직후)
 	renderBuildingCard();
 
-	// from/to 안전 계산: 같으면 7년 확장
-	const rawFrom = root?.dataset.from ?? '2024';
-	const rawTo = root?.dataset.to ?? '2030';
-	let from = parseInt(String(rawFrom).trim(), 10);
-	let to = parseInt(String(rawTo).trim(), 10);
-	if (!Number.isFinite(from)) from = 2024;
-	if (!Number.isFinite(to)) to = 2030;
-	if (to < from) [from, to] = [to, from];
-	if (to === from) to = from + 6;
-
-	const bid = String(root?.dataset.bid ?? '').trim();
-
 	const $result = $('#result-section');
 	const $ml = $('#mlLoader');
 
-	// 게이트: 결과 숨기고 로더 시작
+	/* 컨텍스트 확보 (실패 시 더미로 폴백) */
+	let ctx, useDummy = false;
+	try {
+		ctx = await getBuildingContext();	// (page → local → url → vworld)
+		console.info('[forecast] ctx =', ctx);
+	} catch (e) {
+		console.warn('[forecast] no context → fallback to dummy', e);
+		ctx = fallbackDefaultContext(root);
+		useDummy = true;
+	}
+
+	// 로더는 컨텍스트 확보 후 시작
 	show($ml); hide($result);
 	startLoader();
 
-	// 데이터 로드
-	const data = await fetchForecast(bid, from, to);
+	// 데이터 로드 (더미/실데이터 분기)
+	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to)
+		: await fetchForecast(ctx);
 	window.FORECAST_DATA = data;
 
 	// 길이/타입 강제 정렬
 	{
-		const expectedYears = range(from, to).map(String);
+		const expectedYears = Array.isArray(data.years) ? data.years.map(String) : [];
 		const L = expectedYears.length;
 
 		data.years = expectedYears;
@@ -163,14 +192,27 @@ async function init() {
 		data.cost.saving = toNumArr(data.cost.saving, L);
 	}
 
-	console.debug('[forecast] aligned lengths',
-		{
-			years: data.years.length,
-			after: data.series.after.length,
-			saving: data.series.saving.length,
-			costSaving: data.cost.saving.length,
-			from, to, bid
-		});
+	console.debug('[forecast] aligned lengths', {
+		years: data.years.length,
+		after: data.series.after.length,
+		saving: data.series.saving.length,
+		costSaving: data.cost.saving.length,
+		from: (typeof ctx?.from !== 'undefined' ? ctx.from : undefined),
+		to: (typeof ctx?.to !== 'undefined' ? ctx.to : undefined),
+		bid: (typeof ctx?.buildingId !== 'undefined' ? ctx.buildingId : undefined)
+	});
+
+	// 메타패널(데이터 범위/모델/특성) 동적 표기
+	updateMetaPanel({
+		years: window.FORECAST_DATA.years,
+		model: 'Linear Regression',
+		features: (function () {
+			const feats = ['연도'];
+			if (Array.isArray(window.FORECAST_DATA?.series?.after)) feats.push('사용량');
+			if (Array.isArray(window.FORECAST_DATA?.cost?.saving)) feats.push('비용 절감');
+			return feats;
+		})()
+	});
 
 	// KPI & 출력
 	const kpi = computeKpis({
@@ -181,7 +223,7 @@ async function init() {
 	});
 
 	const gradeNow = estimateEnergyGrade(kpi.savingPct);
-	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear);
+	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
 	const statusObj = decideStatusByScore(kpi, { builtYear });
 
 	console.debug('[forecast] status', statusObj);
@@ -210,20 +252,18 @@ async function reloadForecast() {
 	const root = document.getElementById('forecast-root');
 	if (!root) return;
 
-	// from / to 재계산(init와 동일)
-	const rawFrom = root?.dataset.from ?? '2024';
-	const rawTo = root?.dataset.to ?? '2030';
-	let from = parseInt(String(rawFrom).trim(), 10);
-	let to = parseInt(String(rawTo).trim(), 10);
-	if (!Number.isFinite(from)) from = 2024;
-	if (!Number.isFinite(to)) to = 2030;
-	if (to < from) [from, to] = [to, from];
-	if (to === from) to = from + 6;
-
-	const bid = String(root?.dataset.bid ?? '').trim();
-
 	const $result = $('#result-section');
 	const $ml = $('#mlLoader');
+
+	// 컨텍스트 재수집(실패 시 더미)
+	let ctx, useDummy = false;
+	try {
+		ctx = await getBuildingContext();
+	} catch (e) {
+		console.warn('[forecast] reload→dummy', e);
+		ctx = fallbackDefaultContext(root);
+		useDummy = true;
+	}
 
 	// 로더 표시
 	show($ml);
@@ -231,12 +271,13 @@ async function reloadForecast() {
 	startLoader();
 
 	// 데이터 로드
-	const data = await fetchForecast(bid, from, to);
+	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to)
+		: await fetchForecast(ctx);
 	window.FORECAST_DATA = data;
 
 	// 길이/타입 강제 정렬(init와 동일)
 	{
-		const expectedYears = range(from, to).map(String);
+		const expectedYears = Array.isArray(data.years) ? data.years.map(String) : [];
 		const L = expectedYears.length;
 
 		data.years = expectedYears;
@@ -255,6 +296,18 @@ async function reloadForecast() {
 		data.cost.saving = toNumArr(data.cost.saving, L);
 	}
 
+	// 메타패널 업데이트
+	updateMetaPanel({
+		years: window.FORECAST_DATA.years,
+		model: 'Linear Regression',
+		features: (function () {
+			const feats = ['연도'];
+			if (Array.isArray(window.FORECAST_DATA?.series?.after)) feats.push('사용량');
+			if (Array.isArray(window.FORECAST_DATA?.cost?.saving)) feats.push('비용 절감');
+			return feats;
+		})()
+	});
+
 	// KPI / 판정 / 요약
 	const kpi = computeKpis({
 		years: data.years,
@@ -264,7 +317,7 @@ async function reloadForecast() {
 	});
 
 	const gradeNow = estimateEnergyGrade(kpi.savingPct);
-	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear);
+	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
 	const statusObj = decideStatusByScore(kpi, { builtYear });
 
 	applyStatus(statusObj.label);
@@ -296,7 +349,7 @@ const LOADER = {
 	STEP_MAX: 3,
 	STEP_PAUSE_MS: [3000, 3000, 3000, 3000],
 	MIN_VISIBLE_MS: 16000,
-	cap: 20,                // 20 → 40 → 60 → 80 → 100
+	cap: 20,				// 20 → 40 → 60 → 80 → 100
 	CLOSE_DELAY_MS: 4000,
 	startedAt: 0
 };
@@ -387,14 +440,20 @@ function finishLoader() {
 
 /* ---------- Data ---------- */
 function makeDummyForecast(fromYear, toYear) {
-	const a = parseInt(fromYear, 10);
-	const b = parseInt(toYear, 10);
-	const from = Number.isFinite(a) ? a : 2024;
-	const to = Number.isFinite(b) ? b : 2030;
-	const [lo, hi] = from <= to ? [from, to] : [to, from];
+	// 1) 입력 정규화
+	let from = parseInt(fromYear, 10);
+	let to = parseInt(toYear, 10);
 
+	if (!Number.isFinite(from)) from = NOW_YEAR;
+	if (!Number.isFinite(to)) to = from + HORIZON_YEARS;
+
+	// 2) 범위 보정
+	if (to < from) [from, to] = [to, from];
+	if (to === from) to = from + HORIZON_YEARS;
+
+	// 3) 연도/데이터 생성
 	const years = [];
-	for (let y = lo; y <= hi; y++) years.push(String(y));
+	for (let y = from; y <= to; y++) years.push(String(y));
 	const L = years.length;
 
 	const baseKwh = 2_150_000;
@@ -421,37 +480,29 @@ function makeDummyForecast(fromYear, toYear) {
 	};
 }
 
-async function fetchForecast(buildingId, fromYear, toYear) {
-	// 안전한 범위 계산 (같으면 7년 확장)
-	const a = parseInt(fromYear, 10);
-	const b = parseInt(toYear, 10);
-	let from = Number.isFinite(a) ? a : 2024;
-	let to = Number.isFinite(b) ? b : 2030;
+async function fetchForecast(ctx) {
+	// 1) from/to 보정
+	let from = parseInt(String(ctx.from ?? NOW_YEAR), 10);
+	let to = parseInt(String(ctx.to ?? (NOW_YEAR + HORIZON_YEARS)), 10);
+	if (!Number.isFinite(from)) from = NOW_YEAR;
+	if (!Number.isFinite(to)) to = from + HORIZON_YEARS;
 	if (to < from) [from, to] = [to, from];
-	if (to === from) to = from + 6;
+	if (to === from) to = from + HORIZON_YEARS;
 
 	const [lo, hi] = [from, to];
 	const years = range(lo, hi);
-	const hasId = typeof buildingId === 'string' && /^\d+$/.test(buildingId);
 
-	// builtYear & pnu 준비
-	const root = document.getElementById('forecast-root');
-	const by1 = Number(root?.dataset?.builtYear);
-	const by2 = Number(window?.savegreen?.builtYear);
-	const builtYear = Number.isFinite(by1) && by1 > 0 ? by1
-		: (Number.isFinite(by2) && by2 > 0 ? by2 : null);
-	const pnu = (root?.dataset?.pnu || '').trim();
+	// 2) 컨텍스트로 쿼리 구성(id 없는 케이스 대비)
+	const qs = buildCtxQuery({ ...ctx, from: lo, to: hi });
 
-	// 쿼리 구성
-	const q = new URLSearchParams({ from: lo, to: hi });
-	if (builtYear) q.append('builtYear', String(builtYear));
-	if (pnu) q.append('pnu', pnu);
-
-	const base = hasId ? `/api/forecast/${encodeURIComponent(buildingId)}` : `/api/forecast`;
-	const url = `${base}?` + q.toString();
+	// 3) URL 구성
+	const hasId = ctx.buildingId != null && String(ctx.buildingId).trim() !== '';
+	const base = hasId ? `/api/forecast/${encodeURIComponent(String(ctx.buildingId))}` : `/api/forecast`;
+	const url = `${base}?${qs}`;
 
 	console.log('[forecast] API URL =>', url);
 
+	// 4) 호출 + 정상화
 	try {
 		const rsp = await fetch(url, { headers: { 'Accept': 'application/json' } });
 		if (!rsp.ok) throw new Error('HTTP ' + rsp.status);
@@ -559,6 +610,32 @@ function applyStatus(status) {
 	if (badge) badge.textContent =
 		status === 'recommend' ? '추천' :
 			status === 'conditional' ? '조건부' : '비추천';
+}
+
+/* 메타 패널: 데이터 범위/모델/특성 동적 표기 */
+function updateMetaPanel({ years, model, features }) {
+	const fromY = Number(years?.[0]);
+	const toY = Number(years?.[years?.length - 1]);
+
+	// 데이터 범위
+	const rangeEl = document.getElementById('meta-data-range');
+	if (rangeEl) {
+		let text = '-';
+		if (Number.isFinite(fromY) && Number.isFinite(toY)) {
+			text = (fromY === toY) ? `${fromY}년` : `${fromY}~${toY} 연간`;
+		}
+		rangeEl.textContent = text;
+	}
+
+	// 모델명(옵션)
+	const modelEl = document.getElementById('meta-model');
+	if (modelEl && model) modelEl.textContent = model;
+
+	// 특성(옵션)
+	const featEl = document.getElementById('meta-features');
+	if (featEl && Array.isArray(features) && features.length) {
+		featEl.textContent = features.join(', ');
+	}
 }
 
 function renderKpis(kpi, { gradeNow }) {
@@ -670,7 +747,7 @@ async function renderEnergyComboChart({ years, series, cost }) {
 	const ctx = canvas.getContext('2d');
 
 	const BAR_GROW_MS = 2000;
-	const BAR_GAP_MS = 500;
+	const BAR_GAP_MS = 300;
 	const POINT_MS = 600;
 	const POINT_GAP_MS = 200;
 
@@ -693,7 +770,7 @@ async function renderEnergyComboChart({ years, series, cost }) {
 
 	const totalBarDuration = n * (BAR_GROW_MS + BAR_GAP_MS);
 	const pointStartAt = totalBarDuration + 200;
-	const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
+  	const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
 	const lineRevealAt = pointStartAt + totalPointDuration;
 
 	const lineDs = {
@@ -798,7 +875,11 @@ async function renderEnergyComboChart({ years, series, cost }) {
 					ticks: { callback: (v) => nf(v) },
 					title: { display: true, text: '비용 절감 (원/년)' }
 				},
-				x: { title: { display: false } }
+				x: {
+					title: { display: false },
+					// 모든 연도 라벨 표시를 원하면 주석 해제
+					// ticks: { autoSkip: false }
+				}
 			}
 		},
 		plugins: [forceLineFront]
@@ -822,10 +903,6 @@ async function renderEnergyComboChart({ years, series, cost }) {
 }
 
 /* ---------- Helpers ---------- */
-function getBuildingId() {
-	const root = document.getElementById('forecast-root');
-	return root?.dataset?.bid ?? '';
-}
 function nf(n) {
 	try { return new Intl.NumberFormat('ko-KR').format(Math.round(Number(n) || 0)); }
 	catch { return String(n); }
@@ -839,7 +916,27 @@ function $all(s, root = document) { return Array.from(root.querySelectorAll(s));
 function show(el) { if (el) el.classList.remove('hidden'); }
 function hide(el) { if (el) el.classList.add('hidden'); }
 
-/* VWorld Bridge : 좌표 + PNU + 건물정보 + builtYear */
+/* /forecast 빈 진입 등 컨텍스트가 전혀 없을 때의 기본값 생성
+ * - data-*는 참고하지 않고 URL만 확인
+ * - URL에도 없으면 NOW_YEAR ~ NOW_YEAR+HORIZON_YEARS */
+function fallbackDefaultContext(root) {
+	const urlp = new URLSearchParams(location.search);
+
+	let from = parseInt(urlp.get('from') || String(NOW_YEAR), 10);
+	let to = parseInt(urlp.get('to') || String(NOW_YEAR + HORIZON_YEARS), 10);
+
+	if (!Number.isFinite(from)) from = NOW_YEAR;
+	if (!Number.isFinite(to)) to = from + HORIZON_YEARS;
+	if (to < from) [from, to] = [to, from];
+	if (to === from) to = from + HORIZON_YEARS;
+
+	let builtYear = parseInt(urlp.get('builtYear') || String(from - 13), 10);
+	if (!Number.isFinite(builtYear) || builtYear <= 0) builtYear = from - 13;
+
+	return { from: String(from), to: String(to), builtYear };
+}
+
+/* ---------- VWorld Bridge (직접 호출 버전: 개발용) ---------- */
 (function () {
 	const VWORLD_KEY = "AED66EDE-3B3C-3034-AE11-9DBA47236C69";
 
