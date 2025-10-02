@@ -7,6 +7,9 @@
 ;(function (global) {
 	'use strict';
 
+	const NOW_YEAR = new Date().getFullYear();
+	const HORIZON_YEARS = 10;
+
 	function pickStrategy() {
 		const pref = (localStorage.getItem('source') || 'auto').toLowerCase();
 		if (pref === 'local')   return ['local', 'page', 'url', 'vworld'];
@@ -55,8 +58,8 @@
 			floorArea:  nv(root.dataset.floorArea),
 			area:       nv(root.dataset.area),
 			pnu:        sv(root.dataset.pnu),
-			from:       sv(root.dataset.from) || '2024',
-			to:         sv(root.dataset.to)   || '2030',
+			from:       sv(root.dataset.from) || String(NOW_YEAR),
+			to:         sv(root.dataset.to)   || String(NOW_YEAR + HORIZON_YEARS),
 			lat:        nv(root.dataset.lat),
 			lon:        nv(root.dataset.lon)
 		};
@@ -94,8 +97,8 @@
 				floorArea:  nv(q.get('floorArea')),
 				area:       nv(q.get('area')),
 				pnu:        sv(q.get('pnu')),
-				from:       sv(q.get('from')) || '2024',
-				to:         sv(q.get('to'))   || '2030',
+				from:       sv(q.get('from')) || String(NOW_YEAR),
+				to:         sv(q.get('to'))   || String(NOW_YEAR + HORIZON_YEARS),
 				lat:        nv(q.get('lat')),
 				lon:        nv(q.get('lon'))
 			};
@@ -146,8 +149,8 @@
 			floorArea:  nv(v.floorArea),
 			area:       nv(v.area),
 			pnu:        sv(v.pnu),
-			from:       String(v.from ?? '2024'),
-			to:         String(v.to   ?? '2030'),
+			from:       String(v.from ?? NOW_YEAR),
+			to:         String(v.to   ?? (NOW_YEAR + HORIZON_YEARS)),
 			lat:        isFiniteNum(v.lat) ? Number(v.lat) : undefined,
 			lon:        isFiniteNum(v.lon) ? Number(v.lon) : undefined
 		};
