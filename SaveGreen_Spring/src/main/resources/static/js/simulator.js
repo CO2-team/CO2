@@ -1,24 +1,94 @@
+// 시뮬레이터 사용법 안내
+document.addEventListener("DOMContentLoaded", () => {
+Swal.fire({
+    title: '시뮬레이터 사용법',
+    html: '<h4>에너지 등급 시뮬레이터</h4>'
+         +'<b>1.</b>지도 클릭(서비스) 혹은 주소검색으로 주소,면적 입력하기<br>'
+         +'<b>2.</b>태양광 패널 갯수,정격출력 입력하기<br>'
+         +'<b>3.</b> 결과확인 버튼 누르기<br>'
+         +'<h4>태양광 에너지 효율 경제성 시뮬레이터</h4>'
+         +'<b>1.</b>지도 클릭(서비스) 혹은 주소검색으로 주소,면적 입력하기<br>'
+         +'<b>2.</b>현재 등급,목표 등급 선택하기<br>'
+         +'<b>3.</b>태양광 패널 정격출력 입력하기<br>'
+         +'<b>4.</b> 결과확인 버튼 누르기<br>',
+    icon: 'info',
+    confirmButtonText: '확인'
+  });
+  // 시뮬레이터 결과 가이드
+  const guideBtn1 = document.getElementById("guideBtn1");
+  
+  if (guideBtn1) {
+    guideBtn1.addEventListener("click", () => {
+      Swal.fire({
+        title: '에너지 등급 시뮬레이터 참고사항',
+        html: `
+          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br><br>
+          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br><br>
+          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br><br>
+          <b>4.</b> ZEB등급,녹색건축물등급에 따른 감면율은 공공기관 정보를 바탕으로 작성되었습니다.<br><br>
+          <b>5.</b> 절세율은 중복되지 않으며, 결과의 감면율은 두 인증 등급의 감면율 중 높은 것으로 나타납니다.<br><br>
+          <b>6.</b> 재산세 감면액은 지자체 조례에 따라 달라질 수 있습니다.
+        `,
+        icon: 'info',
+        confirmButtonText: '확인',
+        focusConfirm: false,
+        scrollbarPadding: false,
+        heightAuto: false,  
+      });
+    });
+  }
+
+
+  const guideBtn2 = document.getElementById("guideBtn2");
+  if (guideBtn2) {
+    guideBtn2.addEventListener("click", () => {
+      Swal.fire({
+        title: '태양광 에너지 효율 경제성 시뮬레이터 참고사항',
+        html: `
+          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br><br>
+          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br><br>
+          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br><br>
+          <b>4.</b> 건축물 에너지 효율 등급 증가에 대한 에너지량은 에너지 등급 구간별 중간값으로 책정되었습니다.<br><br>
+          <b>5.</b> 전기금액은 24년도 한국전력공사 표준 전기세 기준입니다.(kWh당 185.5원)<br><br>
+          <b>6.</b> 탄소배출량은 24년도 국가별 탄소배출계수 기준입니다.(kWh당 0.419)
+          
+        `,
+        icon: 'info',
+        confirmButtonText: '닫기',
+        focusConfirm: false,
+        scrollbarPadding: false,
+        heightAuto: false,  
+      });
+    });
+  }
+});
+
+
 //에너지 등급 시뮬레이터
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('simulatorForm1');
     if (!form) return;
+    
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const formData = new FormData(form);
+        const box = document.getElementById('resultBox1');
+        const spinner = document.getElementById('spinner');
+        const items = box.querySelectorAll('.result-item');
+        
+        
 
+        const formData = new FormData(form);
         const resp = await fetch('/simulate1', {
           method: 'POST',
           body: formData
         });
         const data = await resp.json();
-
-        const box = document.getElementById('resultBox');
+        
         if (!box) return;
-
-        const items = box.querySelectorAll('.result-item');
-        items.forEach(item => item.classList.remove('show'));
-
+        box.style.display='block'
+        spinner.style.display='block';
+        items.forEach(item => item.classList.remove('none'));
         document.getElementById('propertyTax').textContent = (data.propertyTax ?? '-')+"%";
         document.getElementById('acquireTax').textContent  = (data.acquireTax ?? '-')+"%";
         document.getElementById('areaBonus').textContent   = (data.areaBonus ?? '-')+"%";
@@ -29,8 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
-        box.style.display = 'block';
-
+        spinner.style.display='none'
+        items.forEach(item => item.classList.remove('show'));
+        // box.style.display='block'
+        
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
@@ -59,12 +131,17 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach(item => item.classList.remove('show'));
 
         
-        document.getElementById('annualSaveElectric').textContent  = (data.annualSaveElectric ?? '-')+" kWh";
-        document.getElementById('annualSaveCO2').textContent   = (data.annualSaveCO2 ?? '-')+" 톤 CO2";
-        document.getElementById('total').textContent       = (data.total ?? '-')+"만 원";
-        document.getElementById('requiredPanels').textContent    = (data.requiredPanels ?? '-')+" 개";
+        // document.getElementById('annualSaveElectric').textContent  = (data.annualSaveElectric ?? '-')+"만 원";
+        // document.getElementById('annualSaveCO2').textContent   = (data.annualSaveCO2 ?? '-')+" 톤 CO2";
+        // document.getElementById('total').textContent       = (data.total ?? '-')+" kWh";
+        // document.getElementById('requiredPanels').textContent    = (data.requiredPanels ?? '-')+" 개";
 
-       
+        animateValue("total", 0, data.total, 2000, 0);
+        animateValue("annualSaveElectric", 0, data.annualSaveElectric, 2000, 0);
+        animateValue("annualSaveCO2", 0, data.annualSaveCO2, 2000, 1);
+        animateValue("requiredPanels", 0, data.requiredPanels, 2000, 0);
+
+
         box.style.display = 'block';
 
       
@@ -236,6 +313,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+function animateValue(id, start, end, duration, decimals = 0) {
+  const obj = document.getElementById(id);
+  if (!obj) return;
+
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    const value = start + (end - start) * progress;
+    obj.innerText = decimals === 0 ? Math.floor(value) : value.toFixed(decimals);
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
 
 
 

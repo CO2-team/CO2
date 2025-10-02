@@ -1,9 +1,9 @@
 #introText {
-    max-width: 1000px;        /* 폭 제한 */
-    margin: 80px auto 0;   /* 화면 가운데 (위 80px, 아래 40px 여백) */
-    padding: 20px 20px;       /* 내부 여백 */
+    max-width: 1000px;       
+    margin: 80px auto 0;  
+    padding: 20px 20px;       
     font-size: 15px;
-    text-align: center;       /* 글자 가운데 */
+    text-align: center;      
     border-radius: 10px;
     background-color: #d0dacf;
 }
@@ -23,7 +23,7 @@
 .simulator-wrapper{
     flex: 1;
     min-width: 400px;
-    background-color: #d0dacf; /* 연녹색 */
+    background-color: #d0dacf; 
     padding: 20px;
     border-radius: 10px;
     justify-content: center;
@@ -66,7 +66,7 @@
 
 
 .form-group .icon {
-    width: 30px;   /* 모든 아이콘 동일 너비 */
+    width: 30px;  
     height: 30px;
     flex-shrink: 0; /* 아이콘이 줄어들지 않게 */
     
@@ -94,7 +94,7 @@
 
 .form-group label {
     width:50px;
-    flex-shrink: 0;        /* 줄어들지 않게 */  
+    flex-shrink: 0;   
     margin-left: 10px;  
     white-space: nowrap;
     font-size: 13px;
@@ -143,21 +143,21 @@
     margin-top: 20px;
     flex-direction: column;
     align-items: center;
-    background-color: #d0dacf;   /* 모바일 전체 배경 연녹색 */
-    border-radius: 0;            /* 꼭짓점 둥글림 제거 (전체 배경이니까) */
+    background-color: #d0dacf;   
+    border-radius: 0;            
                 
   }
   .simulator-wrapper {
-    width: 100%;                 /* 꽉 채우게 */
-    max-width: none;             /* 제한 없애기 */
-    background-color: transparent; /* wrapper 배경 제거 (겹치지 않게) */
+    width: 100%;              
+    max-width: none;        
+    background-color: transparent; 
     box-shadow: none; 
     gap:40px
   }
   .simulator-container{
-    width: 100%;                 /* 꽉 채우게 */
+    width: 100%;                
     margin: 0 auto; 
-       /* 가운데 정렬 유지 */
+   
   }
 }
 
@@ -180,7 +180,7 @@ html, body { min-width: 360px; }
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
- .result-box {
+ .result-box1 {
     background: #fff;
     padding: 20px;
     border-radius: 12px;
@@ -194,8 +194,8 @@ html, body { min-width: 360px; }
     justify-content: space-between;
     align-items: center;
     margin: 12px 0;
-    opacity: 0;                /* 처음엔 안보이게 */
-    transform: translateX(-50px); /* 왼쪽으로 숨겨둠 */
+    opacity: 0;               
+    transform: translateX(-50px); 
 }
 
 .result-item.show {
@@ -218,10 +218,10 @@ html, body { min-width: 360px; }
 }
 
 @keyframes slideIn {
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 .dropdown {
     position: absolute;
@@ -251,3 +251,104 @@ html, body { min-width: 360px; }
     background: #666;
 }
 
+
+.result-box2 {
+    max-width: 400px;
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2열 × 2행 */
+    gap: 20px;
+    margin-top: 20px;
+}
+
+
+.card {
+    background: #1b5e20;        
+    color: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+
+.card-label {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
+
+.card-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+
+.card-unit {
+    font-size: 14px;
+    opacity: 0.8;
+}
+.info-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    margin-left: 8px;
+    color: #1976d2; /* 파란색 */
+    transition: transform 0.2s;
+}
+
+.info-btn:hover {
+    transform: scale(1.2);
+    color: #0d47a1; /* hover 시 진한 파랑 */
+}
+
+
+body.swal2-shown {
+    overflow: auto !important;   /* 스크롤 숨기지 않게 */
+    padding-right: 0 !important; /* SweetAlert 패딩 보정도 막음 */
+}
+
+.swal2-title {
+  font-size: 22px;
+  color: #2c7a3f;
+}
+
+
+.loading-box1 {
+  text-align: center;
+  padding: 40px;
+}
+.loading-box2 {
+  text-align: center;
+  padding: 40px;
+}
+
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #1976d2;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px;
+  animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
