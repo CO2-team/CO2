@@ -235,96 +235,10 @@ function hidePopup() {
 }
 
 
-
-// document.addEventListener("DOMContentLoaded", () => {
-//   const searchBoxes = document.querySelectorAll(".searchBox");
-
-//   searchBoxes.forEach((input) => {
-//     const resultList = input.parentElement.querySelector(".searchResult");
-
-//     input.addEventListener("keyup", async () => {
-//       const keyword = input.value.trim();
-//       if (keyword.length < 2) {
-//         resultList.innerHTML = "";
-//         resultList.classList.remove("show");
-//         return;
-//       }
-
-//       try {
-//         // /search로 요청 (백엔드의 searchAddress() 호출)
-//         const resp = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
-//         const list = await resp.json();
-
-//         resultList.innerHTML = "";
-//         list.forEach((addr) => {
-//           const item = document.createElement("div");
-//           item.classList.add("dropdown-item");
-//           item.textContent = addr.roadAddr || addr.jibunAddr;
-
-//           // 클릭 시 입력창 채우고 지도 이동
-//           item.addEventListener("click", async () => {
-//             input.value = addr.roadAddr || addr.jibunAddr;
-//             resultList.innerHTML = "";
-//             resultList.classList.remove("show");
-
-//             // 위도/경도는 juso API에서 제공하지 않으므로
-//             // vWorld API를 한 번 더 호출해서 좌표 변환
-//             const vRes = await fetch(`/vworld/coord?address=${encodeURIComponent(addr.roadAddr)}`);
-//             const vJson = await vRes.json();
-
-//             const point = vJson.response?.result?.point;
-//             console.log("vWorld 좌표 변환 응답:", vJson);
-//             console.log("point:", point);
-
-//             if (point) {
-//                 const lon = parseFloat(point.x);
-//                 const lat = parseFloat(point.y);
-
-//                 const coord = new vw.CoordZ(lon, lat, 100);
-//                 map.moveToPosition(coord, new vw.Direction(0, -60, 0));
-//                 map.setZoom(18);
-
-//                 // 팝업으로 표시
-//                 const html = `
-//                     <b>주소:</b> ${addr.roadAddr}<br>
-//                     <b>지번:</b> ${addr.jibunAddr || "-"}<br>
-//                     <b>우편번호:</b> ${addr.zipNo || "-"}<br>
-//                     <b>위도:</b> ${lat}<br>
-//                     <b>경도:</b> ${lon}
-//                 `;
-//                 showPopup({ x: 200, y: 200 }, html);
-
-//                 console.log("좌표 변환:", { lat, lon });
-                
-
-//                 // 세션에 좌표 저장
-//                 sessionStorage.setItem("lat", lat);
-//                 sessionStorage.setItem("lon", lon);
-//                 } else {
-//                 alert("좌표를 찾을 수 없습니다.");
-//             }
-//           });
-
-//           resultList.appendChild(item);
-//         });
-
-//         if (list.length > 0) {
-//           resultList.classList.add("show");
-//         } else {
-//           resultList.classList.remove("show");
-//         }
-//       } catch (e) {
-//         console.error("주소 검색 오류:", e);
-//       }
-//     });
-//   });
-// });
-
-
 document.addEventListener("DOMContentLoaded", () => {
   const searchBoxes = document.querySelectorAll(".searchBox");
 
-  // 좌표 변환 함수
+  // 좌표 변환 함수 (vWorld API)
   function getCoordinatesFromAddress(address, callback) {
     $.ajax({
       url: "http://api.vworld.kr/req/address",
@@ -341,10 +255,10 @@ document.addEventListener("DOMContentLoaded", () => {
         key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"
       },
       success: function(data) {
-        if (data && data.response && data.response.result && data.response.result.point) {
+        if (data?.response?.result?.point) {
           const lon = parseFloat(data.response.result.point.x);
           const lat = parseFloat(data.response.result.point.y);
-          callback(null, { lon, lat });
+          callback(null, { lon, lat }); // 좌표 전달
         } else {
           callback(new Error("좌표 변환 실패: 결과 없음"));
         }
@@ -355,6 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // 주소 검색 자동완성 + 지도 이동
   searchBoxes.forEach((input) => {
     const resultList = input.parentElement.querySelector(".searchResult");
 
@@ -367,7 +282,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       try {
-        // 백엔드 /search 호출
         const resp = await fetch(`/vworld/search?keyword=${encodeURIComponent(keyword)}`);
         const list = await resp.json();
 
@@ -384,35 +298,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // 좌표 변환 호출
             getCoordinatesFromAddress(addr.roadAddr, (err, coord) => {
-            if (err) {
-            console.error(err);
-            alert("좌표를 찾을 수 없습니다.");
-            return;
-            }
+                if (err) {
+                    console.error(err);
+                    alert("좌표를 찾을 수 없습니다.");
+                    return;
+                }
 
-            console.log("좌표 변환 성공:", coord);
+                console.log("좌표 변환 성공:", coord);
 
-            // 지도 이동
-            const position = new vw.CoordZ(coord.lon, coord.lat, 100);
-            map.moveToPosition(position, new vw.Direction(0, -60, 0));
-            map.setZoom(18);
-
-            //   // 팝업 표시
-            //   const html = `
-            //     <b>주소:</b> ${addr.roadAddr}<br>
-            //     <b>지번:</b> ${addr.jibunAddr || "-"}<br>
-            //     <b>우편번호:</b> ${addr.zipNo || "-"}<br>
-            //     <b>위도:</b> ${coord.lat}<br>
-            //     <b>경도:</b> ${coord.lon}
-            //   `;
-            //   showPopup({ x: 200, y: 200 }, html);
-
-            //   // 세션에 좌표 저장
-            //   sessionStorage.setItem("lat", coord.lat);
-            //   sessionStorage.setItem("lon", coord.lon);
-
-            //   // 필요 시 PNU 조회 및 건물 면적 조회 로직도 여기에 추가 가능
+                // vWorld 지도 이동 (vwmoveTo 함수 사용)
+                vwmoveTo(coord.lon, coord.lat, 300); // 300m 높이로 이동
             });
+
           });
 
           resultList.appendChild(item);
@@ -430,24 +327,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-function moveMapTo(lon, lat, zoom = 18) {
-  if (!map) {
-    console.error("map 객체가 존재하지 않습니다.");
-    return;
-  }
 
-  if (typeof map.moveToPosition === "function") {
-    // 3D 지도용
-    const coord = new vw.CoordZ(lon, lat, 100);
-    map.moveToPosition(coord, new vw.Direction(0, -60, 0));
-    map.setZoom(zoom);
-  } else if (typeof map.setCenter === "function") {
-    // 2D 지도용
-    map.setCenter([lon, lat]);
-    if (typeof map.setZoom === "function") {
-      map.setZoom(zoom);
-    }
-  } else {
-    console.warn("지도 이동 메서드를 찾을 수 없습니다.");
-  }
+function vwmoveTo(x, y, z) {
+    var movePo = new vw.CoordZ(x, y, z);
+    var mPosi = new vw.CameraPosition(movePo, new vw.Direction(0, -80, 0));
+    map.moveTo(mPosi);
 }
