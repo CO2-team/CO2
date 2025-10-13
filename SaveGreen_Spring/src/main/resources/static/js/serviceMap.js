@@ -175,7 +175,9 @@ function getBuildingInfo(pnu) {
                     <b>건물높이:</b> ${info.buldHg || "-"}m<br>
                     <b>용도:</b> ${info.buldPrposClCodeNm || "-"}
                 `;
-                showPopup(lastClickPosition, html);
+                //showPopup(lastClickPosition, html);
+                showBuildingPopup(info, lastClickPosition); //팝업 호출
+
                 requestParam.ldCodeNm = info.ldCodeNm ?? "";
                 requestParam.mnnmSlno = info.mnnmSlno ?? "";
                 $("#ldCodeNm").val(info.ldCodeNm);
@@ -197,14 +199,98 @@ function getBuildingInfo(pnu) {
 
 
 // 팝업
-function showPopup(windowPosition, html) {
-    const popup = $id("popup");
+
+function showBuildingPopup(info, windowPosition) {
+    // 값 채우기
+    $("#buildingName").text(info.buldNm || "-");
+    $("#roadAddr").text(info.roadAddr || "-");
+    $("#jibunAddr").text(info.jibunAddr || "-");
+    $("#engAddr").text(info.engAddr || "-");
+
+    $("#buldNm").text(info.buldNm || "-");
+    $("#buldDongNm").text(info.buldDongNm || "-");
+    $("#ldCodeNm").text(info.ldCodeNm || "-");
+    $("#mnnmSlno").text(info.mnnmSlno || "-");
+    $("#groundFloorCo").text(info.groundFloorCo || "-");
+    $("#undgrndFloorCo").text(info.undgrndFloorCo || "-");
+    $("#buldBildngAr").text(info.buldBildngAr || "-");
+    $("#buldPlotAr").text(info.buldPlotAr || "-");
+    $("#buldHg").text(info.buldHg || "-");
+    $("#buldPrposClCodeNm").text(info.buldPrposClCodeNm || "-");
+    $("#mainPurpsClCodeNm").text(info.mainPurpsClCodeNm || "-");
+    $("#useConfmDe").text(info.useConfmDe || "-");
+    $("#detailPrposCodeNm").text(info.detailPrposCodeNm || "-");
+    $("#prmisnDe").text(info.prmisnDe || "-");
+
+
+    // 위치 잡기
+    const popup = document.getElementById("popup");
     popup.style.left = (windowPosition.x + 10) + "px";
     popup.style.top = (windowPosition.y - 10) + "px";
-    popup.innerHTML = html;
-    popup.style.display = "block"; 
+    popup.style.display = "block";
 }
+
+// function showPopup(windowPosition, html) {
+//     const popup = $id("popup");
+//     popup.style.left = (windowPosition.x + 10) + "px";
+//     popup.style.top = (windowPosition.y - 10) + "px";
+//     popup.innerHTML = html;
+//     popup.style.display = "block"; 
+// }
 
 function hidePopup() {
     $id("popup").style.display = "none";
+}
+
+
+// 검색 기능
+function searchBuilding() {
+    const keyword = $("#keyword").val().trim();
+    if (!keyword) {
+        alert("검색어를 입력하세요");
+        return;
+    }
+
+    $.ajax({
+        type: "get",
+        dataType: "jsonp",
+        url: "https://api.vworld.kr/req/search",
+        data: {
+            key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69", 
+            query: keyword,
+            request: "search",
+            type: "address",
+            category:"road",
+            format: "json",
+            size: 10
+        },
+        success: function(res) {
+            console.log("검색 결과:", res);
+
+            if (res.response?.result?.items?.length > 0) {
+                const item = res.response.result.items[0];
+                const x = item.point.x;
+                const y = item.point.y;
+
+                // 지도 중심 이동
+                mapController.setCenter(new vw.ol3.Coordinate(x, y));
+                mapController.setZoom(18);
+
+                // 팝업 표시
+                const html = `
+                    <b>검색 결과</b><br>
+                    ${item.title}<br>
+                    ${item.address}<br><br>
+                    <button onclick="getBuildingInfo('${item.id}')">건물 정보 보기</button>
+                `;
+                showPopup({x:x, y:y}, html);
+
+            } else {
+                alert("검색 결과가 없습니다.");
+            }
+        },
+        error: function(err) {
+            console.error("검색 API 오류:", err);
+        }
+    });
 }

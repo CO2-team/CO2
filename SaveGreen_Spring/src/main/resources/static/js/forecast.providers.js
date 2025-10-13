@@ -4,6 +4,7 @@
  * - 소스 우선순위: page → localStorage → url → vworld  (auto 기준)
  * - builtYear=0 은 유효값으로 취급하지 않음 (양수만 허용)
  * ========================================================= */
+
 ;(function (global) {
 	'use strict';
 
@@ -146,7 +147,7 @@
 			buildingId: nvPos(v.buildingId),
 			builtYear:  by,
 			useName:    v.useName ?? v.use_name ?? undefined,
-			floorArea:  nv(v.floorArea),
+			floorArea:  nv(v.floorArea) ?? nv(v.area),
 			area:       nv(v.area),
 			pnu:        sv(v.pnu),
 			from:       String(v.from ?? NOW_YEAR),
