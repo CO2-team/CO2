@@ -8,13 +8,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class ServiceController {
 
-    @GetMapping("/service")
+    @GetMapping("/GreenFinder")
     public String getServicePage() {
         return "html/serviceMap";
         
     }
 
-    @GetMapping("/service/text")
+    @GetMapping("/GreenFinder/text")
     public String getTextPage() {
         return "html/serviceText";
         

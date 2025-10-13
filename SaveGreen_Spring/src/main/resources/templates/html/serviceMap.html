@@ -1,3 +1,16 @@
+<!-- 
+* @Author : 연은주
+* @Date : 2025-09-30
+* @Description : serviceMap.html (서비스 맵 페이지)
+* @History :
+    - 서비스 맵 페이지 구현 시작
+    - vworld api 적용 및 지도 표시 완료
+    - 검색 기능 구현 완료
+    - 팝업창 구현 완료
+    - 반응형 웹 구현 완료
+* 2025-09-30 : 초기작성 
+-->
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -25,9 +38,9 @@
         <div id="vmap"></div>
 
         <!-- 검색창 오버레이 -->
-        <div id="searchBox" class="search-box">
-            <input type="text" id="keyword" placeholder="주소 또는 건물명 검색">
-            <button onclick="searchBuilding()">검색</button>
+        <div class="search-container">
+            <input type="text" name="search" class="searchBox search-box" placeholder="도로명 주소 검색" >
+            <div class="searchResult"></div>
         </div>
 
         <!-- 팝업 (이미지로) -->
