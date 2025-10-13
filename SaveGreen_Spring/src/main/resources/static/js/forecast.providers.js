@@ -146,7 +146,7 @@
 			buildingId: nvPos(v.buildingId),
 			builtYear:  by,
 			useName:    v.useName ?? v.use_name ?? undefined,
-			floorArea:  nv(v.floorArea),
+			floorArea:  nv(v.floorArea) ?? nv(v.area)),
 			area:       nv(v.area),
 			pnu:        sv(v.pnu),
 			from:       String(v.from ?? NOW_YEAR),

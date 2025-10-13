@@ -137,8 +137,8 @@ async function init() {
 			height: num('height'),
 			approvalDate: get('approvalDate'),
 			buildingName: get('bname'),
-			dongName: get('bdong'),
-			buildingIdent: get('bident'),
+			dongName: get('dongName') || get('bdong'),
+			buildingIdent: get('buildingIdent') || get('bident'),
 			lotSerial: get('lotSerial'),
 			builtYear: Number.isFinite(by) && by > 0 ? by : null
 		};
