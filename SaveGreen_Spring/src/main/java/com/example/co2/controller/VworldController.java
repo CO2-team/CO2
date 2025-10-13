@@ -22,13 +22,13 @@ public class VworldController {
         this.vworldService = vworldService;
     }
 
-    // 1️⃣ 주소 검색 (juso API)
+    // 주소 검색 (juso API)
     @GetMapping("/search")
     public List<SimulatorDto> search(@RequestParam String keyword) throws Exception {
         return vworldService.getCoordinates(keyword);
     }
 
-    // 2️⃣ 좌표 변환 (vWorld API)
+    // 좌표 변환 (vWorld API)
     @GetMapping("/coord")
     public ResponseEntity<Map<String, Object>> getCoord(@RequestParam String address) {
         Map<String, Object> result = vworldService.getCoordFromVworld(address);
