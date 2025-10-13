@@ -258,9 +258,13 @@
 <!-- 라이브러리 -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- 페이지 전용 스크립트: providers → vworld → forecast 순으로! -->
-<script th:src="@{/js/forecast.providers.js?v=20251002-1}"></script>
-<script th:src="@{/js/vworldClient.js?v=20251002-1}"></script>
-<script th:src="@{/js/forecast.js?v=20251002-1}"></script>
+<!-- 페이지 전용 스크립트: vworldClient → kpi -> chart -> provider -> loader -> vworld.dev -> main) 순으로! -->
+<script th:src="@{/js/vworldClient.js}"></script>
+<script th:src="@{/js/forecast.kpi.js}"></script>
+<script th:src="@{/js/forecast.chart.js}"></script>
+<script th:src="@{/js/forecast.providers.js}"></script>
+<script th:src="@{/js/forecast.loader.js}"></script>
+<script th:src="@{/js/forecast.vworld.dev.js}"></script>
+<script th:src="@{/js/forecast.main.js}"></script>
 </body>
 </html>

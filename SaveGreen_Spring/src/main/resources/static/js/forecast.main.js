@@ -1,10 +1,14 @@
 /* =========================
- * forecast.js (FINAL)
+ * forecast.main.js (FINAL)
  * - 컨텍스트 확보 후 로더 시작
  * - 컨텍스트 없으면 더미만 렌더(백엔드 호출 X)
  * - builtYear=0/무효 → API 쿼리에 포함하지 않음
  * - 기본 기간: 현재연도(NOW_YEAR) ~ NOW_YEAR+HORIZON_YEARS
  * ========================= */
+
+// 전역 네임스페이스 보장(ESM 미사용 환경용)
+window.SaveGreen = window.SaveGreen || {};
+window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
 document.addEventListener('DOMContentLoaded', () => {
 	init().catch(err => console.error('[forecast] init failed:', err));
@@ -17,11 +21,7 @@ const BANNER_TEXTS = {
 	'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
 
-/* ---------- 예측 기간 상수(전역) ----------
- * NOW_YEAR       : 현재 연도
- * HORIZON_YEARS  : NOW_YEAR로부터 몇 년까지 예측할지(포함)
- * 예) NOW_YEAR=2025, HORIZON_YEARS=10 → 2025 ~ 2035
- * ---------------------------------------- */
+/* ---------- 예측 기간 상수(전역) ---------- */
 const NOW_YEAR = new Date().getFullYear();
 const HORIZON_YEARS = 10;
 
@@ -71,10 +71,7 @@ function initHeaderOffset() {
 	}
 }
 
-/* ---------- Provider 쿼리 빌더 ----------
- * 컨텍스트를 쿼리스트링으로 직렬화(정의된 필드만 포함)
- * builtYear는 양수(>0)일 때만 포함
- * -------------------------------------- */
+/* ---------- Provider 쿼리 빌더 ---------- */
 function buildCtxQuery(ctx) {
 	const params = new URLSearchParams();
 	params.set('from', String(ctx.from ?? NOW_YEAR));
@@ -84,7 +81,6 @@ function buildCtxQuery(ctx) {
 	setIf(params, 'floorArea', ctx.floorArea);
 	setIf(params, 'area', ctx.area);
 	setIf(params, 'pnu', ctx.pnu);
-	// 필요 시 lat/lon 등 추가 가능
 	return params.toString();
 }
 function setIf(params, key, value) {
@@ -227,7 +223,8 @@ async function init() {
 	const statusObj = decideStatusByScore(kpi, { builtYear });
 
 	console.debug('[forecast] status', statusObj);
-	applyStatus(statusObj.label);
+	// label이 아니라 status를 전달
+	applyStatus(statusObj.status);
 	window._STATUS_SCORE_ = statusObj.score;
 	window.__STATUS__ = statusObj;
 
@@ -320,7 +317,8 @@ async function reloadForecast() {
 	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
 	const statusObj = decideStatusByScore(kpi, { builtYear });
 
-	applyStatus(statusObj.label);
+	// label이 아니라 status를 전달
+	applyStatus(statusObj.status);
 	window._STATUS_SCORE_ = statusObj.score;
 	window.__STATUS__ = statusObj;
 
@@ -336,105 +334,6 @@ async function reloadForecast() {
 		years: data.years,
 		series: data.series,
 		cost: data.cost
-	});
-}
-
-/* ---------- ML Loader ---------- */
-const LOADER = {
-	timer: null,
-	stepTimer: null,
-	done: false,
-	TICK_MS: 200,
-	STEP_MIN: 1,
-	STEP_MAX: 3,
-	STEP_PAUSE_MS: [3000, 3000, 3000, 3000],
-	MIN_VISIBLE_MS: 16000,
-	cap: 20,				// 20 → 40 → 60 → 80 → 100
-	CLOSE_DELAY_MS: 4000,
-	startedAt: 0
-};
-
-function startLoader() {
-	LOADER.startedAt = performance.now();
-	LOADER.done = false;
-	if (LOADER.timer) clearInterval(LOADER.timer);
-	if (LOADER.stepTimer) clearTimeout(LOADER.stepTimer);
-
-	const $bar = $('#progressBar');
-	const steps = $all('.progress-map .step');
-	const $text = $('#mlStatusText');
-	const labels = {
-		1: '데이터 로딩',
-		2: '정규화 / 스케일링',
-		3: '모델 피팅',
-		4: '예측 / 검증',
-		5: '차트 렌더링'
-	};
-
-	if (!$bar || steps.length < 5 || !$text) {
-		console.warn('[loader] required elements missing');
-	}
-
-	let progress = 0;
-	let level = 1;
-
-	if ($text) $text.textContent = '초기화';
-	LOADER.cap = 20;
-	LOADER.timer = setInterval(tick, LOADER.TICK_MS);
-
-	function tick() {
-		if (LOADER.done) return;
-		if (!$bar) return;
-
-		if (progress < LOADER.cap) {
-			progress += rand(LOADER.STEP_MIN, LOADER.STEP_MAX);
-			if (progress > LOADER.cap) progress = LOADER.cap;
-			$bar.style.width = progress + '%';
-			$bar.setAttribute('aria-valuenow', String(progress));
-			return;
-		}
-
-		if (LOADER.done) return;
-
-		const stepEl = steps[level - 1];
-		if (stepEl) stepEl.classList.add('done');
-		if ($text) $text.textContent = labels[level] || '진행 중';
-
-		if (level === 5) {
-			clearInterval(LOADER.timer);
-			return;
-		}
-
-		level += 1;
-		LOADER.cap += 20;
-
-		clearInterval(LOADER.timer);
-		LOADER.stepTimer = setTimeout(() => {
-			if (LOADER.done) return;
-			LOADER.timer = setInterval(tick, LOADER.TICK_MS);
-		}, LOADER.STEP_PAUSE_MS[level - 2] || 0);
-	}
-}
-
-async function ensureMinLoaderTime() {
-	const elapsed = performance.now() - LOADER.startedAt;
-	const waitMs = Math.max(0, LOADER.MIN_VISIBLE_MS - elapsed);
-	if (waitMs > 0) await sleep(waitMs);
-}
-
-function finishLoader() {
-	return new Promise((res) => {
-		LOADER.done = true;
-		if (LOADER.timer) clearInterval(LOADER.timer);
-		if (LOADER.stepTimer) clearTimeout(LOADER.stepTimer);
-
-		const bar = $('#progressBar');
-		if (bar) {
-			bar.style.width = '100%';
-			bar.setAttribute('aria-valuenow', '100');
-		}
-		$all('.progress-map .step').forEach((el) => el.classList.add('done'));
-		setTimeout(res, LOADER.CLOSE_DELAY_MS);
 	});
 }
 
@@ -533,63 +432,11 @@ function normalizeForecast(d, fallbackYears) {
 	return { years, series: { after, saving }, cost, kpi };
 }
 
-/* ---------- KPI / 상태 / 출력 ---------- */
-function computeKpis({ years, series, cost, kpiFromApi }) {
-	if (kpiFromApi && isFinite(kpiFromApi.savingCostYr)) return kpiFromApi;
-
-	const i = Math.max(0, years.length - 1);
-	const afterKwh = +series.after[i] || 0;
-	const savingKwh = +series.saving[i] || 0;
-	const savingCost = +((cost?.saving || [])[i]) || Math.round(savingKwh * 120);
-
-	const beforeKwh = afterKwh + savingKwh;
-	const savingPct = beforeKwh > 0 ? Math.round((savingKwh / beforeKwh) * 100) : 0;
-
-	const paybackYears = clamp((afterKwh / Math.max(1, savingKwh)) * 0.8, 3, 8);
-
-	return { savingCostYr: savingCost, savingKwhYr: savingKwh, savingPct, paybackYears };
-}
-
 function estimateEnergyGrade(savingPct) {
 	if (savingPct >= 30) return 1;
 	if (savingPct >= 20) return 2;
 	if (savingPct >= 10) return 3;
 	return 4;
-}
-
-function decideStatusByScore(kpi, opts = {}) {
-	const now = new Date().getFullYear();
-	const savingPct = Number(kpi?.savingPct ?? 0);
-	const payback = Number(kpi?.paybackYears ?? Infinity);
-	const builtYear = Number(opts?.builtYear);
-
-	let score = 0;
-
-	// 1. 절감률
-	if (savingPct >= 15) score += 2;
-	else if (savingPct >= 10) score += 1;
-
-	// 2. 회수기간
-	if (payback <= 5) score += 2;
-	else if (payback <= 8) score += 1;
-
-	// 3. 연식(없으면 중립 1점)
-	let agePt = 1;
-	if (Number.isFinite(builtYear) && builtYear > 0 && builtYear <= now) {
-		const age = now - builtYear;
-		if (age >= 25) agePt = 2;
-		else if (age >= 10) agePt = 1;
-		else agePt = 0;
-	}
-	score += agePt;
-
-	// 가드
-	if (savingPct < 5 || payback > 12) return { label: 'not-recommend', score };
-
-	const label = (score >= 4) ? 'recommend'
-		: (score >= 2) ? 'conditional'
-			: 'not-recommend';
-	return { label, score };
 }
 
 function applyStatus(status) {
@@ -710,10 +557,10 @@ function renderBuildingCard() {
 		rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
 	}
 
-	// 핵심 정보 없으면 카드 숨김 (URL 파라미터만 들어온 경우 노출 X)
+	// 핵심 정보 없으면 카드 숨김
 	if (!rows.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
 
-	// 보조 필드 (쿼리출처 qs면 비노출, 서버/VWorld 값은 노출)
+	// 보조 필드 (쿼리출처 qs면 비노출)
 	if (b.pnu && !fromQs('pnu')) rows.push(row('PNU', esc(b.pnu)));
 	if (b.builtYear && !fromQs('builtYear')) rows.push(row('준공연도', String(b.builtYear)));
 
@@ -726,207 +573,6 @@ function renderBuildingCard() {
 function euiRefForGrade(grade) {
 	const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
 	return map[grade] ?? 180;
-}
-
-/* ---------- Chart.js ---------- */
-let energyChart = null;
-
-async function renderEnergyComboChart({ years, series, cost }) {
-	if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
-
-	const canvas = document.getElementById('chart-energy-combo');
-	if (!canvas) { console.warn('#chart-energy-combo not found'); return; }
-
-	// 기존 차트 제거
-	if (Chart.getChart) {
-		const existed = Chart.getChart(canvas);
-		if (existed) existed.destroy();
-	}
-	if (energyChart) energyChart.destroy();
-
-	const ctx = canvas.getContext('2d');
-
-	const BAR_GROW_MS = 2000;
-	const BAR_GAP_MS = 300;
-	const POINT_MS = 600;
-	const POINT_GAP_MS = 200;
-
-	const labels = years.map(String);
-	const bars = series.after.slice(0, labels.length);
-	const costs = (cost?.saving || []).slice(0, labels.length);
-	const n = labels.length;
-
-	const BAR_BG = 'rgba(54, 162, 235, 0.5)';
-	const BAR_BORDER = 'rgb(54, 162, 235)';
-	const LINE_ORANGE = '#F57C00';
-
-	function fromBaseline(ctx) {
-		const chart = ctx.chart;
-		const ds = chart.data.datasets[ctx.datasetIndex];
-		const axisId = ds.yAxisID || (ds.type === 'line' ? 'yCost' : 'yEnergy');
-		const scale = chart.scales[axisId];
-		return scale.getPixelForValue(0);
-	}
-
-	const totalBarDuration = n * (BAR_GROW_MS + BAR_GAP_MS);
-	const pointStartAt = totalBarDuration + 200;
-  	const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
-	const lineRevealAt = pointStartAt + totalPointDuration;
-
-	const lineDs = {
-		type: 'line',
-		order: 9999,
-		label: '비용 절감',
-		data: costs,
-		yAxisID: 'yCost',
-		tension: 0.3,
-		spanGaps: false,
-		fill: false,
-		showLine: false,
-		pointRadius: new Array(n).fill(0),
-		borderWidth: 3,
-		borderColor: LINE_ORANGE,
-		backgroundColor: LINE_ORANGE,
-		pointBackgroundColor: LINE_ORANGE,
-		pointBorderWidth: 0,
-		animations: {
-			y: {
-				from: fromBaseline,
-				duration: POINT_MS,
-				delay: (ctx) => {
-					if (ctx.type !== 'data' || ctx.mode !== 'default') return 0;
-					return pointStartAt + ctx.dataIndex * (POINT_MS + POINT_GAP_MS);
-				},
-				easing: 'easeOutCubic'
-			}
-		}
-	};
-
-	const barDs = {
-		type: 'bar',
-		order: 1,
-		label: '에너지 사용량',
-		data: bars,
-		yAxisID: 'yEnergy',
-		backgroundColor: BAR_BG,
-		borderColor: BAR_BORDER,
-		borderWidth: 1,
-		animations: {
-			x: { duration: 0 },
-			y: {
-				from: fromBaseline,
-				duration: BAR_GROW_MS,
-				delay: (ctx) => {
-					if (ctx.type !== 'data' || ctx.mode !== 'default') return 0;
-					return ctx.dataIndex * (BAR_GROW_MS + BAR_GAP_MS);
-				},
-				easing: 'easeOutCubic'
-			}
-		}
-	};
-
-	const forceLineFront = {
-		id: 'forceLineFront',
-		afterDatasetsDraw(chart) {
-			const idx = chart.data.datasets.indexOf(lineDs);
-			if (idx < 0) return;
-			const meta = chart.getDatasetMeta(idx);
-			if (!meta) return;
-			const { ctx } = chart;
-			meta.dataset?.draw?.(ctx);
-			if (Array.isArray(meta.data)) {
-				meta.data.forEach(el => el?.draw && el.draw(ctx));
-			}
-		}
-	};
-
-    // 차트 부제에 표시할 텍스트를 조합한다(빌딩명 → 동/지번 → 동 → 연도 → 기본문구)
-    const root = document.getElementById('forecast-root');
-    const bname = root?.dataset?.bname?.trim() || '';
-    const dong  = root?.dataset?.dongName?.trim() || '';
-    const lot   = root?.dataset?.lotSerial?.trim() || '';
-    const byear = root?.dataset?.builtYear ? parseInt(root.dataset.builtYear, 10) : null;
-
-    let subtitleText = '';
-    if (bname) {
-    	subtitleText = `🏢 ${bname}`;
-    } else if (dong && lot) {
-    	subtitleText = `📍 ${dong} ${lot}`;
-    } else if (dong) {
-    	subtitleText = `📍 ${dong}`;
-    } else if (byear) {
-    	subtitleText = `🗓 사용승인연도 ${byear}년`;
-    } else {
-    	subtitleText = '건물명 미확정';
-    }
-
-	energyChart = new Chart(ctx, {
-		type: 'bar',
-		data: { labels, datasets: [barDs, lineDs] },
-		options: {
-			responsive: true,
-			maintainAspectRatio: false,
-			interaction: { mode: 'index', intersect: false },
-			plugins: {
-				legend: { display: true },
-				tooltip: {
-					callbacks: {
-						label: (ctx) => {
-							const isCost = ctx.dataset.yAxisID === 'yCost';
-							const val = ctx.parsed.y;
-							return `${ctx.dataset.label}: ${nf(val)} ${isCost ? '원/년' : 'kWh/년'}`;
-						}
-					}
-				},
-                subtitle: {									// 차트 부제(빌딩 정보)
-                    display: !!subtitleText,				// 값이 있으면 표시
-                    text: subtitleText,						// 위에서 조합한 문구
-                    padding: { bottom: 8 },					// 제목과의 간격
-                    color: '#6b7280',						// 보조 텍스트 색(선택)
-                    font: { size: 12, weight: '600' }		// 가독성(선택)
-                },
-				forceLineFront: {}
-			},
-			elements: { point: { hoverRadius: 5 } },
-			scales: {
-				yEnergy: {
-					type: 'linear',
-					position: 'left',
-					ticks: { callback: (v) => nf(v) },
-					title: { display: true, text: '에너지 사용량 (kWh/년)' }
-				},
-				yCost: {
-					type: 'linear',
-					position: 'right',
-					grid: { drawOnChartArea: false },
-					ticks: { callback: (v) => nf(v) },
-					title: { display: true, text: '비용 절감 (원/년)' }
-				},
-				x: {
-					title: { display: false },
-					// 모든 연도 라벨 표시를 원하면 주석 해제
-					// ticks: { autoSkip: false }
-				}
-			}
-		},
-		plugins: [forceLineFront]
-	});
-
-	for (let i = 0; i < n; i++) {
-		const delay = pointStartAt + i * (POINT_MS + POINT_GAP_MS);
-		setTimeout(() => {
-			lineDs.pointRadius[i] = 3;
-			energyChart.update('none');
-		}, delay);
-	}
-
-	setTimeout(() => {
-		barDs.animations = false;
-		lineDs.showLine = true;
-		energyChart.update('none');
-	}, lineRevealAt + 50);
-
-	window.energyChart = energyChart;
 }
 
 /* ---------- Helpers ---------- */
@@ -943,9 +589,7 @@ function $all(s, root = document) { return Array.from(root.querySelectorAll(s));
 function show(el) { if (el) el.classList.remove('hidden'); }
 function hide(el) { if (el) el.classList.add('hidden'); }
 
-/* /forecast 빈 진입 등 컨텍스트가 전혀 없을 때의 기본값 생성
- * - data-*는 참고하지 않고 URL만 확인
- * - URL에도 없으면 NOW_YEAR ~ NOW_YEAR+HORIZON_YEARS */
+/* /forecast 빈 진입 등 컨텍스트가 전혀 없을 때의 기본값 생성 */
 function fallbackDefaultContext(root) {
 	const urlp = new URLSearchParams(location.search);
 
@@ -962,121 +606,3 @@ function fallbackDefaultContext(root) {
 
 	return { from: String(from), to: String(to), builtYear };
 }
-
-/* ---------- VWorld Bridge (직접 호출 버전: 개발용) ---------- */
-(function () {
-	const VWORLD_KEY = "AED66EDE-3B3C-3034-AE11-9DBA47236C69";
-
-	async function getPnuFromLonLat(lon, lat) {
-		const url = new URL('https://api.vworld.kr/req/data');
-		url.search = new URLSearchParams({
-			service: 'data',
-			request: 'GetFeature',
-			data: 'LP_PA_CBND',
-			format: 'json',
-			size: '1',
-			key: VWORLD_KEY,
-			crs: 'EPSG:4326',
-			geometry: 'false',
-			geomFilter: `point(${lon} ${lat})`
-		}).toString();
-
-		const res = await fetch(url);
-		if (!res.ok) throw new Error('PNU 조회 실패');
-		const j = await res.json();
-		const feats = j?.response?.result?.featureCollection?.features;
-		const props = feats && feats[0]?.properties;
-		return props?.PNU || props?.pnu || null;
-	}
-
-	async function getBuildingInfo(pnu) {
-		if (!pnu) return null;
-		const url = new URL('https://api.vworld.kr/ned/data/getBuildingUse');
-		url.search = new URLSearchParams({
-			key: VWORLD_KEY,
-			format: 'json',
-			pnu,
-			numOfRows: '1'
-		}).toString();
-
-		const res = await fetch(url);
-		if (!res.ok) throw new Error('건물 정보 조회 실패');
-		const j = await res.json();
-
-		const items =
-			j?.response?.result?.item ||
-			j?.response?.result?.featureCollection?.features ||
-			[];
-		const first = items[0]?.properties || items[0] || null;
-		return first;
-	}
-
-	function extractBuiltYear(info) {
-		const ymd = info?.useConfmDe || info?.USECFMDE;
-		if (!ymd) return null;
-		const s = String(ymd);
-		return s.length >= 4 ? Number(s.slice(0, 4)) : null;
-	}
-
-	window.savegreenSetBuiltYearFromCoord = async function (lon, lat) {
-		try {
-			const pnu = await getPnuFromLonLat(lon, lat);
-			if (!pnu) {
-				alert('이 지점의 고유번호(PNU) 정보를 찾지 못했습니다.');
-				return;
-			}
-
-			const info = await getBuildingInfo(pnu);
-			const by = extractBuiltYear(info);
-			if (!by) {
-				alert('준공연도(useConfmDe) 정보를 찾지 못했습니다.');
-				return;
-			}
-
-			window.savegreen = window.savegreen || {};
-			window.savegreen.builtYear = by;
-
-			const root = document.getElementById('forecast-root');
-			if (root) {
-				root.dataset.builtYear = String(by);
-				root.dataset.builtYearFrom = 'vworld';
-				root.dataset.pnu = pnu;
-				root.dataset.pnuFrom = 'vworld';
-			}
-
-			renderBuildingCard();
-			await reloadForecast();
-		} catch (e) {
-			console.error('[vworld] builtYear set failed : ', e);
-			alert('연식 자동 감지 중 오류가 발생했습니다.');
-		}
-	};
-
-	window.savegreenSetBuiltYearFromPnu = async function (pnu) {
-		try {
-			const info = await getBuildingInfo(pnu);
-			const by = extractBuiltYear(info);
-			if (!by) {
-				alert('준공연도(useConfmde) 정보를 찾지 못했습니다.');
-				return;
-			}
-
-			window.savegreen = window.savegreen || {};
-			window.savegreen.builtYear = by;
-
-			const root = document.getElementById('forecast-root');
-			if (root) {
-				root.dataset.builtYear = String(by);
-				root.dataset.builtYearFrom = 'vworld';
-				root.dataset.pnu = pnu;
-				root.dataset.pnuFrom = 'vworld';
-			}
-
-			renderBuildingCard();
-			await reloadForecast();
-		} catch (e) {
-			console.error('[vworld] builtYear set (from pnu) failed : ', e);
-			alert('연식 자동 감지 중 오류가 발생했습니다.');
-		}
-	};
-})();
