@@ -340,6 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.querySelector(".simulator-index");
     if (!el) return;
 
+
+    //웹 폰트 불러오는거 기다리기
     await document.fonts.ready;
 
     try {
@@ -384,6 +386,115 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error("html-to-image PDF 변환 중 오류:", err);
     }
   });
+
+  // document.getElementById("sendMailBtn").addEventListener("click", async () => {
+  //   const el = document.querySelector(".simulator-index");
+  //   if (!el) return;
+
+  //   await document.fonts.ready;
+
+  //   try {
+  //     const dataUrl = await h2i.toPng(el, {
+  //       pixelRatio: 2,
+  //       cacheBust: true,
+  //       backgroundColor: "#ffffff",
+  //       skipAutoScale: true
+  //     });
+
+  //     const pdf = new jspdf.jsPDF("p", "mm", "a4");
+  //     const img = new Image();
+
+  //     img.onload = async function () {
+  //       const pdfW = pdf.internal.pageSize.getWidth();
+  //       const pdfH = pdf.internal.pageSize.getHeight();
+  //       const imgW = pdfW;
+  //       const imgH = (img.height * pdfW) / img.width;
+
+  //       pdf.addImage(img, "PNG", 0, 0, imgW, imgH);
+
+  //       const pdfBlob = pdf.output("blob");
+
+  //       // 사용자 이메일 입력 받기
+  //       const email = prompt("결과를 받을 이메일 주소를 입력하세요:");
+  //       if (!email) return;
+
+    
+  //       const formData = new FormData();
+  //       formData.append("email", email);
+  //       formData.append("file", pdfBlob, "SimulatorResult.pdf");
+
+  //       // 서버로 업로드
+  //       const resp = await fetch("/sendMail", {
+  //         method: "POST",
+  //         body: formData
+  //       });
+
+  //       const result = await resp.text();
+  //       alert(result);
+  //     };
+
+  //     img.crossOrigin = "anonymous";
+  //     img.src = dataUrl;
+
+  //   } catch (err) {
+  //     console.error("메일 전송 중 오류:", err);
+  //     alert("메일 전송 중 오류가 발생했습니다.");
+  //   }
+  // });
+
+  document.getElementById("sendMailBtn").addEventListener("click", async () => {
+    const el = document.querySelector(".simulator-index");
+    if (!el) return;
+
+    await document.fonts.ready;
+
+    try {
+      const dataUrl = await h2i.toPng(el, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        skipAutoScale: true
+      });
+
+      const pdf2 = new jspdf.jsPDF("p", "mm", "a4");
+      const img2 = new Image();
+      img2.crossOrigin = "anonymous";
+      img2.src = dataUrl;
+
+      // Promise로 PDF 완성 보장
+      const pdfBlob = await new Promise((resolve) => {
+        img2.onload = function () {
+          const pdfW = pdf2.internal.pageSize.getWidth();
+          const pdfH = pdf2.internal.pageSize.getHeight();
+          const imgW = pdfW;
+          const imgH = (img2.height * pdfW) / img2.width;
+
+          pdf2.addImage(img2, "PNG", 0, 0, imgW, imgH);
+          const blob2 = pdf2.output("blob");
+          resolve(blob2); // 👈 완성된 blob만 반환
+        };
+      });
+
+      // 이메일 입력 및 전송
+      const email = prompt("결과를 받을 이메일 주소를 입력하세요:");
+      if (!email) return;
+
+      const formData = new FormData();
+      formData.append("email", email);
+      formData.append("file", pdfBlob, "SimulatorResult.pdf");
+
+      const resp = await fetch("/sendMail", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await resp.text();
+      alert(result);
+    } catch (err) {
+      console.error("메일 전송 중 오류:", err);
+      alert("메일 전송 중 오류가 발생했습니다.");
+    }
+  });
 });
 
 function getTimestamp() {
@@ -400,45 +511,6 @@ function getTimestamp() {
 
 
 
-// 주소검색을 위한 js
- 
-// document.addEventListener("DOMContentLoaded", () => {
-//   const searchBoxes = document.querySelectorAll(".searchBox");
 
-//   searchBoxes.forEach((input, idx) => {
-//     const resultList = input.parentElement.querySelector(".searchResult");
 
-//     input.addEventListener("keyup", async () => {
-//       const keyword = input.value.trim();
-//       if (keyword.length < 2) {
-//         resultList.innerHTML = "";
-//         resultList.classList.remove("show");
-//         return;
-//       }
 
-//       const resp = await fetch(`/search?keyword=${encodeURIComponent(keyword)}`);
-//       const list = await resp.json();
-
-//       resultList.innerHTML = "";
-//       list.forEach(addr => {
-//         const item = document.createElement("div");
-//         item.classList.add("dropdown-item");
-//         item.textContent = addr.roadAddr;
-
-//         item.addEventListener("click", () => {
-//           input.value = addr.roadAddr;
-//           resultList.innerHTML = "";
-//           resultList.classList.remove("show");
-//         });
-
-//         resultList.appendChild(item);
-//       });
-
-//       if (list.length > 0) {
-//         resultList.classList.add("show");
-//       } else {
-//         resultList.classList.remove("show");
-//       }
-//     });
-//   });
-// });

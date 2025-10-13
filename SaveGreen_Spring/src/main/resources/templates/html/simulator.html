@@ -191,42 +191,15 @@
     </div>
 </div>
 <button id="downloadBtn">PDF로 저장</button>
+<button id="sendMailBtn">메일로 보내기</button>
 
-<!-- <div id="capture-box" style="width:300px;height:200px;background:#aee;border:1px solid #000;">
-  <h3>SaveGreen 테스트 캡처</h3>
-  <p>html-to-image 정상 작동 여부</p>
-</div>
- -->
-<!-- <button id="downloadBtn">📸 다운로드</button>
-
-<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
-<script>
-document.getElementById('downloadBtn').addEventListener('click', function() {
-  const node = document.getElementById('capture-box');
-
-  console.log("캡처 대상:", node);
-
-  htmlToImage.toPng(node, { cacheBust: true })
-    .then(function (dataUrl) {
-      console.log("✅ 캡처 완료, DataURL 길이:", dataUrl.length);
-      const link = document.createElement('a');
-      link.download = 'capture.png';
-      link.href = dataUrl;
-      link.click();
-    })
-    .catch(function (error) {
-      console.error('❌ html-to-image 오류:', error);
-      alert('에러 발생: ' + error.message);
-    });
-});
-</script> -->
 
    
     <div th:replace="layouts/footer :: footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-<!-- <script src="https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.min.js" defer></script> -->
+
 <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
 
 <script th:src="@{/js/simulator.js}"></script>
