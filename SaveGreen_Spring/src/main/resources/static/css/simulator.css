@@ -180,14 +180,7 @@ html, body { min-width: 360px; }
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
- .result-box1 {
-    background: #fff;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 400px;
-    margin: 20px auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+
 
 .result-item {
     display: flex;
@@ -251,13 +244,22 @@ html, body { min-width: 360px; }
     background: #666;
 }
 
-
-.result-box2 {
-    max-width: 400px;
-    margin-top: 20px;
+ .result-box1 {
+    background: #fff;
     padding: 20px;
     border-radius: 12px;
-    background-color: #ffffff;
+    max-width: 400px;
+    margin: 20px auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+
+.result-box2 {
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 400px;
+    margin: 20px auto;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
@@ -329,26 +331,3 @@ body.swal2-shown {
 }
 
 
-.loading-box1 {
-  text-align: center;
-  padding: 40px;
-}
-.loading-box2 {
-  text-align: center;
-  padding: 40px;
-}
-
-.spinner {
-  border: 6px solid #f3f3f3;
-  border-top: 6px solid #1976d2;
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 20px;
-  animation: spin 3s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}

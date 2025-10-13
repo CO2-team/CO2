@@ -30,7 +30,7 @@ Swal.fire({
           <b>6.</b> 재산세 감면액은 지자체 조례에 따라 달라질 수 있습니다.
         `,
         icon: 'info',
-        confirmButtonText: '확인',
+        confirmButtonText: '닫기',
         focusConfirm: false,
         scrollbarPadding: false,
         heightAuto: false,  
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
-        const spinner = document.getElementById('spinner');
+     
         const items = box.querySelectorAll('.result-item');
         
         
@@ -86,9 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json();
         
         if (!box) return;
-        box.style.display='block'
-        spinner.style.display='block';
-        items.forEach(item => item.classList.remove('none'));
+      
+        items.forEach(item => item.classList.remove('show'));
         document.getElementById('propertyTax').textContent = (data.propertyTax ?? '-')+"%";
         document.getElementById('acquireTax').textContent  = (data.acquireTax ?? '-')+"%";
         document.getElementById('areaBonus').textContent   = (data.areaBonus ?? '-')+"%";
@@ -99,9 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
-        spinner.style.display='none'
-        items.forEach(item => item.classList.remove('show'));
-        // box.style.display='block'
+       
+        box.style.display='block'
         
       
         items.forEach((item, index) => {
@@ -130,12 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
 
-        
-        // document.getElementById('annualSaveElectric').textContent  = (data.annualSaveElectric ?? '-')+"만 원";
-        // document.getElementById('annualSaveCO2').textContent   = (data.annualSaveCO2 ?? '-')+" 톤 CO2";
-        // document.getElementById('total').textContent       = (data.total ?? '-')+" kWh";
-        // document.getElementById('requiredPanels').textContent    = (data.requiredPanels ?? '-')+" 개";
-
+      
         animateValue("total", 0, data.total, 2000, 0);
         animateValue("annualSaveElectric", 0, data.annualSaveElectric, 2000, 0);
         animateValue("annualSaveCO2", 0, data.annualSaveCO2, 2000, 1);
@@ -154,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 빌딩에어리어 가져오기
 document.addEventListener("DOMContentLoaded", () => {
     const area = sessionStorage.getItem("BuildingArea");
-    console.log("로컬스토리지에서 가져온 건물면적:", area);
+    console.log("세션스토리지에서 가져온 건물면적:", area);
     if (area) {
         document.getElementById("area1").value = area;
         document.getElementById("area2").value = area;
@@ -165,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
     const lat = sessionStorage.getItem("lat");
     const lon = sessionStorage.getItem("lon");
-    console.log("로컬스토리지에서 가져온 좌표:", lat, lon);
+    console.log("세션스토리지에서 가져온 좌표:", lat, lon);
     if (lat && lon) {
         document.querySelector("#lat1").value = lat;
         document.querySelector("#lon1").value = lon;
@@ -334,22 +327,77 @@ function animateValue(id, start, end, duration, decimals = 0) {
 
 
 
-// document.addEventListener("DOMContentLoaded", () => {
-//     const current = document.getElementById("currentGrade");
-//     const target = document.getElementById("targetGrade");
 
-//     const allOptions = Array.from(target.options);
+//htmltoimage
+document.addEventListener('DOMContentLoaded', () => {
+  const h2i = window.htmlToImage;
+  if (!h2i) {
+    console.error('html-to-image가 로드되지 않았습니다.');
+    return;
+  }
 
-//     current.addEventListener("change", () => {
-//         const currentVal = parseInt(current.value, 10);
-//         target.innerHTML = "";
-//         allOptions.forEach(opt => {
-//             if (parseInt(opt.value, 10) < currentVal) {
-//                 target.appendChild(opt.cloneNode(true));
-//             }
-//         });
-//     });
-// });
+  document.getElementById("downloadBtn").addEventListener("click", async () => {
+    const el = document.querySelector(".simulator-index");
+    if (!el) return;
+
+    await document.fonts.ready;
+
+    try {
+      // png 생성
+      const dataUrl = await h2i.toPng(el, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+        skipAutoScale: true
+      });
+
+      // pdf 변환 // jspdf
+      const pdf = new jspdf.jsPDF("p", "mm", "a4");
+      const img = new Image();
+      img.onload = function () {
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = pdf.internal.pageSize.getHeight();
+        const imgW = pdfW;
+        const imgH = (img.height * pdfW) / img.width;
+
+        let hLeft = imgH;
+        let pos = 0;
+
+        pdf.addImage(img, "PNG", 0, pos, imgW, imgH);
+        hLeft -= pdfH;
+
+        while (hLeft > 0) {
+          pos = hLeft - imgH;
+          pdf.addPage();
+          pdf.addImage(img, "PNG", 0, pos, imgW, imgH);
+          hLeft -= pdfH;
+        }
+        const timestamp=getTimestamp();
+        const filename =`simulator_${timestamp}`
+
+        pdf.save(filename);
+      };
+      img.crossOrigin = "anonymous";
+      img.src = dataUrl;
+
+    } catch (err) {
+      console.error("html-to-image PDF 변환 중 오류:", err);
+    }
+  });
+});
+
+function getTimestamp() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mi = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+}
+
+
 
 
 // 주소검색을 위한 js
