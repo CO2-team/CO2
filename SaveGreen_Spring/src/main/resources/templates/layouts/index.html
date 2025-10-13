@@ -1,8 +1,23 @@
+<!--
+    * @Author : 연은주
+    * @Date : 2025-09-29
+    * @Description : index.html (메인페이지)
+    * @History :
+        - 메인페이지 구현시작
+        - 영상 및 대체 이미지 작업 완료
+        - 스크롤 이벤트 작업중
+        - 헤더 연결 및 사이즈 변경 작업 중
+        - 이미지 하단 마우스 이벤트 icon 작업 필요
+        - footer 연결 작업 완료
+    * 2025-09-29 : 초기작성
+-->
+
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>SAVE GREEN</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body style="color:#000000">
@@ -36,7 +51,7 @@
                 </video>
 
                 <div class="text-content">
-                    <h1>SERVICE</h1>
+                    <h1>GREEN FINDER</h1>
                     <p>#녹색 건축물 #ZEB #건물 정보 검색</p>
                     <p class="next_show" id="scroll_show1">
                         녹색건축물 인증(G-seed)/ZEB 에 대해 설명하고,<br>
@@ -86,9 +101,7 @@
     </div>
     <div th:replace="~{layouts/footer :: footer}"></div>
   <!-- 스크롤 시 헤더 숨김 스크립트 -->
-    <script>
-       
-    </script>
+    <script th:src="@{/js/script.js}"></script>
     <!-- <div th:replace="layouts/footer :: footer"></div>  -->
 </body>
 

@@ -1,34 +1,26 @@
-document.addEventListener("DOMContentLoaded", () => {
-    let lastScrollTop = 0;
-    const navbar = document.getElementById("menubar");
+var didScroll;
 
-    window.addEventListener("scroll", function() {
-        let currentScroll = window.scrollY;
+var lastScrollTop = 0;
+var delta = 5; //동작의 구현이 시작되는 위치
+var navbatHeight = $('.header').outerHeight(); //영향을 받을 요소를 선택
 
-        if (currentScroll > lastScrollTop) {
-            navbar.style.top = "-80px"; // 아래로 스크롤 → 숨김
-        } else {
-            navbar.style.top = "0"; // 위로 스크롤 → 보이기
-        }
-
-        lastScrollTop = currentScroll;
-    });
+$(window).scroll(function(evnet){ //스크롤 시 사용자가 스크롤했다는 것을 알림
+  didScroll  = true;
+  console.log("scrolling");
 });
 
+$(function(){
+  let lastScrollTop = 0;
+  const delta = 15;
 
-const banners = document.querySelectorAll('.main-banner');
-
-window.addEventListener('wheel', () => {
-    console.log("스크롤 이벤트 작동!");
-    banners.forEach((banner, idx) => {
-        const rect = banner.getBoundingClientRect();
-
-        // 화면 중앙에 배너가 위치하면 active
-        if(rect.top < window.innerHeight/2 && rect.bottom > window.innerHeight/2){
-            banner.classList.add('active');
-        } else {
-            banner.classList.remove('active');
-        }
-    });
-
-});   
+  $(window).scroll(function(event){
+    const st = $(this).scrollTop();
+    if(Math.abs(lastScrollTop - st) <= delta) return;
+    if((st > lastScrollTop) && (lastScrollTop > 0)) {
+      $('.header').addClass('nav-up');
+    }else {
+      $('.header').removeClass('nav-up');
+    };
+    lastScrollTop = st;
+  });
+});

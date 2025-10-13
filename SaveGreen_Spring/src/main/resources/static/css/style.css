@@ -4,8 +4,17 @@ html, body {
     scroll-behavior: smooth;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    
 }
+
+body{
+ -ms-overflow-style: none;
+ }
+ 
+::-webkit-scrollbar {
+  display: none;
+}
+
 
 
 main, .container {
@@ -14,6 +23,22 @@ main, .container {
 }
 
 /* 기본 네비 */
+/* 
+header{
+    position: fixed;
+    display: flex;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 80px;
+    transition: top 0.2s ease-in-out;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 10;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0px 40px;
+} */ 
+
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -24,8 +49,13 @@ main, .container {
     top: 0;
     width: 100%;
     z-index: 10;
-    height: 4vh;
+    height: 80px;
 }
+
+.nav-up {
+    top: -80px;
+}
+
 
 #menubar {
   position: fixed;

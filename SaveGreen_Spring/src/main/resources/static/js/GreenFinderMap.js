@@ -230,67 +230,106 @@ function showBuildingPopup(info, windowPosition) {
     popup.style.display = "block";
 }
 
-// function showPopup(windowPosition, html) {
-//     const popup = $id("popup");
-//     popup.style.left = (windowPosition.x + 10) + "px";
-//     popup.style.top = (windowPosition.y - 10) + "px";
-//     popup.innerHTML = html;
-//     popup.style.display = "block"; 
-// }
-
 function hidePopup() {
     $id("popup").style.display = "none";
 }
 
 
-// 검색 기능
-function searchBuilding() {
-    const keyword = $("#keyword").val().trim();
-    if (!keyword) {
-        alert("검색어를 입력하세요");
-        return;
-    }
+document.addEventListener("DOMContentLoaded", () => {
+  const searchBoxes = document.querySelectorAll(".searchBox");
 
+  // 좌표 변환 함수 (vWorld API)
+  function getCoordinatesFromAddress(address, callback) {
     $.ajax({
-        type: "get",
-        dataType: "jsonp",
-        url: "https://api.vworld.kr/req/search",
-        data: {
-            key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69", 
-            query: keyword,
-            request: "search",
-            type: "address",
-            category:"road",
-            format: "json",
-            size: 10
-        },
-        success: function(res) {
-            console.log("검색 결과:", res);
-
-            if (res.response?.result?.items?.length > 0) {
-                const item = res.response.result.items[0];
-                const x = item.point.x;
-                const y = item.point.y;
-
-                // 지도 중심 이동
-                mapController.setCenter(new vw.ol3.Coordinate(x, y));
-                mapController.setZoom(18);
-
-                // 팝업 표시
-                const html = `
-                    <b>검색 결과</b><br>
-                    ${item.title}<br>
-                    ${item.address}<br><br>
-                    <button onclick="getBuildingInfo('${item.id}')">건물 정보 보기</button>
-                `;
-                showPopup({x:x, y:y}, html);
-
-            } else {
-                alert("검색 결과가 없습니다.");
-            }
-        },
-        error: function(err) {
-            console.error("검색 API 오류:", err);
+      url: "http://api.vworld.kr/req/address",
+      type: "GET",
+      dataType: "jsonp",
+      data: {
+        service: "address",
+        request: "getCoord",
+        version: "2.0",
+        crs: "epsg:4326",
+        address: address,
+        format: "json",
+        type: "road",
+        key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"
+      },
+      success: function(data) {
+        if (data?.response?.result?.point) {
+          const lon = parseFloat(data.response.result.point.x);
+          const lat = parseFloat(data.response.result.point.y);
+          callback(null, { lon, lat }); // 좌표 전달
+        } else {
+          callback(new Error("좌표 변환 실패: 결과 없음"));
         }
+      },
+      error: function(err) {
+        callback(err);
+      }
     });
+  }
+
+  // 주소 검색 자동완성 + 지도 이동
+  searchBoxes.forEach((input) => {
+    const resultList = input.parentElement.querySelector(".searchResult");
+
+    input.addEventListener("keyup", async () => {
+      const keyword = input.value.trim();
+      if (keyword.length < 2) {
+        resultList.innerHTML = "";
+        resultList.classList.remove("show");
+        return;
+      }
+
+      try {
+        const resp = await fetch(`/vworld/search?keyword=${encodeURIComponent(keyword)}`);
+        const list = await resp.json();
+
+        resultList.innerHTML = "";
+        list.forEach(addr => {
+          const item = document.createElement("div");
+          item.classList.add("dropdown-item");
+          item.textContent = addr.roadAddr || addr.jibunAddr;
+
+          item.addEventListener("click", () => {
+            input.value = addr.roadAddr || addr.jibunAddr;
+            resultList.innerHTML = "";
+            resultList.classList.remove("show");
+
+            // 좌표 변환 호출
+            getCoordinatesFromAddress(addr.roadAddr, (err, coord) => {
+                if (err) {
+                    console.error(err);
+                    alert("좌표를 찾을 수 없습니다.");
+                    return;
+                }
+
+                console.log("좌표 변환 성공:", coord);
+
+                // vWorld 지도 이동 (vwmoveTo 함수 사용)
+                vwmoveTo(coord.lon, coord.lat, 300); // 300m 높이로 이동
+            });
+
+          });
+
+          resultList.appendChild(item);
+        });
+
+        if (list.length > 0) {
+          resultList.classList.add("show");
+        } else {
+          resultList.classList.remove("show");
+        }
+      } catch (e) {
+        console.error("주소 검색 오류:", e);
+      }
+    });
+  });
+});
+
+
+function vwmoveTo(x, y, z) {
+    var movePo = new vw.CoordZ(x, y, z);
+    var mPosi = new vw.CameraPosition(movePo, new vw.Direction(0, -80, 0));
+    map.moveTo(mPosi);
 }
