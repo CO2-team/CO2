@@ -1,26 +1,79 @@
-var didScroll;
-
-var lastScrollTop = 0;
-var delta = 5; //동작의 구현이 시작되는 위치
-var navbatHeight = $('.header').outerHeight(); //영향을 받을 요소를 선택
-
-$(window).scroll(function(evnet){ //스크롤 시 사용자가 스크롤했다는 것을 알림
-  didScroll  = true;
-  console.log("scrolling");
-});
-
 $(function(){
   let lastScrollTop = 0;
   const delta = 15;
+  let scrollBlocked = false; // 스크롤 카운트 중복 방지용
 
-  $(window).scroll(function(event){
+  // ① 헤더 숨김/보임
+  $(window).on('scroll', function(){
     const st = $(this).scrollTop();
+
+    // 너무 작은 스크롤은 무시
     if(Math.abs(lastScrollTop - st) <= delta) return;
-    if((st > lastScrollTop) && (lastScrollTop > 0)) {
-      $('.header').addClass('nav-up');
-    }else {
-      $('.header').removeClass('nav-up');
-    };
+
+    // 내릴 때 → 숨김
+    if(st > lastScrollTop && st > 0){
+      $('#menubar').addClass('nav-up');
+    } else {
+      // 올릴 때 → 다시 보이기
+      $('#menubar').removeClass('nav-up');
+    }
+
     lastScrollTop = st;
   });
+
+  // ② scroll-snap 자동 스크롤 (한 번만 반응)
+  window.addEventListener('wheel', function(e) {
+    if (scrollBlocked) return; // 이미 동작 중이면 무시
+    scrollBlocked = true;
+
+    // 휠 방향 감지
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const nextPos = window.scrollY + (direction * window.innerHeight);
+
+    // 부드럽게 이동
+    window.scrollTo({ top: nextPos, behavior: 'smooth' });
+
+    // 일정 시간 후 다시 허용
+    setTimeout(() => { scrollBlocked = false; }, 800);
+  }, { passive: true });
 });
+
+
+let lastScrollTop = 0;
+const header = document.querySelector('.header');
+const container = document.querySelector('.container');
+
+container.addEventListener('scroll', () => {
+  const st = container.scrollTop;
+  if (st > lastScrollTop + 5) {
+    header.classList.add('nav-up');
+  } else if (st < lastScrollTop - 5) {
+    header.classList.remove('nav-up');
+  }
+  lastScrollTop = st;
+});
+
+// 모든 next_show 요소 선택
+const banners = document.querySelectorAll('.main-banner');
+
+const options = {
+  root: null,          // 브라우저 viewport
+  rootMargin: '0px',
+  threshold: 0.5       // 50% 이상 보이면 활성
+};
+
+const observer = new IntersectionObserver((entries, observer) => {
+  entries.forEach(entry => {
+    const nextShow = entry.target.querySelector('[class^="next_show"]'); // next_show0~3
+    if (entry.isIntersecting) {
+      entry.target.classList.add('active');   // 배너 활성화
+      if (nextShow) nextShow.style.opacity = 1;
+    } else {
+      entry.target.classList.remove('active');
+      if (nextShow) nextShow.style.opacity = 0;
+    }
+  });
+}, options);
+
+// 각 배너에 관찰자 등록
+banners.forEach(banner => observer.observe(banner));
