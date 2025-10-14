@@ -2,7 +2,7 @@ package com.example.co2.service;
 
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.scheduling.annotation.Async;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,7 +15,7 @@ public class MailService {
 
     private final JavaMailSender mailSender;
 
-    @Async
+    
     public void sendSimulatorMail(String toEmail, MultipartFile file) throws Exception {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

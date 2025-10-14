@@ -8,17 +8,17 @@
     background-color: #d0dacf;
 }
 
+
+
 .simulator-index{
     display: flex;
     justify-content: center;
     gap:40px;
-    
     border-radius: 8px;
     padding-top: 20px;
     max-width: 1000px;
     margin: 0 auto;
-    flex-wrap: wrap;      /* 줄바꿈 허용 */
-   
+    flex-wrap: wrap;
 }
 .simulator-wrapper{
     flex: 1;
@@ -310,19 +310,19 @@ html, body { min-width: 360px; }
     cursor: pointer;
     font-size: 18px;
     margin-left: 8px;
-    color: #1976d2; /* 파란색 */
+    color: #1976d2; 
     transition: transform 0.2s;
 }
 
 .info-btn:hover {
     transform: scale(1.2);
-    color: #0d47a1; /* hover 시 진한 파랑 */
+    color: #0d47a1; 
 }
 
 
 body.swal2-shown {
     overflow: auto !important;   /* 스크롤 숨기지 않게 */
-    padding-right: 0 !important; /* SweetAlert 패딩 보정도 막음 */
+    padding-right: 0 !important; 
 }
 
 .swal2-title {
@@ -330,4 +330,31 @@ body.swal2-shown {
   color: #2c7a3f;
 }
 
+.floating-btns button {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background-color: #1b5e20; 
+  color: #fff;
+  font-size: 22px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: all 0.25s ease;
+}
 
+
+.floating-btns button:hover {
+  transform: scale(1.08);
+  background-color: #2e7d32;
+}
+
+.floating-btns {
+  position: fixed;         
+  bottom: 40px;              
+  right: 40px;               
+  display: flex;
+  flex-direction: column;   
+  gap: 15px;                 
+  z-index: 9999;             
+}

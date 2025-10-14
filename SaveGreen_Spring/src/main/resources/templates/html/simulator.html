@@ -8,7 +8,8 @@
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"> -->
+    <link rel="stylesheet" href="/fontawesome/css/all.min.css">
 </head>
 <body>
 
@@ -16,6 +17,8 @@
     <div th:replace="layouts/header :: header"></div>
 <div id="introText">건물의 에너지 사용 데이터를 기반으로, 녹색건축물·ZEB 전환 시 필요한 설비 규모와 <strong>절세·탄소 절감 효과</strong>를 예측하는 시뮬레이터</div>
 
+
+<div class="captureWrapper" style="width:100vw; overflow:visible;">
 <div class="simulator-index">
     <div class="simulator-wrapper">  
     <section class="simulator-container">
@@ -187,11 +190,17 @@
         </div>
     </div>
     </section>
-
+    </div> 
+</div>
+    <div class="floating-btns">
+        <button id="downloadBtn" title="PDF로 저장">
+        <i class="fa-solid fa-file-pdf"></i>
+        </button>
+        <button id="sendMailBtn" title="메일로 보내기">
+        <i class="fa-solid fa-envelope"></i>
+        </button>
     </div>
 </div>
-<button id="downloadBtn">PDF로 저장</button>
-<button id="sendMailBtn">메일로 보내기</button>
 
 
    

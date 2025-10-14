@@ -337,7 +337,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById("downloadBtn").addEventListener("click", async () => {
-    const el = document.querySelector(".simulator-index");
+    const el = document.querySelector(".captureWrapper");
+    console.log(el.getBoundingClientRect());
+
     if (!el) return;
 
 
@@ -350,12 +352,14 @@ document.addEventListener('DOMContentLoaded', () => {
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: "#ffffff",
-        skipAutoScale: true
+        useCORS: true
       });
-
+      
+     
       // pdf 변환 // jspdf
       const pdf = new jspdf.jsPDF("p", "mm", "a4");
       const img = new Image();
+    
       img.onload = function () {
         const pdfW = pdf.internal.pageSize.getWidth();
         const pdfH = pdf.internal.pageSize.getHeight();
@@ -387,73 +391,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // document.getElementById("sendMailBtn").addEventListener("click", async () => {
-  //   const el = document.querySelector(".simulator-index");
-  //   if (!el) return;
 
-  //   await document.fonts.ready;
-
-  //   try {
-  //     const dataUrl = await h2i.toPng(el, {
-  //       pixelRatio: 2,
-  //       cacheBust: true,
-  //       backgroundColor: "#ffffff",
-  //       skipAutoScale: true
-  //     });
-
-  //     const pdf = new jspdf.jsPDF("p", "mm", "a4");
-  //     const img = new Image();
-
-  //     img.onload = async function () {
-  //       const pdfW = pdf.internal.pageSize.getWidth();
-  //       const pdfH = pdf.internal.pageSize.getHeight();
-  //       const imgW = pdfW;
-  //       const imgH = (img.height * pdfW) / img.width;
-
-  //       pdf.addImage(img, "PNG", 0, 0, imgW, imgH);
-
-  //       const pdfBlob = pdf.output("blob");
-
-  //       // 사용자 이메일 입력 받기
-  //       const email = prompt("결과를 받을 이메일 주소를 입력하세요:");
-  //       if (!email) return;
-
-    
-  //       const formData = new FormData();
-  //       formData.append("email", email);
-  //       formData.append("file", pdfBlob, "SimulatorResult.pdf");
-
-  //       // 서버로 업로드
-  //       const resp = await fetch("/sendMail", {
-  //         method: "POST",
-  //         body: formData
-  //       });
-
-  //       const result = await resp.text();
-  //       alert(result);
-  //     };
-
-  //     img.crossOrigin = "anonymous";
-  //     img.src = dataUrl;
-
-  //   } catch (err) {
-  //     console.error("메일 전송 중 오류:", err);
-  //     alert("메일 전송 중 오류가 발생했습니다.");
-  //   }
-  // });
 
   document.getElementById("sendMailBtn").addEventListener("click", async () => {
-    const el = document.querySelector(".simulator-index");
+    const el = document.querySelector(".captureWrapper");
     if (!el) return;
 
     await document.fonts.ready;
+
+     const { value: email } = await Swal.fire({
+    title: '시뮬레이터 결과 메일 전송',
+    input: 'email',
+    inputLabel: '받을 이메일 주소를 입력하세요',
+    inputPlaceholder: 'example@email.com',
+    confirmButtonText: '보내기',
+    showCancelButton: true,
+    cancelButtonText: '취소',
+    inputValidator: (value) => {
+      if (!value) return '이메일을 입력해주세요!';
+    },
+  });
+  if (!email) return;
+
+  // 📍 2. 진행중 안내창
+  Swal.fire({
+    title: '메일 전송 중...',
+    html: `
+      <div id="progressBarContainer" style="width:100%;height:10px;background:#eee;border-radius:5px;">
+        <div id="progressBar" style="width:0%;height:100%;background:#28a745;border-radius:5px;transition:width 0.3s;"></div>
+      </div>
+      <p id="statusText" style="margin-top:10px;">잠시만 기다려주세요...</p>
+    `,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+      const bar = document.getElementById('progressBar');
+      const text = document.getElementById('statusText');
+      let progress = 0;
+       const stages = [
+        { limit: 25, msg: 'PDF 변환 중...' },
+        { limit: 50, msg: 'Blob 변환 중...' },
+        { limit: 75, msg: '메일 준비 중...' },
+        { limit: Infinity, msg: '메일 보내는 중...' }
+      ];
+      const interval = setInterval(() => {
+        progress += Math.random() * 5;
+        if (progress >= 100) progress = 99;
+        bar.style.width = `${progress}%`;
+
+        const current = stages.find(s => progress < s.limit);
+        if (current) text.textContent = current.msg;
+
+      }, 500);
+      Swal._interval = interval;
+    },
+  });
 
     try {
       const dataUrl = await h2i.toPng(el, {
         pixelRatio: 2,
         cacheBust: true,
         backgroundColor: "#ffffff",
-        skipAutoScale: true
+        useCORS: true
       });
 
       const pdf2 = new jspdf.jsPDF("p", "mm", "a4");
@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       img2.crossOrigin = "anonymous";
       img2.src = dataUrl;
 
-      // Promise로 PDF 완성 보장
+      // Promise-pdf
       const pdfBlob = await new Promise((resolve) => {
         img2.onload = function () {
           const pdfW = pdf2.internal.pageSize.getWidth();
@@ -471,17 +471,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
           pdf2.addImage(img2, "PNG", 0, 0, imgW, imgH);
           const blob2 = pdf2.output("blob");
-          resolve(blob2); // 👈 완성된 blob만 반환
+          resolve(blob2);
         };
       });
 
-      // 이메일 입력 및 전송
-      const email = prompt("결과를 받을 이메일 주소를 입력하세요:");
-      if (!email) return;
-
+     
+      const timestamp = getTimestamp();
       const formData = new FormData();
       formData.append("email", email);
-      formData.append("file", pdfBlob, "SimulatorResult.pdf");
+      formData.append("file", pdfBlob, `SimulatorResult_${timestamp}.pdf`);
 
       const resp = await fetch("/sendMail", {
         method: "POST",
@@ -489,10 +487,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       const result = await resp.text();
-      alert(result);
+
+      clearInterval(Swal._interval);
+      Swal.close();
+
+      Swal.fire({
+        icon: "success",
+        title: "메일 발송 완료!",
+        text: result,
+        confirmButtonText: "확인",
+      });
+
+
     } catch (err) {
       console.error("메일 전송 중 오류:", err);
-      alert("메일 전송 중 오류가 발생했습니다.");
+      clearInterval(Swal._interval);
+      Swal.close();
+      Swal.fire({
+        icon: "error",
+        title: "메일 전송 실패",
+        text: "메일 발송 중 오류가 발생했습니다.",
+      });
     }
   });
 });
