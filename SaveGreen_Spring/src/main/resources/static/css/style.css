@@ -252,6 +252,7 @@ nav:hover a {
     text-align: left;
     color: white; /* 글씨 흰색 */
     z-index: 2;   /* 비디오보다 위로 */
+    transition: all 0.8s ease;
 }
 
 .overlay::after {
@@ -334,6 +335,11 @@ nav:hover a {
     background-color: rgba(0,0,0,0.4);
 }
 
+.main-banner.active .overlay .text-content {
+  left: 30%;
+  transform: translate(0, -50%);
+}
+
 /* next_show 초기 숨김 */
 .next_show0, .next_show1, .next_show2, .next_show3 {
     opacity: 0;
@@ -348,6 +354,12 @@ nav:hover a {
 .main-banner.active .next_show3 {
     opacity: 1;
     transform: translateX(0);
+}
+
+/* 배너에 active가 추가되면 left 30%로 이동 */
+.main-banner.active .overlay .text-content {
+  left: 30%;
+  transform: translate(0, -50%);
 }
 
 .banner-text {

@@ -77,3 +77,19 @@ const observer = new IntersectionObserver((entries, observer) => {
 
 // 각 배너에 관찰자 등록
 banners.forEach(banner => observer.observe(banner));
+
+document.addEventListener("scroll", function() {
+    const banners = document.querySelectorAll(".main-banner");
+
+    banners.forEach((banner) => {
+        const rect = banner.getBoundingClientRect();
+        const showElements = banner.querySelectorAll(".next_show0, .next_show1, .next_show2, .next_show3");
+
+        // 섹션이 화면의 1/3 이상 보이면 active 추가
+        if (rect.top < window.innerHeight * 0.7 && rect.bottom > 0) {
+            banner.classList.add("active");
+        } else {
+            banner.classList.remove("active");
+        }
+    });
+});
