@@ -201,7 +201,30 @@ document.addEventListener("DOMContentLoaded", () => {
       list.forEach(addr => {
         const item = document.createElement("div");
         item.classList.add("dropdown-item");
-        item.textContent = addr.roadAddr;
+        // item.textContent = addr.roadAddr;
+        
+        const left = document.createElement("div");
+        left.className = "addr-left";
+
+        const road = document.createElement("div");
+        road.className = "addr-road";
+        road.textContent = addr.roadAddr || "";
+
+        const jibun = document.createElement("div");
+        jibun.className = "addr-jibun";
+        jibun.textContent = addr.jibunAddr || "";
+
+        left.appendChild(road);
+        left.appendChild(jibun);
+
+        const zip = document.createElement("div");
+        zip.className="addr-zip";
+        zip.textContent =addr.zipNo || "";
+
+        item.appendChild(left);
+        item.appendChild(zip);
+
+        
 
         item.addEventListener("click", () => {
           input.value = addr.roadAddr;
