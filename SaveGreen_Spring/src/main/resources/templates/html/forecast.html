@@ -90,23 +90,23 @@
             <div class="spacer-12"></div>
 
             <div class="chips" aria-live="polite">
-					<span class="chip" id="chip-model">
-						<span class="dot" aria-hidden="true"></span>
-						<strong>모델</strong><span class="sep" aria-hidden="true">:</span>
-						<span class="truncate" id="modelName">Linear Regression</span>
-					</span>
+               <span class="chip" id="chip-model">
+                  <span class="dot" aria-hidden="true"></span>
+                  <strong>모델</strong><span class="sep" aria-hidden="true">:</span>
+                  <span class="truncate" id="modelName">Linear Regression</span>
+               </span>
 
                 <span class="chip">
-						<span class="dot" aria-hidden="true"></span>
-						<strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
-						<span class="truncate" id="meta-data-range">-</span>
-					</span>
+                  <span class="dot" aria-hidden="true"></span>
+                  <strong>데이터</strong><span class="sep" aria-hidden="true">:</span>
+                  <span class="truncate" id="meta-data-range">-</span>
+               </span>
 
                 <span class="chip">
-						<span class="dot" aria-hidden="true"></span>
-						<strong>특성</strong><span class="sep" aria-hidden="true">:</span>
-						<span class="truncate">연도, 사용량, 비용</span>
-					</span>
+                  <span class="dot" aria-hidden="true"></span>
+                  <strong>특성</strong><span class="sep" aria-hidden="true">:</span>
+                  <span class="truncate">연도, 사용량, 비용</span>
+               </span>
             </div>
 
             <div class="progress">
@@ -153,7 +153,7 @@
         <!-- 차트(연두 배경 제외) -->
         <section class="chart-card">
             <div class="chart-title">에너지 사용량 & 절감 (kWh/년)</div>
-            <div class="chart-area">
+            <div id="chart-energy-wrap" class="chart-area">
                 <canvas id="chart-energy-combo"></canvas>
             </div>
         </section>
@@ -168,9 +168,9 @@
                 <!-- 에너지 등급 -->
                 <article class="kpi-card kpi-grade">
                     <div class="icon-wrap">
-							<span class="icon-bg">
-								<i class="icon icon-card1" aria-hidden="true"></i>
-							</span>
+                     <span class="icon-bg">
+                        <i class="icon icon-card1" aria-hidden="true"></i>
+                     </span>
                     </div>
                     <div class="meta">
                         <div class="label">에너지 등급</div>
@@ -182,9 +182,9 @@
                 <!-- 절감 비용(원/년) -->
                 <article class="kpi-card kpi-cost">
                     <div class="icon-wrap">
-							<span class="icon-bg">
-								<i class="icon icon-card2" aria-hidden="true"></i>
-							</span>
+                     <span class="icon-bg">
+                        <i class="icon icon-card2" aria-hidden="true"></i>
+                     </span>
                     </div>
                     <div class="meta">
                         <div class="label">절감 비용(원/년)</div>
@@ -196,9 +196,9 @@
                 <!-- 투자 회수 기간 -->
                 <article class="kpi-card kpi-payback">
                     <div class="icon-wrap">
-							<span class="icon-bg">
-								<i class="icon icon-card3" aria-hidden="true"></i>
-							</span>
+                     <span class="icon-bg">
+                        <i class="icon icon-card3" aria-hidden="true"></i>
+                     </span>
                     </div>
                     <div class="meta">
                         <div class="label">투자 회수 기간</div>
@@ -210,9 +210,9 @@
                 <!-- 에너지 절감률(%) -->
                 <article class="kpi-card kpi-pct">
                     <div class="icon-wrap">
-							<span class="icon-bg">
-								<i class="icon icon-card4" aria-hidden="true"></i>
-							</span>
+                     <span class="icon-bg">
+                        <i class="icon icon-card4" aria-hidden="true"></i>
+                     </span>
                     </div>
                     <div class="meta">
                         <div class="label">에너지 절감률(%)</div>
@@ -258,13 +258,23 @@
 <!-- 라이브러리 -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- 페이지 전용 스크립트: vworldClient → kpi -> chart -> provider -> loader -> vworld.dev -> main) 순으로! -->
+<!-- 페이지 전용 스크립트(순서 중요!) -->
 <script th:src="@{/js/vworldClient.js}"></script>
 <script th:src="@{/js/forecast.kpi.js}"></script>
+
+<!-- ★ 모델을 차트보다 먼저 로드 -->
+<script th:src="@{/js/forecast.models.js}"></script>
+
+<!-- 모델 다음에 차트/렌더 모듈 -->
 <script th:src="@{/js/forecast.chart.js}"></script>
+
+<!-- 데이터/로더/개발 도우미 -->
 <script th:src="@{/js/forecast.providers.js}"></script>
 <script th:src="@{/js/forecast.loader.js}"></script>
 <script th:src="@{/js/forecast.vworld.dev.js}"></script>
+
+<!-- 마지막에 메인 컨트롤러 -->
 <script th:src="@{/js/forecast.main.js}"></script>
+
 </body>
 </html>

@@ -1,4 +1,4 @@
-/***
+<!--
     * @Author : 연은주
     * @Date : 2025-09-29
     * @Description : header.html (헤더)
@@ -8,11 +8,11 @@
         - index.html 연결 작업 완료
         - footer 연결 작업 완료
     * 2025-09-29 : 초기작성
-
+-->
 <div th:fragment="header">
-  <header id="menubar">
+  <header id="menubar" class="header">
     <nav class="navbar">
-      <div class="logo"><img class="symbol_img" src="/img/symbol_W.png" style="width: 3vh;"><img class="logo_img" style="width: 5%; align-items : center;" src="/img/saveGreen_Wlogo_02.png"></div>
+      <div class="logo"><img class="symbol_img img_center" src="/img/symbol_W.png"><img class="logo_img img_center" src="/img/saveGreen_Wlogo_02.png"></div>
       <ul class="nav-links">
         <li><a href="#">GREEN FINDER</a></li>
         <li><a href="#">GREEN REMODELING</a></li>
@@ -22,7 +22,7 @@
 
     <!-- 전체 드롭다운 메뉴 (한 번만 작성) -->
     <div class="dropdown-panel">   
-      <div class="logo_bk"><a href="/main"><img class="symbol_img_C" src="/img/symbol_C.png" style="width: 5vh;"><img class="logo_img" style="width: 7vh;" src="/img/saveGreen_Blogo_02.png"></a></div>
+      <div class="logo_bk"><a href="/main"><img class="symbol_img img_center" src="/img/symbol_C.png"><img class="logo_img img_center"  src="/img/saveGreen_Blogo_02.png"></a></div>
         <ul data-title="GREEN FINDER">
             <li><a href="/GreenFinder/text">녹색 건축물 / ZEB</a></li>
             <li><a href="/GreenFinder">건물 정보 검색</a></li>

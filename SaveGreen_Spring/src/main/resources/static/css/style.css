@@ -1,6 +1,5 @@
 html, body {
     height: 100%;
-    scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
     margin: 0;
     padding: 0;
@@ -23,21 +22,6 @@ main, .container {
 }
 
 /* 기본 네비 */
-/* 
-header{
-    position: fixed;
-    display: flex;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 80px;
-    transition: top 0.2s ease-in-out;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 10;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0px 40px;
-} */ 
 
 .navbar {
     display: flex;
@@ -52,19 +36,15 @@ header{
     height: 80px;
 }
 
-.nav-up {
-    top: -80px;
-}
 
+/* 스크롤 내릴 때 숨김 */
 
-#menubar {
+.header {
   position: fixed;
   top: 0;
-  left: 0;
   width: 100%;
-  transition: top 0.3s ease;
+  transition: top 0.4s ease;
   z-index: 1000;
-  
 }
 
 .nav-links {
@@ -93,38 +73,38 @@ header{
 
 .logo{
     text-decoration: none;
-    display: block;
+    display: table;
     color: #ffffff;
     font-weight: bold;   
-    padding: 10px;
     z-index: 99;
     
 }
 
+.img_center{
+    display: table-cell;
+    vertical-align:middle;
+    text-align: center;
+    height: auto;
+    width: 70px;
+}
+
 .logo_img{
-    display: block;
+    display: table;
     position: absolute;
     height: auto;
-    top: 11%;
     left: 8%;
-    
+    vertical-align:middle;
 }
 
 .symbol_img{
-    display: block;
+    display: table-cell;
     position: absolute;
     height: auto;
-    top: 11%;
-    left: 6%;
+    vertical-align:middle;
+    left: 5%;
+    width: 30px;
 }
 
-.symbol_img_C{
-    display: block;
-    position: absolute;
-    height: auto;
-    top: 10.5%;
-    left: 5%;
-}
 
 
 
@@ -135,9 +115,6 @@ header{
 .logo_bk{    
     display: block;
     font-weight: bold;
-    width: 1vh;
-    height: 1%;
-    size: 3px;
 }
 nav:hover {
   background-color: #ffffff;
@@ -151,7 +128,7 @@ nav:hover a {
 }
 
 .dropdown-panel {
-    position: fixed;
+    position: absolute;
     top: 0px;  /* navbar 높이에 맞춤 */
     left: 0;
     width: 100%;
@@ -168,7 +145,7 @@ nav:hover a {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 1% 5%;
+    margin: 0% 5%;
     padding: 0;
     list-style: none;
     white-space: nowrap;
@@ -296,15 +273,48 @@ nav:hover a {
 /*main css */
 /* 전체 스크롤 컨테이너 */
 /* 컨테이너 전체 */
+/* 컨테이너 전체 스냅 */
 .container {
-    min-height: 100vh;   /* 콘텐츠만큼 늘어나도록 */
-    overflow-y: visible; /* 스크롤 없애기 */
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  height: 100vh;
 }
 
-/* 각 배너 */
+/* 각 섹션 */
 .main-banner {
-    height: 100vh;
-    scroll-snap-align: start;
+  scroll-snap-align: start;
+  height: 100vh;
+}
+
+.footer {
+  height: 40px;  /* 푸터가 화면 전체 차지 */
+  scroll-snap-align: start; /* 마지막 배너 스냅 해제 필요 없음 */
+  background: rgba(0,0,0,0.6);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  
+}
+/* 마지막 섹션은 snap 해제 → footer 접근 가능 */
+/* .main-banner:last-child {
+  scroll-snap-align: none;
+} */
+
+/* 헤더 숨김 애니메이션 */
+.header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  transition: all 0.4s ease;
+  z-index: 1000;
+  background: rgba(0,0,0,0.6);
+}
+
+.nav-up {
+  top: -100px;
+  opacity: 0;
 }
 
 /* overlay 어둡게 처리 */
@@ -325,14 +335,17 @@ nav:hover a {
 }
 
 /* next_show 초기 숨김 */
-.next_show {
+.next_show0, .next_show1, .next_show2, .next_show3 {
     opacity: 0;
-    transform: translateX(50px);
-    transition: all 0.8s;
+    transform: translateX(100px);
+    transition: all 0.8s ease-out;
 }
 
 /* active 배너에서 나타나도록 */
-.main-banner.active .next_show {
+.main-banner.active .next_show0,
+.main-banner.active .next_show1,
+.main-banner.active .next_show2,
+.main-banner.active .next_show3 {
     opacity: 1;
     transform: translateX(0);
 }
