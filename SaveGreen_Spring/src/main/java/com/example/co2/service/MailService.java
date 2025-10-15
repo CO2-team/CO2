@@ -16,6 +16,7 @@ public class MailService {
     private final JavaMailSender mailSender;
 
     
+    @SuppressWarnings("null")
     public void sendSimulatorMail(String toEmail, MultipartFile file) throws Exception {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
