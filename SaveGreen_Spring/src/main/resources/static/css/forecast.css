@@ -1,533 +1,529 @@
-/* ========== 변수 ========== */
+/* =========================================================================
+   글로벌 변수
+   -------------------------------------------------------------------------
+   - 색상/라운드/헤더 높이/히어로 패딩/비디오 크기 등 공통 토큰
+   ========================================================================= */
 :root {
-   --bg-hero: #D0DACF;
-   --wrap-max: 1200px;
+  --bg-hero: #D0DACF;
+  --wrap-max: 1200px;
 
-   --color-recommend: #133D1E;
-   --color-conditional: #F57C00;
-   --color-not-recommend: #D80004;
+  --color-recommend: #133D1E;
+  --color-conditional: #F57C00;
+  --color-not-recommend: #D80004;
 
-   --surface-radius: 14px;
+  --surface-radius: 14px;
 
-   /* [UPDATED-1] 헤더 실제 높이(히어로가 헤더 밑으로 들어가는 현상 방지) */
-   --header-height: 88px;
+  /* 헤더 실제 높이 + 추가 간격 (히어로 겹침 방지/오프셋용) */
+  --header-height: 88px;
+  --header-extra-gap: 16px;
 
-   /* [NEW] 헤더 아래 추가 간격(헤더보다 "조금 더 아래"에서 시작) */
-   --header-extra-gap: 16px;
+  /* 히어로 시작 오프셋 */
+  --hero-offset-gap: 50px;
 
-    /* ⬇⬇ [NEW] 헤더 밑에서 '히어로(연두 면)'가 시작할 추가 마진 */
-    /*  값만 조절해서 원하는 만큼 더 내리면 됨(예: 56~96px 권장) */
-    --hero-offset-gap: 50px;
+  /* 히어로 내부 패딩 */
+  --hero-pad: 24px;
+  --hero-pad-left-extra: 12px;
 
-   /* [UPDATED-2] 히어로 내부 여백: 상·우·하 동일, 좌는 약간 더 넓게(우 기준 정렬 느낌) */
-   --hero-pad: 24px;             /* 상·우·하 */
-   --hero-pad-left-extra: 12px;  /* 좌만 +값 (좌우 동일 원하면 0) */
+  /* 히어로 비디오 컨테이너 크기 */
+  --video-w: 520px;
+  --video-h: 340px;
 
-   /* [NEW] 고정 크기 비디오 컨테이너 사이즈(컨테이너만 고정, 내부 영상은 확대/이동) */
-   --video-w: 520px;
-   --video-h: 340px;             /* 세로만 키우려면 여기 값만 조절 */
-
-   /* [NEW] 워터마크 가리기용 확대/이동(우상단 기준) */
-   --video-scale: 1.18;          /* 1.10 ~ 1.25에서 미세조정 */
-   --video-shift-x: -6%;         /* 오른쪽 워터마크를 프레임 밖으로(왼쪽 이동) */
-   --video-shift-y: -6%;         /* 위로 살짝 올림 */
+  /* 비디오 워터마크 회피용 확대/이동 */
+  --video-scale: 1.18;
+  --video-shift-x: -6%;
+  --video-shift-y: -6%;
 }
 
-/* 유틸 */
+/* =========================================================================
+   유틸리티
+   ========================================================================= */
 .wrap {
-   max-width: var(--wrap-max);
-   margin: 0 auto;
+  max-width: var(--wrap-max);
+  margin: 0 auto;
 }
-
 .hidden {
-   display: none !important;
+  display: none !important;
 }
-
 .spacer-12 {
-   height: 12px;
+  height: 12px;
 }
 
-/* ========== 헤더 보정 ========== */
+/* =========================================================================
+   페이지 헤더 보정 (히어로가 헤더 밑으로 들어가는 현상 방지)
+   ========================================================================= */
 .page-forecast {
-   /* 헤더 높이 + 추가 간격만큼 본문을 아래로 밀기 */
-   padding-top: calc(var(--header-height) + var(--header-extra-gap));
-   position: relative;
-   z-index: 0;
+  padding-top: calc(var(--header-height) + var(--header-extra-gap));
+  position: relative;
+  z-index: 0;
 }
-
-/* JS 비활성화 시에도 겹침 방지용 스페이서 (HTML에 .header-spacer 존재) */
 .header-spacer {
-   height: calc(var(--header-height) + var(--header-extra-gap));
+  height: calc(var(--header-height) + var(--header-extra-gap));
 }
-
 .page-forecast :target {
-   scroll-margin-top: calc(var(--header-height) + var(--header-extra-gap) + 16px);
+  scroll-margin-top: calc(var(--header-height) + var(--header-extra-gap) + 16px);
 }
 
-/* ========== HERO (연두 면 + 라운드 통일) ========== */
+/* =========================================================================
+   HERO 블록
+   - 연두색 배경/라운드/2컬럼 → 1컬럼(모바일)
+   ========================================================================= */
 .hero-block {
-   background: var(--bg-hero);
-   border-radius: var(--surface-radius);
-   overflow: hidden;
-    /* 히어로 전용 마진-탑: 원하는 만큼 더 내리기 */
-    margin-top: var(--hero-offset-gap);
+  background: var(--bg-hero);
+  border-radius: var(--surface-radius);
+  overflow: hidden;
+  margin-top: var(--hero-offset-gap);
 }
-
 .hero-block .hero-inner {
-   display: grid;
-   /* 오른쪽(비디오) 칼럼을 살짝 좁혀 과도한 팽창 방지 */
-   grid-template-columns: 1.35fr 0.65fr;
-   gap: 28px;
-
-   /* 위/오른쪽/아래 동일, 왼쪽만 +extra → 우 기준으로 마진 정렬 */
-   padding: var(--hero-pad) var(--hero-pad) var(--hero-pad) calc(var(--hero-pad) + var(--hero-pad-left-extra));
-
-   align-items: center;
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 28px;
+  padding: var(--hero-pad) var(--hero-pad) var(--hero-pad)
+           calc(var(--hero-pad) + var(--hero-pad-left-extra));
+  align-items: center;
 }
-
 .hero-block .hero-text h1 {
-   font-weight: 800 !important;
-   margin: 0 0 .5rem 0;
-   text-align: left !important;
-   text-transform: none !important;
+  font-weight: 800 !important;
+  margin: 0 0 .5rem 0;
+  text-align: left !important;
+  text-transform: none !important;
 }
-
 .hero-block .hero-text h2 {
-   font-weight: 700 !important;
-   margin: 0 0 .75rem 0;
-   text-align: left !important;
-   text-transform: none !important;
+  font-weight: 700 !important;
+  margin: 0 0 .75rem 0;
+  text-align: left !important;
+  text-transform: none !important;
 }
-
 .hero-block .hero-desc {
-   font-weight: 400 !important;
-   margin: 0;
-   text-align: left !important;
-   text-transform: none !important;
+  font-weight: 400 !important;
+  margin: 0;
+  text-align: left !important;
+  text-transform: none !important;
 }
 
-/* ========== [NEW] 고정 크기 비디오 컨테이너(컨테이너 고정, 내부 영상만 확대/이동) ========== */
+/* --- 고정 크기 비디오 컨테이너 (컨테이너 고정, 내부 영상 확대/이동) --- */
 .video-card {
-   position: relative;
-   width: var(--video-w);
-   height: var(--video-h);     /* ← 세로만 키우려면 여기만 ↑ */
-   max-width: 100%;
-   border-radius: 12px;
-   overflow: hidden;           /* 컨테이너 밖은 자름 */
-   margin: 0 0 0 auto;         /* 우측 정렬, 바깥 여백은 hero-inner 패딩으로 통일 */
+  position: relative;
+  width: var(--video-w);
+  height: var(--video-h);
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 0 0 0 auto;
 }
-
-/* 컨테이너 안에서 비디오만 cover + 확대/이동 → 워터마크 프레임 밖으로 */
 .video-card .video-media {
-   position: absolute;
-   top: 50%;
-   left: 50%;
-   width: 100%;
-   height: 100%;
-   object-fit: cover;
-   transform:
-      translate(-50%, -50%)
-      scale(var(--video-scale))
-      translateX(var(--video-shift-x))
-      translateY(var(--video-shift-y));
-   pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: translate(-50%, -50%)
+             scale(var(--video-scale))
+             translateX(var(--video-shift-x))
+             translateY(var(--video-shift-y));
+  pointer-events: none;
 }
-
-/* 래퍼 없이 .hero-video 단독을 쓰는 경우도 안전하게 동작하도록(옵션) */
 .hero-block .hero-video {
-   display: block;
-   border-radius: 12px;
+  display: block;
+  border-radius: 12px;
 }
 
-/* 반응형: 한 컬럼 스택 시 비디오 컨테이너 폭/높이 보정 */
+/* --- HERO 반응형 (한 컬럼 스택) --- */
 @media (max-width: 960px) {
-   .hero-block .hero-inner {
-      grid-template-columns: 1fr; /* 한 컬럼 스택 */
-      gap: 20px; /* 모바일 간격 약간 축소(선택) */
-      padding: var(--hero-pad); /* ← 좌우 대칭 패딩(LEFT EXTRA 제거) */
-   }
-
-   .video-card {
-      width: 100%;
-      height: clamp(240px, 56vw, var(--video-h));
-      margin: 0; /* ← 우측 정렬 제거, 부모 패딩 기준 정렬 */
-   }
+  .hero-block .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: var(--hero-pad);
+  }
+  .video-card {
+    width: 100%;
+    height: clamp(240px, 56vw, var(--video-h));
+    margin: 0;
+  }
 }
 
-/* ========== ML Loader (히어로와 폭/라운드 동일) ========== */
+/* =========================================================================
+   ML Loader (히어로와 동일 라운드/폭)
+   ========================================================================= */
 .ml-panel {
-   padding: 0;
+  padding: 0;
 }
-
 .ml-panel .ml-card {
-   box-sizing: border-box;
-   width: 100%;
-   margin: 16px 0;
-   border-radius: var(--surface-radius);
+  box-sizing: border-box;
+  width: 100%;
+  margin: 16px 0;
+  border-radius: var(--surface-radius);
 }
 
-/* 단계 체크 UI */
+/* --- 로딩 단계 지도 --- */
 .progress-map {
-   display: flex;
-   flex-wrap: wrap;
-   gap: 14px 20px;
-   align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: center;
 }
-
 .progress-map .step {
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   opacity: .85;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: .85;
 }
-
-/* 로딩 단계 원형 */
 .progress-map .step .check {
-   position: relative;
-   display: inline-grid;
-   place-items: center;
-   width: 16px;
-   height: 16px;
-   border-radius: 50%;
-   border: 2px solid rgba(255, 255, 255, 0.35);
-   overflow: hidden;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .35);
+  overflow: hidden;
 }
-
-/* 완료된 단계: 배경 투명, 체크/테두리만 표시 */
 .progress-map .step.done .check {
-   background: transparent !important;
-   border-color: var(--ml-accent, #56D6E0);
+  background: transparent !important;
+  border-color: var(--ml-accent, #56D6E0);
 }
-
 .progress-map .step.done .check::after {
-   content: '✓';
-   color: var(--ml-accent, #56D6E0);
-   font-weight: 900;
-   font-size: 12px;
-   line-height: 1;
+  content: '✓';
+  color: var(--ml-accent, #56D6E0);
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
 }
 
-/* 컨테이너만 그리드화 */
+/* --- 칩(키-밸류 태그) --- */
 .chips {
-   display: grid;
-   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-   gap: 10px 12px;
-   align-items: stretch;
-   width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 12px;
+  align-items: stretch;
+  width: 100%;
 }
-
-/* 칩 내부 텍스트 레이아웃 */
 .chip {
-   min-width: 0;
-   display: inline-flex;
-   align-items: center;
-   gap: 8px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-
 .chip .dot {
-   flex: 0 0 auto;
+  flex: 0 0 auto;
 }
-
 .chip strong {
-   white-space: nowrap;
+  white-space: nowrap;
 }
-
 .chip span:last-of-type {
-   min-width: 0;
-   overflow: hidden;
-   text-overflow: ellipsis;
-   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
 @media (max-width: 480px) {
-   .chip {
-      padding: 6px 10px;
-   }
-   .chip,
-   .chip strong,
-   .chip span:last-of-type {
-      font-size: clamp(12px, 3.2vw, 14px);
-      line-height: 1.2;
-   }
+  .chip {
+    padding: 6px 10px;
+  }
+  .chip,
+  .chip strong,
+  .chip span:last-of-type {
+    font-size: clamp(12px, 3.2vw, 14px);
+    line-height: 1.2;
+  }
 }
 
-/* ========== 결과 영역 ========== */
+/* =========================================================================
+   결과 섹션
+   ========================================================================= */
 .result.hidden {
-   display: none;
+  display: none;
 }
 
-/* 차트 카드 */
+/* --- 차트 카드 --- */
 .chart-energy-wrap {
-    position: relative;
-    overflow: visible;
+  position: relative;
+  overflow: visible;
 }
-
 .chart-stage-badge {
-    pointer-events: none;
+  pointer-events: none;
 }
-
 .chart-card {
-   background: #fff;
-   border-radius: var(--surface-radius);
-   padding: 20px;
-   margin: 8px 0 16px 0;
-   box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
-   position: relative;
-   z-index: 0;
+  background: #fff;
+  border-radius: var(--surface-radius);
+  padding: 20px;
+  margin: 8px 0 16px 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  position: relative;
+  z-index: 0;
 }
-
 .chart-title {
-   font-weight: 700;
-   margin-bottom: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
 }
-
 .chart-area {
-   height: clamp(260px, 40vh, 420px);
+  height: clamp(260px, 40vh, 420px);
 }
-
 .chart-area canvas {
-   width: 100% !important;
-   height: 100% !important;
-   display: block;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
-/* 연두 배경 면(카드 + 요약 + 배너) */
+/* --- 연두 배경 면 (카드+요약+배너 감싸는 컨테이너) --- */
 .result-surface {
-   background: var(--bg-hero);
-   padding: 16px 20px 20px 20px;
-   border-radius: var(--surface-radius);
-   position: relative;
-   z-index: 0;
+  background: var(--bg-hero);
+  padding: 16px 20px 20px 20px;
+  border-radius: var(--surface-radius);
+  position: relative;
+  z-index: 0;
 }
-
 .section-heading {
-   font-weight: 700;
-   text-align: center;
-   margin: 2px 0 12px 0;
+  font-weight: 700;
+  text-align: center;
+  margin: 2px 0 12px 0;
 }
 
-/* KPI 카드 */
+/* --- KPI 카드 --- */
 .kpis {
-   display: grid;
-   grid-template-columns: repeat(4, 1fr);
-   gap: 16px;
-   margin: 0 0 16px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 0 0 16px 0;
 }
-
 .kpi-card {
-   display: flex;
-   gap: 12px;
-   align-items: center;
-   background: #fff;
-   border-radius: var(--surface-radius);
-   padding: 16px;
-   box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border-radius: var(--surface-radius);
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
-
 .kpi-card .meta .label {
-   font-size: 12px;
-   opacity: .7;
+  font-size: 12px;
+  opacity: .7;
 }
-
 .kpi-card .meta .value {
-   font-size: 20px;
-   font-weight: 700;
+  font-size: 20px;
+  font-weight: 700;
 }
-
 .kpi-card .meta .sub {
-   font-size: 11px;
-   opacity: .6;
-   margin-top: 2px;
+  font-size: 11px;
+  opacity: .6;
+  margin-top: 2px;
 }
-
 @media (max-width: 960px) {
-   .kpis {
-      grid-template-columns: 1fr 1fr;
-   }
+  .kpis { grid-template-columns: 1fr 1fr; }
 }
-
 @media (max-width: 600px) {
-   .kpis {
-      grid-template-columns: 1fr;
-   }
+  .kpis { grid-template-columns: 1fr; }
 }
 
-/* 상태별 변수 → 아이콘 배경 */
+/* --- 상태별 변수(아이콘 배경 컬러) --- */
 #result-section {
-   --icon-bg: var(--color-recommend);
+  --icon-bg: var(--color-recommend);
 }
-
 #result-section.recommend {
-   --icon-bg: var(--color-recommend);
+  --icon-bg: var(--color-recommend);
 }
-
 #result-section.conditional {
-   --icon-bg: var(--color-conditional);
+  --icon-bg: var(--color-conditional);
 }
-
 #result-section.not-recommend {
-   --icon-bg: var(--color-not-recommend);
+  --icon-bg: var(--color-not-recommend);
 }
 
-/* 아이콘 배경 + 흰색 아이콘 */
+/* --- KPI 카드 아이콘 --- */
 .kpi-card .icon-wrap {
-   display: flex;
-   align-items: center;
+  display: flex;
+  align-items: center;
 }
-
 .kpi-card .icon-bg {
-   width: 40px;
-   height: 40px;
-   border-radius: 10px;
-   background: var(--icon-bg);
-   display: inline-flex;
-   align-items: center;
-   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--icon-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-
 .kpi-card .icon {
-   width: 22px;
-   height: 22px;
-   background-color: #fff;
-   -webkit-mask-repeat: no-repeat;
-   mask-repeat: no-repeat;
-   -webkit-mask-position: center;
-   mask-position: center;
-   -webkit-mask-size: contain;
-   mask-size: contain;
+  width: 22px;
+  height: 22px;
+  background-color: #fff;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
-
 .kpi-card .icon-card1 { -webkit-mask-image: url("/img/card1.svg"); mask-image: url("/img/card1.svg"); }
 .kpi-card .icon-card2 { -webkit-mask-image: url("/img/card2.svg"); mask-image: url("/img/card2.svg"); }
 .kpi-card .icon-card3 { -webkit-mask-image: url("/img/card3.svg"); mask-image: url("/img/card3.svg"); }
 .kpi-card .icon-card4 { -webkit-mask-image: url("/img/card4.svg"); mask-image: url("/img/card4.svg"); }
 
-/* 요약/배너 */
+/* --- 요약 카드 --- */
 .summary.card {
-   background: #fff;
-   border-radius: var(--surface-radius);
-   padding: 18px;
-   margin: 0 0 16px 0;
-   box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+  background: #fff;
+  border-radius: var(--surface-radius);
+  padding: 18px;
+  margin: 0 0 16px 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
 }
-
 .summary-title-row {
-   display: flex;
-   align-items: center;
-   justify-content: flex-start;
-   gap: 10px;
-   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
 }
-
 .summary-title {
-   font-size: 25px;
-   font-weight: 800;
-   line-height: 1.2;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.2;
 }
-
 .summary-badge {
-   background: #E9ECEF;
-   color: #222;
-   font-size: 12px;
-   padding: 6px 10px;
-   border-radius: 999px;
-   font-weight: 600;
+  background: #E9ECEF;
+  color: #222;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
 }
-
 .summary-list {
-   list-style: none;
-   margin: 0;
-   padding: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-
 .summary-list li {
-   display: flex;
-   gap: 8px;
-   align-items: flex-start;
-   margin: 6px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 6px 0;
 }
-
 .summary-list li::before {
-   content: "";
-   width: 8px;
-   height: 8px;
-   border-radius: 50%;
-   background: #2E7D32;
-   margin-top: 6px;
-   flex: none;
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2E7D32;
+  margin-top: 6px;
+  flex: none;
 }
-
 .summary-list strong {
-   font-weight: 700;
+  font-weight: 700;
 }
-
 .summary-footnote {
-   margin-top: 8px;
-   font-size: 11px;
-   opacity: .7;
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: .7;
 }
 
-/* ===== 배너 & 배지(색상은 기존 유지, 위치만 교정) ===== */
+/* =========================================================================
+   배너 & 배지 (공통)
+   - 텍스트는 왼쪽 정렬, 배지는 오른쪽 정렬
+   - 기본 패딩은 좌우 16px (조건부 배너는 아래 섹션서 별도 우측 여백 제어)
+   ========================================================================= */
 .banner {
-   display: flex;
-   justify-content: flex-start;          /* 텍스트 왼쪽 정렬 */
-   align-items: center;
-   position: relative;                   /* 배지 위치 기준 */
-   border-radius: var(--surface-radius);
-   padding: 14px 92px 14px 16px;         /* 우측 배지 공간 확보 */
-   color: #fff;
-   font-size: 30px;
-   font-weight: 700;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  position: relative;
+  border-radius: var(--surface-radius);
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 700;
+  overflow: hidden;
 }
-
-.banner.recommend { background: var(--color-recommend); }
+.banner.recommend   { background: var(--color-recommend); }
 .banner.conditional { background: var(--color-conditional); }
 .banner.not-recommend { background: var(--color-not-recommend); }
 
-/* 색상은 기존 그대로 둠 — 위치/정렬만 수정 */
+/* --- 배지(공통): 절대배치 대신 Flex 끝으로 보냄 --- */
 .banner .badge {
-   position: absolute;
-   right: 14px;
-   top: 50%;
-   transform: translateY(-50%);          /* 세로 중앙 정렬 */
-   display: flex;
-   align-items: center;
-   justify-content: center;
+  margin-left: auto;   /* 오른쪽 끝으로 */
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-   /* 세로 배지 캡슐(필요 시 크기 조정) */
-   width: 56px;
-   height: 112px;
-   border-radius: 999px;
+  /* 기본은 세로 캡슐(조건부는 아래에서 방향 제어) */
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  line-height: 1;
+  letter-spacing: 2px;
+  border-radius: 999px;
 
-   /* 기존 배경/색 유지 */
-   background: rgba(255, 255, 255, .15);
-   color: inherit;
-   font-weight: 700;
+  /* 반응형 크기 (세로배지 기준) */
+  width: clamp(42px, 4.6vw, 56px);
+  height: calc(clamp(42px, 4.6vw, 56px) * 2);
 
-   /* 세로쓰기 */
-   writing-mode: vertical-rl;
-   text-orientation: upright;
-   line-height: 1;
-   letter-spacing: 2px;
+  background: rgba(255, 255, 255, .15);
+  color: inherit;
+  font-weight: 700;
+
+  pointer-events: none; /* 클릭 방해 X */
 }
 
-/* 모바일에서 배지/패딩 보정(선택) */
-@media (max-width: 600px) {
-   .banner { padding-right: 76px; }
-   .banner .badge { right: 10px; width: 48px; height: 96px; }
+/* =========================================================================
+   조건부 배너 전용 반응형
+   - 기본: 가로 배지 (텍스트와 겹치지 않도록 우측 패딩 확보)
+   - 좁은 화면: 세로 배지로 전환
+   ========================================================================= */
+
+/* 공통 보정: 클릭 방지/박스사이징 */
+.result-surface .banner {
+  position: relative;
+  box-sizing: border-box;
+}
+.result-surface .banner .badge {
+  pointer-events: none;
 }
 
-/* ========== ⚠ 중요: 헤더 전역 스타일 손대지 않기 ========== */
-/* 아래와 같은 전역 선택자는 사용 금지(삭제됨)
-   .navbar .nav-links { ... }
-   .navbar a { ... }
-   .navbar .dropdown-menu { ... }
-   .navbar .dropdown:hover > .dropdown-menu { ... }
-*/
-
-/* 필요한 최소 보정이 있을 때만 '페이지 한정'으로 적용 예시 */
-/*
-.page-forecast .navbar .dropdown-menu {
-   z-index: 20;
+/* 1) 기본(데스크톱/태블릿): 배지 가로 */
+.result-surface .banner.conditional {
+  --badgeW: clamp(110px, 12vw, 150px);  /* 가로 배지 폭 */
+  --badgeGap: 16px;                     /* 텍스트-배지 사이 여유 */
+  padding-right: calc(var(--badgeW) + var(--badgeGap)) !important; /* 텍스트가 배지와 겹치지 않도록 확보 */
 }
-*/
+.result-surface .banner.conditional .badge {
+  position: absolute;
+  right: var(--badgeGap);
+  top: 50%;
+  transform: translateY(-50%);
+
+  writing-mode: horizontal-tb;  /* 가로쓰기 */
+  text-orientation: mixed;
+
+  height: 40px;
+  width: var(--badgeW);
+  border-radius: 999px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+/* 2) 좁은 화면(세로 전환 지점) → 필요시 700px 값을 760/800 등으로 조절 */
+@media (max-width: 700px) {
+  .result-surface .banner.conditional {
+    --vBadgeW: 46px;   /* 세로 배지 너비 */
+    --vBadgeH: 96px;   /* 세로 배지 높이 */
+    --vBadgeGap: 12px; /* 텍스트-배지 여유 */
+    padding-right: calc(var(--vBadgeW) + var(--vBadgeGap)) !important;
+  }
+  .result-surface .banner.conditional .badge {
+    right: var(--vBadgeGap);
+    width: var(--vBadgeW);
+    height: var(--vBadgeH);
+    writing-mode: vertical-rl;  /* 세로쓰기 */
+    text-orientation: upright;
+    letter-spacing: 2px;
+  }
+}
+
+/* =========================================================================
+   (전역 헤더/네비게이션 스타일은 손대지 않음)
+   필요 시 페이지 한정 보정만 추가:
+   .page-forecast .navbar .dropdown-menu { z-index: 20; }
+   ========================================================================= */
