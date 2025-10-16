@@ -155,6 +155,11 @@
     border-radius: var(--surface-radius);
 }
 
+.ml-panel .progress {
+  margin-bottom: 12px;   /* 12~16px 선호 */
+}
+
+
 /* --- 로딩 단계 지도 --- */
 .progress-map {
     display: flex;
@@ -582,8 +587,8 @@ main.wrap {
 }
 .preload-card h4 { margin: 0 0 8px; font-size: 1rem; }
 .preload-card .kv { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.preload-card .kv .k { opacity: .7; margin-right: 8px; min-width: 6em; display: inline-block; }
-.preload-card .kv .v { font-weight: 500; }
+.preload-card .kv .k { opacity: .7; margin-right: 8px; min-width: 6em; display: inline-block; font-size: .9375rem; line-height: 1.45; }
+.preload-card .kv .v { font-weight: 600; font-size: .9375erm; line-height: 1.45; }
 .preload-card .sub { margin: .5rem 0 0; font-size: .875rem; opacity: .72; }
 .preload-card .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
@@ -720,6 +725,52 @@ body.is-complete .progress-bar { opacity: 1; }
 		font-size: 1rem;
 		padding: 8px 10px;
 	}
+}
+
+#preload-panel {
+  padding-top: 14px;   /* 12~16px 선호 */
+}
+
+/* 카드 안 얇은 스켈레톤 바가 텍스트/구분선과 겹치지 않게 흐름에 넣기 */
+.preload-card .skeleton.s-line {
+    position: static !important; /* absolute 제거 → 레이아웃에 참여 */
+    inset: auto !important;      /* 혹시 남아있을 인셋 무효화 */
+    display: block;
+    height: 8px;
+    margin-top: 8px;             /* 진행바와 다음 콘텐츠 사이 간격 */
+    overflow: hidden;
+}
+
+/* 예측 가정 카드 본문(전력단가/상승률/할인율 등) 폰트 톤 맞추기 */
+#preload-assumption .mono,
+#preload-assumption p {
+  font-family: inherit;     /* 모노스페이스 느낌이면 빼서 위 카드와 통일 */
+  font-size: .9375rem;      /* 15px */
+  line-height: 1.45;
+  font-weight: 600;         /* 값 톤 맞춤 */
+  font-variant-numeric: tabular-nums; /* 숫자 정렬은 유지(선택) */
+}
+
+/* 예측 가정 줄의 라벨/값 톤 통일 */
+#preload-assumption .assump-line .k {
+  opacity: .65;                 /* 위 카드의 라벨 톤과 유사 */
+}
+
+#preload-assumption .assump-line .v {
+  font-weight: 600;             /* 값은 선명하게 */
+  opacity: .96;                 /* 살짝 더 밝게 */
+}
+
+#preload-assumption .assump-line .sep {
+  opacity: .5;                  /* 중간 점(·) 구분자 톤 */
+  padding: 0 .15em;
+}
+
+/* 숫자 정렬 안정화(선택) */
+#preload-assumption .assump-line {
+  font-size: .9375rem;          /* 위 본문과 동일(약 15px) */
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
 }
 
 

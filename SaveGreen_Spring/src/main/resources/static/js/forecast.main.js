@@ -5,12 +5,228 @@
 window.SaveGreen = window.SaveGreen || {};
 window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
-document.addEventListener('DOMContentLoaded', () => {
-	init().catch(err => console.error('[forecast] init failed:', err));
-});
+//document.addEventListener('DOMContentLoaded', () => {
+//	init().catch(err => console.error('[forecast] init failed:', err));
+//});
 
 // 전역 clamp 폴리필(없으면 등록)
 if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ========== [STEP5] 카달로그 연결/세션 파싱/매칭 유틸 ========== */
+(function () {
+	'use strict';
+
+	// 전역 네임스페이스 보강
+	window.SaveGreen = window.SaveGreen || {};
+	window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
+
+    // [STEP3] 카달로그(JSON) 경로 상수
+    const CATALOG_URL = '/dummy/buildingenergydata.json';
+
+
+
+	// 내부 캐시
+	let _catalog = null;
+
+	// 안전한 querySelector
+	const qs = (s, r=document) => r.querySelector(s);
+
+	// 공백/괄호/중복공백 정리
+	const _normalizeAddr = (s) => (s||'')
+		.replace(/\s*\([^)]*\)\s*/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+
+	// 세션에서 값 꺼내기(그린파인더 → 시뮬레이터/포캐스트로 넘어온 값)
+	function readSessionKeys() {
+		const get = (k) => sessionStorage.getItem(k) || '';
+		// 에너지 페이지에서 세팅한 키 이름을 최대한 보수적으로 수용
+		const payload = {
+			// 주소
+			roadAddr: get('gf:roadAddr') || get('roadAddr') || '',
+			jibunAddr: get('gf:jibunAddr') || get('jibunAddr') || '',
+			// 좌표
+			lat: parseFloat(get('gf:lat') || get('lat') || '') || null,
+			lng: parseFloat(get('gf:lng') || get('lng') || '') || null,
+			// 식별자(있을 수도/없을 수도)
+			featureId: get('gf:featureId') || get('featureId') || '',
+			buildingName: get('gf:buildingName') || get('buildingName') || ''
+		};
+		// 정규화된 주소(비교용)
+		payload.norm = {
+			road: _normalizeAddr(payload.roadAddr),
+			jibun: _normalizeAddr(payload.jibunAddr)
+		};
+		return payload;
+	}
+
+	// 카달로그 1회 로드
+	async function loadCatalogOnce() {
+		if (_catalog) return _catalog;
+		const res = await fetch(CATALOG_URL, { cache: 'no-store' });
+		if (!res.ok) throw new Error('catalog fetch failed: ' + res.status);
+		_catalog = await res.json();
+		return _catalog;
+	}
+
+	// 반경(m) 내 좌표 매칭
+	function _isNear(a, b, radiusM=30) {
+		if (!a || !b || a.lat==null || a.lng==null || b.lat==null || b.lng==null) return false;
+		// 단순 근사(위도/경도 1도≈111,320m)
+		const dx = (a.lng - b.lng) * 111320 * Math.cos(((a.lat+b.lat)/2) * Math.PI/180);
+		const dy = (a.lat - b.lat) * 111320;
+		return Math.hypot(dx, dy) <= radiusM;
+	}
+
+	// 카달로그 레코드 매칭
+	function matchCatalogRecord(session, catalog) {
+		if (!Array.isArray(catalog)) return null;
+		const road = session.norm.road;
+		const jibun = session.norm.jibun;
+
+		let candidates = catalog;
+
+		// 1) 도로/지번 완전 정규화 일치 우선
+		if (road || jibun) {
+			candidates = candidates.filter(it => {
+				const itRoad = _normalizeAddr(it.roadAddr || '');
+				const itJibun = _normalizeAddr(it.jibunAddr || '');
+				return (road && itRoad && itRoad === road) || (jibun && itJibun && itJibun === jibun);
+			});
+		}
+
+		// 2) 좌표 반경 매칭(필터가 너무 좁아졌으면 누적이 아니라 없을 때만 적용)
+		if ((!candidates || candidates.length === 0) && (session.lat!=null && session.lng!=null)) {
+			candidates = catalog.filter(it => _isNear(
+				{ lat: session.lat, lng: session.lng },
+				{ lat: parseFloat(it.lat), lng: parseFloat(it.lng) },
+				30
+			));
+		}
+
+		// 3) 건물명 부분 일치(최후)
+		if (!candidates || candidates.length === 0) {
+			const bname = (session.buildingName || '').trim();
+			if (bname) {
+				const lw = bname.toLowerCase();
+				candidates = catalog.filter(it => (it.buildingName||'').toLowerCase().includes(lw));
+			}
+		}
+
+		if (!candidates || candidates.length === 0) return null;
+		// 복수면 첫 건(추후 UI로 후보 표시 가능)
+		return candidates[0];
+	}
+
+	// 차트/헤더/칩에 뿌릴 “빌딩 컨텍스트” 문자열 생성
+	function buildChartContextLine(rec) {
+		// 빌딩명 → 주소 → 용도 (빌딩명 없으면 '건물명 없음')
+		const name = (rec?.buildingName && String(rec.buildingName).trim()) || '건물명 없음';
+		const addr = _normalizeAddr(rec?.roadAddr || rec?.jibunAddr || '');
+		const use  = (rec?.useName || rec?.use || '').toString().trim();
+		// 연결기호는 “ → ”
+		const parts = [name];
+		if (addr) parts.push(addr);
+		if (use) parts.push(use);
+		return parts.join(' → ');
+	}
+
+	// 프리로드 카드/칩 보강(이미 있는 렌더 유틸 호출/존재 시 갱신)
+	function hydratePreloadUI(rec) {
+		try {
+			// 데이터 날짜 칩(파란 칩) — id는 기존 마크업에 맞춰 조정
+			const dateEl = qs('#chipDataDate');
+			if (dateEl && rec?.meta?.dataDate) dateEl.textContent = rec.meta.dataDate;
+
+			// 건물 컨텍스트 카드/예측 가정 2줄은 기존 렌더러 호출(있다면)
+			if (typeof window.renderPreloadInfoAndRisks === 'function') {
+                // 내부에서 dataset/localStorage 기반으로 채우는 구조라면,
+                // rec의 핵심값을 root.dataset에 반영해 두고 재호출
+				const root = qs('#forecast-root');
+				if (root) {
+					if (rec.buildingName) root.dataset.buildingName = rec.buildingName;
+					if (rec.roadAddr) root.dataset.roadAddr = rec.roadAddr;
+					if (rec.jibunAddr) root.dataset.jibunAddr = rec.jibunAddr;
+					if (rec.useName) root.dataset.useName = rec.useName;
+					if (rec.builtYear) root.dataset.builtYear = rec.builtYear;
+					if (rec.floorArea) root.dataset.floorArea = rec.floorArea;
+					if (rec.pnu) root.dataset.pnu = rec.pnu;
+				}
+				window.renderPreloadInfoAndRisks();
+			}
+		} catch(e) {
+			console.warn('[hydratePreloadUI] ', e);
+		}
+	}
+
+	// 로더~차트 파이프라인
+	async function runRenderPipeline(rec) {
+		try {
+			// 로더 라벨/칩 등 동기화(선택)
+			if (window.LOADER?.setModelName) window.LOADER.setModelName('Linear Regression');
+			if (window.LOADER?.setStep) window.LOADER.setStep(1, '데이터 로딩');
+
+			// 컨텍스트 라인을 차트 모듈에도 전달 → A/B/C 공통으로 사용
+			const infoLine = buildChartContextLine(rec);
+			if (window.SaveGreen?.Forecast) {
+				window.SaveGreen.Forecast._chartContextText = infoLine;
+			}
+
+			// 스케일/정규화 (여기서는 더미 계산만, 모델과 연결되면 치환)
+			if (window.LOADER?.setStep) window.LOADER.setStep(2, '정규화 / 스케일링');
+
+			// 모델 피팅/예측 준비
+			if (window.LOADER?.setStep) window.LOADER.setStep(3, '모델 피팅');
+
+			// 차트 렌더 A → B → C (각 함수는 Promise 반환하도록 스텝4에서 구성됨)
+			if (window.LOADER?.setStep) window.LOADER.setStep(4, '예측 / 검증');
+
+			if (typeof window.renderModelAChart === 'function') {
+				await window.renderModelAChart(rec);
+			}
+			if (typeof window.renderModelBChart === 'function') {
+				await window.renderModelBChart(rec);
+			}
+			if (typeof window.renderEnergyComboChart === 'function') {
+				await window.renderEnergyComboChart(rec);
+			}
+
+			// 완료
+			if (window.LOADER?.setStep) window.LOADER.setStep(5, '차트 렌더링');
+			if (typeof window.finishLoader === 'function') {
+				await window.finishLoader();
+			}
+		} catch (e) {
+			console.error('[runRenderPipeline] ', e);
+		}
+	}
+
+	// 초기화: 세션→카달로그→매칭→프리로드 채움
+	async function initForecastStep5() {
+		const session = readSessionKeys();
+		let rec = null;
+		try {
+			const catalog = await loadCatalogOnce();
+			rec = matchCatalogRecord(session, catalog);
+			if (!rec) {
+				console.warn('[catalog] no match from session; charts may use seed');
+			}
+			hydratePreloadUI(rec || {});
+			// 차트 컨텍스트 라인(없어도 “건물명 없음”으로 구성)
+			const infoLine = buildChartContextLine(rec || {});
+			window.SaveGreen.Forecast._chartContextText = infoLine;
+		} catch (e) {
+			console.error('[initForecastStep5] ', e);
+		}
+		// 파이프라인 시작은 "시작하기" 버튼에서 호출(자동시작 백업도 존재)
+		window.SaveGreen.Forecast._matchedRecord = rec || null;
+	}
+
+	// 외부에서 사용할 수 있게 노출
+	window.SaveGreen.Forecast.initForecastStep5 = initForecastStep5;
+	window.SaveGreen.Forecast.runRenderPipeline = runRenderPipeline;
+})();
+
 
 
 /* ---------- 고정 텍스트 ---------- */
@@ -173,9 +389,9 @@ function renderPreloadInfoAndRisks() {
 		const discountPct = pick('discountRatePct');                     // %
 
 		const unitText = (unit === '기본') ? '기본(가정)' : `${unit}원/kWh`;
-		const parts = [`전력단가: ${unitText}`];
-		if (numOk(escalatePct)) parts.push(`상승률: ${parseFloat(escalatePct)}%/년`);
-		if (numOk(discountPct)) parts.push(`혈인율: ${parseFloat(discountPct)}%/년`.replace('혈', '할')); // 오타 방지용
+		const parts = [`전력단가 : ${unitText}`];
+		if (numOk(escalatePct)) parts.push(`상승률 : ${parseFloat(escalatePct)}%/년`);
+		if (numOk(discountPct)) parts.push(`할인율 : ${parseFloat(discountPct)}%/년`);
 
 		const line1 = parts.join(' · ');
 		const el1 = document.getElementById('assumption-line-1');
@@ -192,12 +408,12 @@ function renderPreloadInfoAndRisks() {
 		let parts2 = [];
 		if (co2Factor || effGainPct) {
 			// 우선안: 배출계수 · 효율개선
-			if (co2Factor) parts2.push(`배출계수: ${co2Factor} kgCO₂/kWh`);
-			if (numOk(effGainPct)) parts2.push(`효율 개선: ${parseFloat(effGainPct)}%`);
+			if (co2Factor) parts2.push(`배출계수 : ${co2Factor} kgCO₂/kWh`);
+			if (numOk(effGainPct)) parts2.push(`효율 개선 : ${parseFloat(effGainPct)}%`);
 		} else if (tariffType || numOk(utilPct)) {
 			// 대안: 요금제 · 가동률
-			if (tariffType) parts2.push(`요금제: ${tariffType}`);
-			if (numOk(utilPct)) parts2.push(`가동률: ${parseFloat(utilPct)}%`);
+			if (tariffType) parts2.push(`요금제 : ${tariffType}`);
+			if (numOk(utilPct)) parts2.push(`가동률 : ${parseFloat(utilPct)}%`);
 		}
 
 		const line2 = parts2.join(' · ');
@@ -231,6 +447,159 @@ function renderPreloadInfoAndRisks() {
 				el.textContent = b.t;
 				wrap.appendChild(el);
 			});
+		}
+	}
+}
+
+/* =========================================================================
+   [STEP3] 에너지 카탈로그(JSON) 로드 & 매칭 유틸
+   - loadCatalog(): /buildingenergydata.json fetch + sessionStorage 캐시
+   - matchCatalogItem(ctx, list): PNU > 주소 > 좌표 순으로 매칭
+   - applyCatalogHints(ctx): 프리로드 칩/가정 1·2줄에 힌트 반영(비어있을 때만)
+   ========================================================================= */
+
+// 문자열 정규화(주소 비교용): 공백/하이픈/괄호 제거, 소문자화
+function _normStr(s) {
+	if (!s) return '';
+	return String(s)
+		.replace(/\s+/g, '')
+		.replace(/[-–—]/g, '')
+		.replace(/[()]/g, '')
+		.toLowerCase();
+}
+
+// 좌표 거리(대충, m 단위 근사) — 좌표 매칭 3순위
+function _roughDistanceM(lat1, lon1, lat2, lon2) {
+	if (![lat1, lon1, lat2, lon2].every(v => Number.isFinite(Number(v)))) return Infinity;
+	const R = 6371000; // m
+	const toRad = d => (Number(d) * Math.PI) / 180;
+	const dLat = toRad(lat2 - lat1);
+	const dLon = toRad(lon2 - lon1);
+	const a =
+		Math.sin(dLat / 2) ** 2 +
+		Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return R * c;
+}
+
+// [A] 카탈로그 로더 (세션 캐시 사용)
+async function loadCatalog() {
+	const CACHE_KEY = 'catalog.cache.v1';
+	try {
+		const cached = sessionStorage.getItem(CACHE_KEY);
+		if (cached) {
+			const parsed = JSON.parse(cached);
+			if (Array.isArray(parsed)) return parsed;
+		}
+		const res = await fetch(CATALOG_URL, { credentials: 'same-origin' });
+		if (!res.ok) throw new Error('fetch failed: ' + res.status);
+		const json = await res.json();
+		if (!Array.isArray(json)) throw new Error('catalog is not array');
+		sessionStorage.setItem(CACHE_KEY, JSON.stringify(json));
+		return json;
+	} catch (e) {
+		console.warn('[catalog] load error:', e);
+		return [];
+	}
+}
+
+// [B] 매칭
+function matchCatalogItem(ctx, list) {
+	if (!ctx || !Array.isArray(list) || !list.length) return null;
+
+	// ctx에서 비교키 뽑기
+	const pnu = (ctx.pnu || '').trim();
+	const ra  = (ctx.roadAddr || ctx.roadAddress || '').trim();
+	const ja  = (ctx.jibunAddr || '').trim();
+	const bn  = (ctx.buildingName || '').trim();
+	const lat = Number(ctx.lat);
+	const lon = Number(ctx.lon);
+
+	// 1) PNU 완전일치
+	if (pnu) {
+		const byPnu = list.find(it => String(it.pnu || '').trim() === pnu);
+		if (byPnu) return byPnu;
+	}
+
+	// 2) 주소 정규화 일치(도로명/지번)
+	const raN = _normStr(ra);
+	const jaN = _normStr(ja);
+	if (raN || jaN) {
+		const byAddr = list.find(it => {
+			const itRaN = _normStr(it.roadAddr || it.roadAddress);
+			const itJaN = _normStr(it.jibunAddr);
+			return (raN && itRaN && raN === itRaN) || (jaN && itJaN && jaN === itJaN);
+		});
+		if (byAddr) return byAddr;
+	}
+
+	// 3) 좌표 근접(<= 120m)
+	if (Number.isFinite(lat) && Number.isFinite(lon)) {
+		let best = null, bestD = Infinity;
+		for (const it of list) {
+			const d = _roughDistanceM(lat, lon, Number(it.lat), Number(it.lon));
+			if (d < bestD) { best = it; bestD = d; }
+		}
+		if (best && bestD <= 120) return best;
+	}
+
+	// 4) 느슨한 빌딩명(있을 때만)
+	if (bn) {
+		const bnN = _normStr(bn);
+		const byBn = list.find(it => _normStr(it.buildingName) === bnN);
+		if (byBn) return byBn;
+	}
+
+	return null;
+}
+
+// [C] 프리로드 칩/가정 1·2줄 힌트 반영(이미 값 있으면 유지)
+function applyCatalogHints(ctx) {
+	if (!ctx || !ctx.catalog) return;
+
+	// 데이터 기간 칩(있으면 업데이트, 없으면 생성)
+	try {
+		const wrap = document.querySelector('.chips'); // 기존 칩 컨테이너
+		const { period } = ctx.catalog || {};
+		if (wrap && period && period.startYear && period.endYear) {
+			let chip = document.getElementById('chip-data-period');
+			const label = `데이터 기간`;
+			const value = `${period.startYear}–${period.endYear}`;
+			if (!chip) {
+				chip = document.createElement('div');
+				chip.className = 'chip';
+				chip.id = 'chip-data-period';
+				chip.innerHTML = `
+					<span class="dot">●</span>
+					<strong>${label}</strong>
+					<span>${value}</span>
+				`;
+				wrap.appendChild(chip);
+			} else {
+				// 비어있으면만 갱신
+				const last = chip.querySelector('span:last-of-type');
+				if (last && !last.textContent.trim()) last.textContent = value;
+			}
+		}
+	} catch (e) {
+		console.warn('[catalog] chip update skipped:', e);
+	}
+
+	// 예측 가정 1·2줄(값이 없을 때만 보강)
+	const line1 = document.getElementById('assumption-line-1');
+	const line2 = document.getElementById('assumption-line-2');
+
+	// line1: 전력단가(힌트)
+	if (line1 && !line1.textContent.trim()) {
+		const unit = ctx.catalog?.energy?.unit; // 예: 'kWh' 또는 '원/kWh' 등
+		if (unit) line1.textContent = `전력단가: 기본(가정) · 단위: ${unit}`;
+	}
+
+	// line2: 기간 재확인(없을 때만)
+	if (line2 && !line2.textContent.trim()) {
+		const { period } = ctx.catalog || {};
+		if (period?.startYear && period?.endYear) {
+			line2.textContent = `데이터 기간: ${period.startYear}–${period.endYear}`;
 		}
 	}
 }
@@ -318,6 +687,42 @@ async function init() {
 	// 1) 스토리지 기반 컨텍스트 부트스트랩
 	bootstrapContextFromStorage(root);
 
+    /* 세션스토리지(그린파인더) → data-* Fallback 주입 (+출처 플래그 session) */
+    {
+    	const root = document.getElementById('forecast-root');
+    	if (root) {
+    		const sget = (k) => (sessionStorage.getItem(k) || '').toString().trim();
+
+    		// 그린파인더가 남겨주는 값들 (없으면 빈 문자열)
+    		const ldCodeNm = sget('ldCodeNm');   // 예: 대전광역시 대덕구 대화동
+    		const mnnmSlno = sget('mnnmSlno');   // 예: 123-45 (지번 본번-부번)
+    		const lat      = sget('lat');        // 선택 지점 위도
+    		const lon      = sget('lon');        // 선택 지점 경도
+
+    		// 지번 주소 문자열 구성 (둘 다 있을 때만)
+    		const jibun = [ldCodeNm, mnnmSlno].filter(Boolean).join(' ');
+
+    		// 이미 data-*가 있으면 건드리지 않고, 비어있을 때만 세션 값으로 채움
+    		const setIfEmpty = (key, val, fromKey) => {
+    			if (!root.dataset[key] && val) {
+    				root.dataset[key] = val;
+    				root.dataset[key + 'From'] = fromKey; // 출처 표시: 'session'
+    			}
+    		};
+
+    		setIfEmpty('jibunAddr', jibun, 'session');
+    		setIfEmpty('lat', lat, 'session');
+    		setIfEmpty('lon', lon, 'session');
+
+    		// 사용상 편의를 위해 'addr' 헬퍼도 만들어줌(없을 때만)
+    		if (!root.dataset.addr && (root.dataset.roadAddr || root.dataset.jibunAddr)) {
+    			root.dataset.addr = root.dataset.roadAddr || root.dataset.jibunAddr;
+    			root.dataset.addrFrom = root.dataset.roadAddr ? 'dataset' : 'session';
+    		}
+    	}
+    }
+
+
 	// 2) 주소창 → data-* Fallback 주입
 	{
 		const urlp = new URLSearchParams(location.search);
@@ -349,8 +754,17 @@ async function init() {
 	wireStartButtonAndFallback();
 
     primeMetaRangeFromDataset();   // 상단 '데이터' 칩에 2025–2035 같은 기간 표시
-
 }
+
+// 2) init() 완료 직후 적용
+document.addEventListener('DOMContentLoaded', () => {
+	init()
+		.then(() => {
+			styleAssumptionLines();
+		})
+		.catch(err => console.error('[forecast] init failed:', err));
+});
+
 
 /* ==========================================================
  * 실제 예측 시퀀스(기존 init 실행 파트 그대로)
@@ -379,6 +793,28 @@ async function runForecast() {
 		ctx = fallbackDefaultContext(root);
 		useDummy = true;
 	}
+
+	// [STEP3] 카탈로그 로드 → 매칭 → UI 힌트 반영
+    try {
+    	LOADER.setStep(1, '에너지 카탈로그 로드');
+    	const catalogList = await loadCatalog();
+
+    	LOADER.setStatus('카탈로그 매칭');
+    	const matched = matchCatalogItem(ctx, catalogList);
+    	ctx.catalog = matched || null;
+
+    	if (matched) {
+    		LOADER.setStatus('카탈로그 매칭 완료');
+    		// 프리로드 칩/가정 텍스트 보강(이미 값 있으면 유지)
+    		applyCatalogHints(ctx);
+    	} else {
+    		LOADER.setStatus('카탈로그 없음 — 기본값으로 진행');
+    	}
+    } catch (e) {
+    	console.warn('[STEP3] catalog pipeline error:', e);
+    	LOADER.setStatus('카탈로그 오류 — 기본값 진행');
+    }
+
 
 	// 데이터 로드
 	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
@@ -776,6 +1212,49 @@ function primeMetaRangeFromDataset() {
 	if (el) el.textContent = (String(from) === String(to)) ? `${from}년` : `${from}–${to}`;
 }
 
+// 1) 헬퍼 (한 번만 정의)
+function styleAssumptionLines() {
+	const root = document.getElementById('preload-assumption');
+	if (!root) return;
+
+	root.querySelectorAll('p, .mono').forEach((p) => {
+		const raw = (p.textContent || "").trim();
+		if (!raw) return;
+
+		const parts = raw.split('·').map(s => s.trim()).filter(Boolean);
+		const container = document.createElement('span');
+		container.className = 'assump-line';
+
+		parts.forEach((seg, i) => {
+			const m = seg.split(':');
+			if (m.length >= 2) {
+				const kEl = document.createElement('span');
+				kEl.className = 'k';
+				kEl.textContent = m.shift().trim() + ':';
+
+				const vEl = document.createElement('span');
+				vEl.className = 'v';
+				vEl.textContent = ' ' + m.join(':').trim();
+
+				container.appendChild(kEl);
+				container.appendChild(vEl);
+			} else {
+				container.appendChild(document.createTextNode(seg));
+			}
+			if (i < parts.length - 1) {
+				const sep = document.createElement('span');
+				sep.className = 'sep';
+				sep.textContent = ' · ';
+				container.appendChild(sep);
+			}
+		});
+
+		p.textContent = '';
+		p.appendChild(container);
+	});
+}
+
+
 /* ---------- Helpers ---------- */
 function nf(n) { try { return new Intl.NumberFormat('ko-KR').format(Math.round(Number(n) || 0)); } catch { return String(n); } }
 function range(a, b) { const arr = []; for (let y = a; y <= b; y++) arr.push(y); return arr; }
@@ -794,6 +1273,7 @@ function getNiceStep(min, max, targetTicks = 6) {
 	let niceBase = (base <= 1) ? 1 : (base <= 2) ? 2 : (base <= 5) ? 5 : 10;
 	return niceBase * Math.pow(10, exp);
 }
+
 function roundMinMaxToStep(min, max, step) {
 	const s = Number(step) || 1;
 	const nmin = Math.floor(min / s) * s;

@@ -129,6 +129,40 @@
    window.SaveGreen.Forecast.roundMinMaxToStep = roundMinMaxToStep;
    window.SaveGreen.Forecast.fmtCostTick = fmtCostTick;
 
+/* ========== [STEP5] 차트 컨텍스트 라벨(제목 아래, 범례 위) 공통 유틸 ========== */
+(function(){
+	'use strict';
+	window.SaveGreen = window.SaveGreen || {};
+	window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
+
+	// chartCardId: 차트 카드 컨테이너 id (예: 'chartA', 'chartB', 'chartC')
+	function injectChartContextLine(chartCardId) {
+		const root = document.getElementById(chartCardId);
+		if (!root) return;
+
+		// 차트 카드 내부 구조 예: .chart-card > .chart-title + (여기에 .chart-context) + canvas/legend...
+		// 제목 요소 찾기
+		const titleEl = root.querySelector('.chart-title');
+		const infoText = (window.SaveGreen.Forecast._chartContextText || '').trim();
+		if (!titleEl || !infoText) return;
+
+		// 기존 라인이 있으면 교체, 없으면 생성
+		let ctxEl = root.querySelector('.chart-context');
+		if (!ctxEl) {
+			ctxEl = document.createElement('div');
+			ctxEl.className = 'chart-context';
+			// 제목 바로 다음 위치(범례 위로 밀기)
+			titleEl.insertAdjacentElement('afterend', ctxEl);
+		}
+		// 내용: “빌딩명 → 주소 → 용도” (빌딩명 없으면 ‘건물명 없음’이 이미 계산됨)
+		ctxEl.textContent = infoText;
+	}
+
+	// 외부에서 호출
+	window.SaveGreen.Forecast.injectChartContextLine = injectChartContextLine;
+})();
+
+
    /* =========================
     * A 모델 — 스플라인 영역 (점 → 선·영역)
     *  - 점들을 순차로 그리고, 마지막에 선/영역을 한 번에 켜서
@@ -265,6 +299,11 @@
 
       window.energyChart = energyChart;
 
+      // A 차트 렌더 함수 마지막에 추가
+      if (window.SaveGreen?.Forecast?.injectChartContextLine) {
+      window.SaveGreen.Forecast.injectChartContextLine('chartA');
+      }
+
       // [NEW] 이 단계의 "실제 애니메이션 종료" 시점을 반환
       //  - 포인트 전부 + reveal 버퍼(120ms)
       const doneMs = totalPointDuration + 80 + 120;
@@ -400,11 +439,18 @@
 
       window.energyChart = energyChart;
 
+      // B 차트 렌더 함수 마지막에 추가
+      if (window.SaveGreen?.Forecast?.injectChartContextLine) {
+          window.SaveGreen.Forecast.injectChartContextLine('chartB');
+      }
+
       // [NEW] B 단계 애니메이션 종료 시점 반환
       const doneMs = totalPointDuration + 80 + 120;
       await new Promise((r) => setTimeout(r, doneMs));
       return doneMs;
    }
+
+
 
    /* =========================
     * C 모델 — 에너지 막대 + 비용 선 콤보 (점 → 선)
@@ -599,6 +645,11 @@
          chartRef.update('none');
       }, lineRevealAt + 50);
       __pushTimer(idReveal);
+
+       // C(에너지/비용) 차트 렌더 함수 마지막에 추가
+       if (window.SaveGreen?.Forecast?.injectChartContextLine) {
+        window.SaveGreen.Forecast.injectChartContextLine('chartC');
+       }
 
       window.energyChart = energyChart;
    }
