@@ -2,6 +2,10 @@
  * forecast.main.js (FINAL)
  * ========================= */
 
+// 전역 카탈로그 경로 (정적 리소스 기준)
+// - 에너지 카탈로그(샘플/더미) JSON을 한 번만 내려받아 세션 캐시에 보관
+const CATALOG_URL = '/dummy/buildingenergydata.json';
+
 window.SaveGreen = window.SaveGreen || {};
 window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
@@ -9,35 +13,31 @@ window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 //	init().catch(err => console.error('[forecast] init failed:', err));
 //});
 
-// 전역 clamp 폴리필(없으면 등록)
+// 전역 clamp 폴리필(없으면 등록) — 수치 값을 [lo, hi] 구간에 강제
 if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /* ========== [STEP5] 카달로그 연결/세션 파싱/매칭 유틸 ========== */
 (function () {
 	'use strict';
 
-	// 전역 네임스페이스 보강
+	// 네임스페이스 보강(다른 모듈과 동일 경로 사용)
 	window.SaveGreen = window.SaveGreen || {};
 	window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
-    // [STEP3] 카달로그(JSON) 경로 상수
-    const CATALOG_URL = '/dummy/buildingenergydata.json';
-
-
-
-	// 내부 캐시
+	// 내부 캐시(카탈로그 1회 로드 후 재사용)
 	let _catalog = null;
 
 	// 안전한 querySelector
 	const qs = (s, r=document) => r.querySelector(s);
 
-	// 공백/괄호/중복공백 정리
+	// 공백/괄호/중복공백 정리(주소 비교 전 정규화)
 	const _normalizeAddr = (s) => (s||'')
 		.replace(/\s*\([^)]*\)\s*/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
 
 	// 세션에서 값 꺼내기(그린파인더 → 시뮬레이터/포캐스트로 넘어온 값)
+	// - 서로 다른 키 네이밍을 최대한 수용(보수적)
 	function readSessionKeys() {
 		const get = (k) => sessionStorage.getItem(k) || '';
 		// 에너지 페이지에서 세팅한 키 이름을 최대한 보수적으로 수용
@@ -60,7 +60,7 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 		return payload;
 	}
 
-	// 카달로그 1회 로드
+	// 카달로그 1회 로드(fetch → 메모리 캐시)
 	async function loadCatalogOnce() {
 		if (_catalog) return _catalog;
 		const res = await fetch(CATALOG_URL, { cache: 'no-store' });
@@ -69,16 +69,19 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 		return _catalog;
 	}
 
-	// 반경(m) 내 좌표 매칭
+	// 반경(m) 내 좌표 매칭(빠른 근사 계산)
 	function _isNear(a, b, radiusM=30) {
 		if (!a || !b || a.lat==null || a.lng==null || b.lat==null || b.lng==null) return false;
-		// 단순 근사(위도/경도 1도≈111,320m)
+		// 단순 근사(위도/경도 1도≈111,320m) — 소규모 반경 필터용
 		const dx = (a.lng - b.lng) * 111320 * Math.cos(((a.lat+b.lat)/2) * Math.PI/180);
 		const dy = (a.lat - b.lat) * 111320;
 		return Math.hypot(dx, dy) <= radiusM;
 	}
 
 	// 카달로그 레코드 매칭
+	// - 1순위: 도로/지번 완전 일치
+	// - 2순위: 좌표 반경 내(30m)
+	// - 3순위: 건물명 부분 포함
 	function matchCatalogRecord(session, catalog) {
 		if (!Array.isArray(catalog)) return null;
 		const road = session.norm.road;
@@ -114,11 +117,12 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 		}
 
 		if (!candidates || candidates.length === 0) return null;
-		// 복수면 첫 건(추후 UI로 후보 표시 가능)
+		// 복수면 첫 건(후속 버전에서 후보 UI 제공 가능)
 		return candidates[0];
 	}
 
 	// 차트/헤더/칩에 뿌릴 “빌딩 컨텍스트” 문자열 생성
+	// - 우선순위: 빌딩명 → 주소 → 용도
 	function buildChartContextLine(rec) {
 		// 빌딩명 → 주소 → 용도 (빌딩명 없으면 '건물명 없음')
 		const name = (rec?.buildingName && String(rec.buildingName).trim()) || '건물명 없음';
@@ -140,8 +144,8 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 
 			// 건물 컨텍스트 카드/예측 가정 2줄은 기존 렌더러 호출(있다면)
 			if (typeof window.renderPreloadInfoAndRisks === 'function') {
-                // 내부에서 dataset/localStorage 기반으로 채우는 구조라면,
-                // rec의 핵심값을 root.dataset에 반영해 두고 재호출
+				// 내부에서 dataset/localStorage 기반으로 채우는 구조라면,
+				// rec의 핵심값을 root.dataset에 반영해 두고 재호출
 				const root = qs('#forecast-root');
 				if (root) {
 					if (rec.buildingName) root.dataset.buildingName = rec.buildingName;
@@ -159,7 +163,8 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 		}
 	}
 
-	// 로더~차트 파이프라인
+	// 로더~차트 파이프라인(메인에서 수동/자동으로 호출)
+	// - A → B → C 순서로 차트 렌더, 각 단계 사이 로더 라벨 동기화
 	async function runRenderPipeline(rec) {
 		try {
 			// 로더 라벨/칩 등 동기화(선택)
@@ -202,6 +207,7 @@ if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(l
 	}
 
 	// 초기화: 세션→카달로그→매칭→프리로드 채움
+	// - “시작하기” 버튼에서 runRenderPipeline 호출(자동 시작 백업 있음)
 	async function initForecastStep5() {
 		const session = readSessionKeys();
 		let rec = null;
@@ -247,7 +253,7 @@ const HORIZON_YEARS = 10;
  * JS가 없을 때는 CSS의 .header-spacer가 동일 역할을 수행.
  */
 function applyHeaderOffset() {
-	const menubar = document.getElementById('menubar');	// header.html 내부 id 예상
+	const menubar = document.getElementById('menubar');   // header.html 내부 id 예상
 	const spacer = document.querySelector('.header-spacer');
 	const wrap = document.querySelector('main.wrap');
 	if (!wrap || !spacer) return;
@@ -300,6 +306,7 @@ function initHeaderOffset() {
 }
 
 /* ---------- Provider 쿼리 빌더 ---------- */
+// - getBuildingContext → fetchForecast 간 URLSearchParams 구성
 function buildCtxQuery(ctx) {
 	const params = new URLSearchParams();
 	params.set('from', String(ctx.from ?? NOW_YEAR));
@@ -318,6 +325,8 @@ function setIf(params, key, value) {
 
 /* ==========================================================
  * 로딩 정보패널 & 시작 버튼(있으면 클릭/없으면 자동) — ★이번 패치 핵심★
+ * - 초기 진입 시 '정보 패널'을 먼저 채우고 사용자가 시작을 명시적으로 누르도록 함
+ * - 버튼이 없을 때는 하위호환(자동 시작)
  * ========================================================== */
 
 /** 상태: idle(시작전)/running(로딩중)/complete(완료) → 진행바 명도/상태문 변경 */
@@ -334,7 +343,10 @@ function setPreloadState(state) {
 	el.textContent = MAP[state] || '';
 }
 
-/** ① 건물 컨텍스트 + ② 예측 가정(2줄) + ④ 리스크 배지 채우기 */
+/** ① 건물 컨텍스트 + ② 예측 가정(2줄) + ④ 리스크 배지 채우기
+ *  - root.dataset 및 localStorage의 forecast.* 키를 읽어와 화면에 바인딩
+ *  - 값이 비어 있으면 해당 li를 감춤
+ */
 function renderPreloadInfoAndRisks() {
 	// 루트 엘리먼트 & 데이터 소스 헬퍼
 	const root = document.getElementById('forecast-root');
@@ -356,6 +368,9 @@ function renderPreloadInfoAndRisks() {
 		floorArea:    pick('area') || pick('floorArea') || '',
 		pnu:          pick('pnu') || ''
 	};
+	// [수정] PNU는 사용자 혼란을 줄이기 위해 비노출 처리(값을 비워 li[data-k="pnu"] 자동 숨김)
+	bmap.pnu = '';
+
 	const box = document.getElementById('preload-building');
 	if (box) {
 		box.querySelectorAll('li[data-k]').forEach((li) => {
@@ -503,7 +518,7 @@ async function loadCatalog() {
 	}
 }
 
-// [B] 매칭
+// [B] 매칭 — ctx(현재 페이지 컨텍스트)와 카탈로그 레코드 매핑
 function matchCatalogItem(ctx, list) {
 	if (!ctx || !Array.isArray(list) || !list.length) return null;
 
@@ -605,7 +620,9 @@ function applyCatalogHints(ctx) {
 }
 
 
-/** 버튼 있으면 클릭으로 시작, 없으면 자동 시작(하위호환) */
+/** 버튼 있으면 클릭으로 시작, 없으면 자동 시작(하위호환)
+ *  - 시작 전 상태 패널을 채우고, 사용자가 명시적으로 실행하도록 UX 개선
+ */
 function wireStartButtonAndFallback() {
 	const btn = document.getElementById('forecast-start');
 
@@ -615,7 +632,7 @@ function wireStartButtonAndFallback() {
 
 	if (btn) {
 		btn.addEventListener('click', () => {
-			setPreloadState('running');		// 게이지 진행 직전
+			setPreloadState('running');      // 게이지 진행 직전
 			runForecast().catch(e => console.error('[forecast] run failed:', e));
 		});
 	} else {
@@ -626,6 +643,7 @@ function wireStartButtonAndFallback() {
 }
 
 /* ---------- 초기화 ---------- */
+// - 헤더 오프셋/컨텍스트 부트스트랩/주소창 파싱/VWorld 보강/빌딩카드/버튼 결선/메타칩
 async function init() {
 	initHeaderOffset();
 
@@ -687,43 +705,49 @@ async function init() {
 	// 1) 스토리지 기반 컨텍스트 부트스트랩
 	bootstrapContextFromStorage(root);
 
-    /* 세션스토리지(그린파인더) → data-* Fallback 주입 (+출처 플래그 session) */
-    {
-    	const root = document.getElementById('forecast-root');
-    	if (root) {
-    		const sget = (k) => (sessionStorage.getItem(k) || '').toString().trim();
+	/* 세션스토리지(그린파인더) → data-* Fallback 주입 (+출처 플래그 session)
+	 * - dataset에 값이 비어 있을 때만 주입
+	 * - 출처 추적을 위해 keyFrom='session' 메타도 함께 기록
+	 */
+	{
+		const root = document.getElementById('forecast-root');
+		if (root) {
+			const sget = (k) => (sessionStorage.getItem(k) || '').toString().trim();
 
-    		// 그린파인더가 남겨주는 값들 (없으면 빈 문자열)
-    		const ldCodeNm = sget('ldCodeNm');   // 예: 대전광역시 대덕구 대화동
-    		const mnnmSlno = sget('mnnmSlno');   // 예: 123-45 (지번 본번-부번)
-    		const lat      = sget('lat');        // 선택 지점 위도
-    		const lon      = sget('lon');        // 선택 지점 경도
+			// 그린파인더가 남겨주는 값들 (없으면 빈 문자열)
+			const ldCodeNm = sget('ldCodeNm');   // 예: 대전광역시 대덕구 대화동
+			const mnnmSlno = sget('mnnmSlno');   // 예: 123-45 (지번 본번-부번)
+			const lat      = sget('lat');        // 선택 지점 위도
+			const lon      = sget('lon');        // 선택 지점 경도
+			const pnu      = sget('pnu');        // [NEW] PNU(스샷 hidden input)
+			const bname    = sget('buildingName') || sget('buldNm') || ''; // [NEW] 건물명(있으면)
 
-    		// 지번 주소 문자열 구성 (둘 다 있을 때만)
-    		const jibun = [ldCodeNm, mnnmSlno].filter(Boolean).join(' ');
+			// 지번 주소 문자열 구성 (둘 다 있을 때만)
+			const jibun = [ldCodeNm, mnnmSlno].filter(Boolean).join(' ');
 
-    		// 이미 data-*가 있으면 건드리지 않고, 비어있을 때만 세션 값으로 채움
-    		const setIfEmpty = (key, val, fromKey) => {
-    			if (!root.dataset[key] && val) {
-    				root.dataset[key] = val;
-    				root.dataset[key + 'From'] = fromKey; // 출처 표시: 'session'
-    			}
-    		};
+			// 이미 data-*가 있으면 건드리지 않고, 비어있을 때만 세션 값으로 채움
+			const setIfEmpty = (key, val, fromKey) => {
+				if (!root.dataset[key] && val) {
+					root.dataset[key] = val;
+					root.dataset[key + 'From'] = fromKey; // 출처 표시: 'session'
+				}
+			};
 
-    		setIfEmpty('jibunAddr', jibun, 'session');
-    		setIfEmpty('lat', lat, 'session');
-    		setIfEmpty('lon', lon, 'session');
+			setIfEmpty('jibunAddr', jibun, 'session');
+			setIfEmpty('lat', lat, 'session');
+			setIfEmpty('lon', lon, 'session');
+			setIfEmpty('pnu', pnu, 'session');                  // [NEW] PNU 주입
+			setIfEmpty('buildingName', bname, 'session');       // [NEW] 건물명 주입
 
-    		// 사용상 편의를 위해 'addr' 헬퍼도 만들어줌(없을 때만)
-    		if (!root.dataset.addr && (root.dataset.roadAddr || root.dataset.jibunAddr)) {
-    			root.dataset.addr = root.dataset.roadAddr || root.dataset.jibunAddr;
-    			root.dataset.addrFrom = root.dataset.roadAddr ? 'dataset' : 'session';
-    		}
-    	}
-    }
+			// 사용상 편의를 위해 'addr' 헬퍼도 만들어줌(없을 때만)
+			if (!root.dataset.addr && (root.dataset.roadAddr || root.dataset.jibunAddr)) {
+				root.dataset.addr = root.dataset.roadAddr || root.dataset.jibunAddr;
+				root.dataset.addrFrom = root.dataset.roadAddr ? 'dataset' : 'session';
+			}
+		}
+	}
 
-
-	// 2) 주소창 → data-* Fallback 주입
+	// 2) 주소창 → data-* Fallback 주입(쿼리스트링이 있으면 우선)
 	{
 		const urlp = new URLSearchParams(location.search);
 		if (root && !root.dataset.pnu && urlp.get('pnu')) {
@@ -746,17 +770,44 @@ async function init() {
 		bid: root?.dataset.bid
 	});
 
+	// [추가] VWorld 기반 컨텍스트 보강: 도로명 주소/건물명 채우기
+	// - providers.enrichContext(ctx)를 호출해 부족한 필드만 채움
+	// - renderBuildingCard()/wireStartButtonAndFallback() 이전에 수행해야
+	//   프리로드 카드와 차트 부제에 즉시 반영됨
+	if (window.SaveGreen?.Forecast?.providers?.enrichContext && root) {
+		const ds = root.dataset || {};
+		const ctx0 = {
+			from: ds.from,
+			to: ds.to,
+			pnu: ds.pnu,
+			lat: ds.lat ? Number(ds.lat) : undefined,
+			lon: ds.lon ? Number(ds.lon) : undefined,
+			buildingName: ds.buildingName || ds.bname || '',
+			roadAddr: ds.roadAddr || '',
+			jibunAddr: ds.jibunAddr || ''
+		};
+		const enriched = await window.SaveGreen.Forecast.providers.enrichContext(ctx0);
+
+		// dataset에 '비어 있을 때만' 보강 결과를 주입(우선순위 규칙 준수)
+		const setIfEmpty = (k, v) => { if (!root.dataset[k] && v) root.dataset[k] = String(v); };
+
+		// [추가] 건물명/도로명/지번 주소 주입(있을 때만)
+		setIfEmpty('buildingName', enriched?.buildingName);
+		setIfEmpty('roadAddr', enriched?.roadAddr);
+		setIfEmpty('jibunAddr', enriched?.jibunAddr);
+	}
+
 	// 3) 페이지 상단의 빌딩 카드(결과 섹션 아님) 렌더
 	renderBuildingCard();
 
-	// 4) [변경 포인트] 여기서 바로 예측 실행하지 않고, 버튼/폴백으로 실행시킴
-	//		- 진행 전에도 정보 패널을 노출하고, 시작 버튼 또는 폴백에서 runForecast() 호출
+	// 4) [변경 포인트] 자동 실행 대신 버튼/폴백시 실행
 	wireStartButtonAndFallback();
 
-    primeMetaRangeFromDataset();   // 상단 '데이터' 칩에 2025–2035 같은 기간 표시
+	// 메타 패널 기간 칩(상단 표시) 초기화
+	primeMetaRangeFromDataset();   // 상단 '데이터' 칩에 2025–2035 같은 기간 표시
 }
 
-// 2) init() 완료 직후 적용
+// 2) init() 완료 직후 적용 — 가정 라인 스타일링 보정
 document.addEventListener('DOMContentLoaded', () => {
 	init()
 		.then(() => {
@@ -774,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function runForecast() {
 	const $result = $('#result-section');
 	const $ml = $('#mlLoader');
-	const $surface = $('.result-surface');	// KPI/요약/배너 래퍼
+	const $surface = $('.result-surface');   // KPI/요약/배너 래퍼
 
 	// 로더 시작
 	show($ml);
@@ -795,28 +846,22 @@ async function runForecast() {
 	}
 
 	// [STEP3] 카탈로그 로드 → 매칭 → UI 힌트 반영
-    try {
-    	LOADER.setStep(1, '에너지 카탈로그 로드');
-    	const catalogList = await loadCatalog();
+	try {
+		const catalogList = await loadCatalog();
+		const matched = matchCatalogItem(ctx, catalogList);
+		ctx.catalog = matched || null;
 
-    	LOADER.setStatus('카탈로그 매칭');
-    	const matched = matchCatalogItem(ctx, catalogList);
-    	ctx.catalog = matched || null;
+		if (matched) {
+			// 프리로드 칩/가정 텍스트 보강(이미 값 있으면 유지)
+			applyCatalogHints(ctx);
+		} else {
+			// 매칭 실패 시에도 예측은 진행(히스토리 칩만 비어 있을 수 있음)
+		}
+	} catch (e) {
+		console.warn('[STEP3] catalog pipeline error:', e);
+	}
 
-    	if (matched) {
-    		LOADER.setStatus('카탈로그 매칭 완료');
-    		// 프리로드 칩/가정 텍스트 보강(이미 값 있으면 유지)
-    		applyCatalogHints(ctx);
-    	} else {
-    		LOADER.setStatus('카탈로그 없음 — 기본값으로 진행');
-    	}
-    } catch (e) {
-    	console.warn('[STEP3] catalog pipeline error:', e);
-    	LOADER.setStatus('카탈로그 오류 — 기본값 진행');
-    }
-
-
-	// 데이터 로드
+	// 데이터 로드(실제 API 또는 더미)
 	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
 	window.FORECAST_DATA = data;
 
@@ -829,12 +874,12 @@ async function runForecast() {
 		data.series = data.series || {};
 		data.cost = data.cost || {};
 
-		data.series.after	= toNumArrFFill(data.series.after,	L);
-		data.series.saving	= toNumArrFFill(data.series.saving,	L);
-		data.cost.saving	= toNumArrFFill(data.cost.saving,	L);
+		data.series.after   = toNumArrFFill(data.series.after,   L);
+		data.series.saving   = toNumArrFFill(data.series.saving,   L);
+		data.cost.saving   = toNumArrFFill(data.cost.saving,   L);
 	}
 
-	// 메타패널
+	// 메타패널(기간/모델/특징)
 	updateMetaPanel({
 		years: window.FORECAST_DATA.years,
 		model: 'Linear Regression',
@@ -846,7 +891,7 @@ async function runForecast() {
 		})()
 	});
 
-	// KPI/판정
+	// KPI/판정 계산 → 등급/배너 업데이트
 	const kpi = computeKpis({
 		years: data.years,
 		series: data.series,
@@ -865,7 +910,7 @@ async function runForecast() {
 	show($result);
 	if ($surface) hide($surface);
 
-	// ABC 순차 실행
+	// ABC 순차 실행(완료 후 KPI/요약 렌더 및 서피스 페이드 인)
 	await runABCSequence({
 		ctx,
 		baseForecast: data,
@@ -893,7 +938,7 @@ async function runForecast() {
 	setPreloadState('complete');
 }
 
-// rAF 보조
+// rAF 보조(폴리필)
 function $requestAnimationFramePoly(cb) {
 	if (window.requestAnimationFrame) return window.requestAnimationFrame(cb);
 	return setTimeout(cb, 16);
@@ -901,6 +946,7 @@ function $requestAnimationFramePoly(cb) {
 
 /* ==========================================================
  * ABC 직렬 시퀀스 (기존 렌더러 호출 유지)
+ * - 모델 A/B 출력 혹은 폴백 → 각 차트 렌더 → C는 실제 시계열 바/라인 콤보
  * ========================================================== */
 async function runABCSequence({ ctx, baseForecast, onCComplete }) {
 	const years = Array.isArray(baseForecast?.years) ? baseForecast.years.map(String) : [];
@@ -923,6 +969,7 @@ async function runABCSequence({ ctx, baseForecast, onCComplete }) {
 	const EXTRA_STAGE_HOLD_MS = 3000;
 
 	/* ----- 비용축 범위(모든 단계 공통) ----- */
+	// - C에서 산정한 yCost 스케일을 A/B에도 넘겨서 시각적 일관성 확보
 	const costArr = Array.isArray(baseForecast?.cost?.saving) ? baseForecast.cost.saving.slice(0, n) : [];
 	let cmax = -Infinity;
 	for (const v of costArr) {
@@ -993,6 +1040,7 @@ function resolveChartSubtitle(rootEl) {
 }
 
 /* ---------- Data ---------- */
+// 더미 예측 데이터 생성(서버 실패/빈 컨텍스트일 때 폴백)
 function makeDummyForecast(fromYear, toYear) {
 	let from = parseInt(fromYear, 10);
 	let to = parseInt(toYear, 10);
@@ -1029,6 +1077,7 @@ function makeDummyForecast(fromYear, toYear) {
 	};
 }
 
+// 실제 예측 API 호출(fetch) — 실패 시 더미로 폴백
 async function fetchForecast(ctx) {
 	let from = parseInt(String(ctx.from ?? NOW_YEAR), 10);
 	let to = parseInt(String(ctx.to ?? (NOW_YEAR + HORIZON_YEARS)), 10);
@@ -1057,15 +1106,16 @@ async function fetchForecast(ctx) {
 	}
 }
 
+// 서버 응답 정규화(누락/타입 보정 포함)
 function normalizeForecast(d, fallbackYears) {
 	const years = Array.isArray(d?.years) ? d.years.map(String) : fallbackYears.map(String);
 	const L = years.length;
 
 	// Forward-fill 보정
-	const after	= toNumArrFFill(d?.series?.after,	L);
+	const after   = toNumArrFFill(d?.series?.after,   L);
 	const saving = toNumArrFFill(d?.series?.saving, L);
-	const cost	= { saving: toNumArrFFill(d?.cost?.saving, L) };
-	const kpi	= d?.kpi ?? null;
+	const cost   = { saving: toNumArrFFill(d?.cost?.saving, L) };
+	const kpi   = d?.kpi ?? null;
 
 	return { years, series: { after, saving }, cost, kpi };
 }
@@ -1078,6 +1128,7 @@ function estimateEnergyGrade(savingPct) {
 	return 4;
 }
 
+// 상태 배너/루트 결과에 추천/조건부/비추천 클래스 적용 + 메시지 텍스트 갱신
 function applyStatus(status) {
 	const banner = $('#status-banner');
 	const result = $('#result-section');
@@ -1095,6 +1146,7 @@ function applyStatus(status) {
 		status === 'conditional' ? '조건부' : '비추천';
 }
 
+// 상단 메타 패널(기간/모델/특징) 텍스트 갱신
 function updateMetaPanel({ years, model, features }) {
 	const fromY = Number(years?.[0]);
 	const toY = Number(years?.[years?.length - 1]);
@@ -1112,6 +1164,7 @@ function updateMetaPanel({ years, model, features }) {
 	if (featEl && Array.isArray(features) && features.length) featEl.textContent = features.join(', ');
 }
 
+// KPI 수치판 렌더
 function renderKpis(kpi, { gradeNow }) {
 	const g = $('#kpi-grade');
 	const sc = $('#kpi-saving-cost');
@@ -1123,6 +1176,7 @@ function renderKpis(kpi, { gradeNow }) {
 	if (sp) sp.textContent = kpi.savingPct + '%';
 }
 
+// 요약 리스트 렌더(등급/EUI 경계/필요 절감률 등)
 function renderSummary({ gradeNow }) {
 	const ul = $('#summary-list');
 	if (!ul) return;
@@ -1153,6 +1207,7 @@ function renderSummary({ gradeNow }) {
 	}
 }
 
+// 페이지 상단 '건물 정보' 카드(카탈로그/컨텍스트 보조 정보)
 function renderBuildingCard() {
 	const box = document.getElementById('building-card');
 	if (!box) return;
@@ -1180,6 +1235,7 @@ function renderBuildingCard() {
 }
 
 /* ---------- 유틸 ---------- */
+// EUI 기준(등급별 경계값) — 정책표
 function euiRefForGrade(grade) {
 	const map = { 1: 120, 2: 160, 3: 180, 4: 200, 5: 220 };
 	return map[grade] ?? 180;
@@ -1203,6 +1259,7 @@ function toNumArrFFill(arr, len) {
 	return out;
 }
 
+// 상단 메타 기간 칩을 dataset 기반으로 표시
 function primeMetaRangeFromDataset() {
 	const root = document.getElementById('forecast-root');
 	if (!root) return;
@@ -1212,7 +1269,7 @@ function primeMetaRangeFromDataset() {
 	if (el) el.textContent = (String(from) === String(to)) ? `${from}년` : `${from}–${to}`;
 }
 
-// 1) 헬퍼 (한 번만 정의)
+// 1) 헬퍼 (한 번만 정의) — 가정 라인 텍스트 꾸밈
 function styleAssumptionLines() {
 	const root = document.getElementById('preload-assumption');
 	if (!root) return;
@@ -1264,7 +1321,7 @@ function $all(s, root = document) { return Array.from(root.querySelectorAll(s));
 function show(el) { if (el) el.classList.remove('hidden'); }
 function hide(el) { if (el) el.classList.add('hidden'); }
 
-/* 비용축 눈금 헬퍼 */
+/* 비용축 눈금 헬퍼 — 차트 스케일을 깔끔하게 만들기 위한 1–2–5 규칙 */
 function getNiceStep(min, max, targetTicks = 6) {
 	const range = Math.max(1, Math.abs(Number(max) - Number(min)));
 	const raw = range / Math.max(1, targetTicks);
@@ -1281,7 +1338,9 @@ function roundMinMaxToStep(min, max, step) {
 	return { min: nmin, max: nmax };
 }
 
-/* /forecast 빈 진입 등 컨텍스트가 전혀 없을 때의 기본값 생성 */
+/* /forecast 빈 진입 등 컨텍스트가 전혀 없을 때의 기본값 생성
+ * - 주소/스토리지/세션이 모두 비어 있을 경우 사용
+ */
 function fallbackDefaultContext(root) {
 	const urlp = new URLSearchParams(location.search);
 	let from = parseInt(urlp.get('from') || String(NOW_YEAR), 10);
