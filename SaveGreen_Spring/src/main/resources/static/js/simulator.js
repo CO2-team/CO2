@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
-     
+        const box2 = document.getElementById('compareText');
+        if (!box2) return;
         const items = box.querySelectorAll('.result-item');
         
         
@@ -100,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
        
         box.style.display='block'
+        box2.style.display='block'
         
       
         items.forEach((item, index) => {
@@ -124,6 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const box = document.getElementById('resultBox2');
         if (!box) return;
+        const box2 = document.getElementById('compareText');
+        if (!box2) return;
 
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
@@ -136,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         box.style.display = 'block';
+        box2.style.display = 'block';
 
       
         items.forEach((item, index) => {
