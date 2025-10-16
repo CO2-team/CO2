@@ -8,7 +8,6 @@
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"> -->
     <link rel="stylesheet" href="/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -206,6 +205,7 @@
     </div>
 
     <div id="introText">나의 시뮬레이터 <strong>결과</strong>와 <strong>평균</strong> 비교해보기</div>
+    <canvas id="intensityChart" width="1000" height="420">비교차트</canvas>
 
 
 </div>
@@ -213,10 +213,9 @@
 
    
     <div th:replace="layouts/footer :: footer"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-
 <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
 
 <script th:src="@{/js/simulator.js}"></script>

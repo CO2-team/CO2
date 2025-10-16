@@ -339,6 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           const avgEl2 = document.querySelector('#average2');
                           if (avgEl2) avgEl2.value = average;
                           console.log("average : ",average);
+                          runCompare();
                         });
                                               })
                         .catch(console.error);
@@ -607,6 +608,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log("분류 : " ,cat)
  
   energyInput.value = data.electricityUsageKwh;
+  fetch(`/energy/avg-intensity?category=${encodeURIComponent(cat)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(average => {
+      if (average == null) return;
+
+      const avgEl1 = document.querySelector('#average1');
+      if (avgEl1) avgEl1.value = average;
+      const avgEl2 = document.querySelector('#average2');
+      if (avgEl2) avgEl2.value = average;
+      console.log("average : ",average);
+      runCompare();
+    });
 });
 
 
