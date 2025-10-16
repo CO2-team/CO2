@@ -27,7 +27,9 @@
             <form id="simulatorForm1" th:action="@{/simulate1}" method="post">
                 <input type="hidden" name="lat" id="lat1">
                 <input type="hidden" name="lon" id="lon1">
-                
+                <input type="hidden" name="cate" id="category1">
+                <input type="hidden" name="avg" id="average1">
+                <input type="hidden" name="eik" id="eik1">
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <input type="text" id="juso1" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
@@ -41,7 +43,7 @@
                 <div class="form-group">
                     <img class="icon" src="/img/battery.png" alt="Battery Icon">
                     <label>kWh/년</label>
-                    <input type="number" name="energy" step="any" placeholder="에너지" required title="에너지 사용량을 입력하세요">
+                    <input type="number" name="energy" id="energy1" step="any" placeholder="에너지" required title="에너지 사용량을 입력하세요">
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
@@ -112,20 +114,22 @@
 
                 <input type="hidden" name="lat" id="lat2">
                 <input type="hidden" name="lon" id="lon2">
-
+                <input type="hidden" name="cate" id="category2">
                 <input type="hidden" id="roadAddr" name="roadAddr">
                 <input type="hidden" id="jibunAddr" name="jibunAddr">
                 <input type="hidden" id="zipNo" name="zipNo">
+                <input type="hidden" name="avg" id="average2">
+                <input type="hidden" name="eik" id="eik2">
                
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
-                    <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
+                    <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off" required title="주소가 입력되지 않았습니다.">
                     <div  class="dropdown searchResult"></div>
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" id="area2" step="any" name="area" placeholder="건물 면적">
+                    <input type="number" id="area2" step="any" name="area" placeholder="건물 면적" required title="면적이 입력되지 않았습니다.">
                 </div>
 
                 <div class="form-row">
@@ -159,7 +163,7 @@
                 <div class="form-group">
                     <img class="icon" src="/img/electric.png" alt="Electric Icon">
                     <label>W</label>
-                    <input type="number" name="panelPower" placeholder="태양광 패널 정격출력(선택)">
+                    <input type="number" name="panelPower" placeholder="태양광 패널 정격출력" required title="태양광 정격출력이 입력되지 않았습니다.시중 태양광 패널의 평균 정격출력은 500W입니다.">
                 </div>
                 <button type="submit" class="btn-submit" id="right">결과보기</button>
             </form>

@@ -120,6 +120,7 @@ function getPnuFromCoord(lon, lat, callback) {
                     // hidden input 채우기
                     $("#pnu").val(requestParam.pnu);
                     
+                    sessionStorage.setItem("pnu", props.pnu);
 
                     console.log("PNU/ldCodeNm/mnnmSlno 채워짐:", requestParam);
 
