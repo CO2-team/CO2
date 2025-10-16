@@ -15,7 +15,7 @@ import java.util.List;
 public class BuildingEnergyJsonService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String ENERGY_JSON_PATH = "dummy/buildingenergydata.json";
+    private static final String ENERGY_JSON_PATH = "static/dummy/buildingenergydata.json";
 
    
     public List<SearchBuilding> readAll() {

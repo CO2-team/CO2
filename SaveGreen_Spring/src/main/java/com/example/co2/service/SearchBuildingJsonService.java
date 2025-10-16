@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SearchBuildingJsonService {
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private static final String SEARCH_JSON_PATH = "dummy/searchbuildingdata.json";
+    private static final String SEARCH_JSON_PATH = "static/dummy/searchbuildingdata.json";
 
     public List<SearchBuilding> readAll(){
         try (InputStream is = new ClassPathResource(SEARCH_JSON_PATH).getInputStream()){
