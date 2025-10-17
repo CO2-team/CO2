@@ -74,7 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
         const items = box.querySelectorAll('.result-item');
-        const box3 = document.getElementById("intensityChart");
+        const box3 = document.getElementById("intensityChart1");
+        const box4 = document.getElementById("intensityChart2");
+        const box5 = document.getElementById("intensityChart3");
         const box2 = document.getElementById('compareText');
         if (!box3) return;
     
@@ -104,6 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         box.style.display='block';
         box2.style.display='block';
         box3.style.display='block';
+        box4.style.display='block';
+        box5.style.display='block';
       
         
       
@@ -129,7 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const box = document.getElementById('resultBox2');
         if (!box) return;
-        const box3 = document.getElementById("intensityChart");
+        const box3 = document.getElementById("intensityChart1");
+        const box4 = document.getElementById("intensityChart2");
+        const box5 = document.getElementById("intensityChart3");
         if (!box3) return;
         const box2 = document.getElementById('compareText');
      
@@ -146,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
         box.style.display = 'block';
         box2.style.display='block'
         box3.style.display = 'block';
+        box4.style.display = 'block';
+        box5.style.display = 'block';
         
         
 
@@ -631,6 +639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (avgEl2) avgEl2.value = average;
       console.log("average : ",average);
       runCompare();
+      
     });
 });
 

@@ -205,19 +205,28 @@
     </div>
 
     <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과</strong>와 <strong>평균</strong> 비교해보기</div>
-    <canvas id="intensityChart" style="display: none;" >비교차트</canvas>
+   
+    <canvas id="intensityChart1" style="display: none;" >비교차트</canvas>
+
+    <canvas id="intensityChart2" style="display: none;" >비교차트</canvas>
+ 
+    <canvas id="intensityChart3" style="display: none;" >비교차트</canvas>
 </div>
 
 
    
    
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
-<script th:src="@{/js/simulator.js}"></script>
 <script th:src="@{/js/compare.js}" defer></script>
+<script th:src="@{/js/simulator.js}"></script>
+
 
 </body>
 <!-- <div th:replace="layouts/footer :: footer"></div> -->

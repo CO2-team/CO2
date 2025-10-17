@@ -376,7 +376,17 @@ body.swal2-shown {
   z-index: 9999;             
 }
 
-#intensityChart{
+#intensityChart1{
+    width : 1000px;
+    height : 480px;
+    margin: 0 auto; 
+}
+#intensityChart2{
+    width : 1000px;
+    height : 480px;
+    margin: 0 auto; 
+}
+#intensityChart3{
     width : 1000px;
     height : 480px;
     margin: 0 auto; 
