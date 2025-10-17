@@ -1,0 +1,186 @@
+/* ========== 전체 헤더 구조 ========== */
+.header {
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 999;
+  font-family: "Noto Sans KR", sans-serif;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+/* 로고 */
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.symbol_img {
+  height: 38px;
+  margin-right: 8px;
+  transition: opacity 0.3s ease;
+}
+
+.logo_img {
+  height: 34px;
+  transition: opacity 0.3s ease;
+}
+
+/* ============================= */
+/* 아랫줄 메뉴 */
+/* ============================= */
+.navbar {
+  display: flex;
+  justify-content: center;
+  background: transparent;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.nav-up { 
+    top: -100px; 
+    opacity: 0; 
+}
+
+.lineHR-up{
+    top: -100px; 
+    opacity: 0; 
+}
+
+.navbar.nav-up {
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  display: none;
+}
+
+.navbar.nav-up,
+.navbar.nav-up * {  /* 자식까지 모두 차단 */
+  pointer-events: none;
+}
+
+.nav-links {
+  display: flex;
+  justify-content: center;
+  list-style: none;
+  gap: 80px;
+  margin: 0;
+  padding: 10px 0;
+}
+
+.nav-links li {
+  position: relative;
+}
+
+.nav-links a {
+  color: #fff;
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+  padding: 10px 0;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.nav-links li:hover a {
+  color: #007bff;
+}
+
+/* ============================= */
+/* hover 시 세로 그라데이션 효과 */
+/* ============================= */
+.nav-links li:hover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -15px;
+  width: 100%;
+  height: 65px;
+  background: linear-gradient(to bottom, rgba(0,123,255,0.2), transparent);
+  border-radius: 8px;
+  z-index: -1;
+}
+
+/* ============================= */
+/* 드롭다운 패널 */
+/* ============================= */
+.dropdown-panel {
+  display: flex;
+  justify-content: center;
+  gap: 120px; /* 메뉴 간격 */
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffff;
+  padding: 30px 0 40px 0;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeDown 0.3s ease;
+  width: fit-content;
+  border-radius: 0 0 10px 10px;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.nav-links li:hover .dropdown-panel {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ============================= */
+/* 드롭다운 내부 */
+/* ============================= */
+.dropdown-panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+}
+
+.dropdown-panel ul li {
+  margin: 5px 0;
+}
+
+.dropdown-panel ul li a {
+  color: #333;
+  text-decoration: none;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+
+.dropdown-panel ul li a:hover {
+  color: #007bff;
+  text-decoration: underline;
+}
+
+/* ============================= */
+/* hover 시 로고 전환 */
+/* ============================= */
+.header:hover .symbol_img {
+  content: url("/img/symbol_C.png");
+}
+
+.header:hover .logo_img {
+  content: url("/img/saveGreen_Blogo_02.png");
+}
+
+.header:hover .logo {
+  background-color: #ffffff;
+}
+
+.header:hover .navbar {
+  background-color: #ffffff;
+}
+
+.header:hover .nav-links a {
+  color: #000000;
+}
+
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

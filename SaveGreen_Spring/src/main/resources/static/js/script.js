@@ -12,10 +12,10 @@ $(function(){
 
     // 내릴 때 → 숨김
     if(st > lastScrollTop && st > 0){
-      $('#menubar').addClass('nav-up');
+      $('.navbar').addClass('nav-up');
     } else {
       // 올릴 때 → 다시 보이기
-      $('#menubar').removeClass('nav-up');
+      $('.navbar').removeClass('nav-up');
     }
 
     lastScrollTop = st;
@@ -40,16 +40,21 @@ $(function(){
 
 
 let lastScrollTop = 0;
-const header = document.querySelector('.header');
+const navbar = document.querySelector('.navbar');
+const line = document.querySelector('.lineHR');
 const container = document.querySelector('.container');
 
 container.addEventListener('scroll', () => {
   const st = container.scrollTop;
   if (st > lastScrollTop + 5) {
-    header.classList.add('nav-up');
+    navbar.classList.add('nav-up');
+    line.classList.add('lineHR-up');
   } else if (st < lastScrollTop - 5) {
-    header.classList.remove('nav-up');
+    navbar.classList.remove('nav-up');
+    line.classList.remove('lineHR-up');
   }
+
+
   lastScrollTop = st;
 });
 

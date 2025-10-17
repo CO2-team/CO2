@@ -10,31 +10,43 @@
     * 2025-09-29 : 초기작성
 -->
 <div th:fragment="header">
+  <link rel="stylesheet" th:href="@{/css/header.css}">
   <header id="menubar" class="header">
+    <div class="logo"><img class="symbol_img img_center" src="/img/symbol_W.png"><img class="logo_img img_center" src="/img/saveGreen_Wlogo_02.png"></div>
+    
     <nav class="navbar">
-      <div class="logo"><img class="symbol_img img_center" src="/img/symbol_W.png"><img class="logo_img img_center" src="/img/saveGreen_Wlogo_02.png"></div>
       <ul class="nav-links">
-        <li><a href="#">GREEN FINDER</a></li>
-        <li><a href="#">GREEN REMODELING</a></li>
-        <li><a href="#">ENERGY SIMULATOR</a></li>
+        <li>
+          <a href="#">GREEN FINDER</a>
+          <div class="dropdown-panel">
+            <ul>
+              <li><a href="/GreenFinder/text">녹색 건축물 / ZEB</a></li>
+              <li><a href="/GreenFinder">건물 정보 검색</a></li>
+            </ul>
+          </div>
+        </li>
+
+        <li>
+          <a href="#">GREEN REMODELING</a>
+          <div class="dropdown-panel">
+            <ul>
+              <li><a href="/forecast">그린 리모델링</a></li>
+            </ul>
+          </div>
+        </li>
+
+        <li>
+          <a href="#">ENERGY SIMULATOR</a>
+          <div class="dropdown-panel">
+            <ul>
+              <li><a href="/simulator">시뮬레이터</a></li>
+            </ul>
+          </div>
+        </li>
       </ul>
     </nav>
-
-    <!-- 전체 드롭다운 메뉴 (한 번만 작성) -->
-    <div class="dropdown-panel">   
-      <div class="logo_bk"><a href="/main"><img class="symbol_img img_center" src="/img/symbol_C.png"><img class="logo_img img_center"  src="/img/saveGreen_Blogo_02.png"></a></div>
-        <ul data-title="GREEN FINDER">
-            <li><a href="/GreenFinder/text">녹색 건축물 / ZEB</a></li>
-            <li><a href="/GreenFinder">건물 정보 검색</a></li>
-        </ul>
-        <div></div>
-        <ul data-title="GREEN REMODELING">
-            <li><a href="/forecast">그린 리모델링</a></li>
-        </ul>
-        <ul data-title="ENERGY SIMULATOR">
-            <li><a href="/simulator">시뮬레이터</a></li>
-        </ul>
-    </div>
+    <hr class="lineHR" style="color: aliceblue; margin: 0; padding: 0;">
+    
   </header>
-
+  <!-- <script th:src="@{/js/header.js}"></script>   -->
 </div>
