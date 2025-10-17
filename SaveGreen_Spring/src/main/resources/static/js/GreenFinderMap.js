@@ -162,6 +162,10 @@ function getBuildingInfo(pnu) {
                 sessionStorage.setItem("ldCodeNm", info.ldCodeNm);
                 sessionStorage.setItem("mnnmSlno", info.mnnmSlno);
                 sessionStorage.setItem("BuildingArea", info.buldBildngAr);
+                sessionStorage.setItem("buildingName", info.buldNm);
+                sessionStorage.setItem("useConfmDe", info.useConfmDe);
+                sessionStorage.setItem("builtYear", String(info.useConfmDe||'').slice(0,4));
+                sessionStorage.setItem("jibunAddr", (info.ldCodeNm||'') + ' ' + (info.mnnmSlno||''));
             } else {
                 // 데이터 없을 때 팝업 + X 버튼
                 const html = `
