@@ -791,7 +791,7 @@ body.is-complete .progress-bar { opacity: 1; }
 	font-family: inherit;           /* 모노스페이스 느낌 제거 → 카드 본문과 톤 통일 */
 	font-size: .9375rem;            /* 15px */
 	line-height: 1.45;
-	font-weight: 600;               /* 값 강조 */
+	font-weight: 400;               /* 값 강조 */
 	font-variant-numeric: tabular-nums; /* 숫자 폭 고정 */
 }
 
