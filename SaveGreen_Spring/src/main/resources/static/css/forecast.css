@@ -15,10 +15,10 @@
 
 	/* 헤더 실제 높이 + 추가 간격 (히어로 겹침 방지/오프셋용) */
 	--header-height: 88px;
-	--header-extra-gap: 16px;
+	--header-extra-gap: 0px;
 
 	/* 히어로 시작 오프셋 */
-	--hero-offset-gap: 50px;
+	--hero-offset-gap: 20px;
 
 	/* 히어로 내부 패딩 */
 	--hero-pad: 24px;
@@ -70,16 +70,22 @@
 .hero-block {
 	background: var(--bg-hero);
 	border-radius: var(--surface-radius);
-	overflow: hidden;
+    overflow: visible;        /* ✅ 잘림 방지: 내부 콘텐츠 높이를 그대로 반영 */
 	margin-top: var(--hero-offset-gap);
+	height: auto;             /* ✅ 혹시 상위에서 고정됐을 가능성 방지용(무해) */
+    box-sizing: border-box;
 }
 .hero-block .hero-inner {
 	display: grid;
-	grid-template-columns: 1.35fr 0.65fr;
+	/* 🧩 오른쪽 컬럼은 내용(=비디오 카드) 너비에 맞춰 'auto'로,
+	   왼쪽 텍스트 영역은 남는 공간을 1fr로 채우게 함.
+	   → 비디오 컨테이너가 고정 크기일 때도 그리드가 깨지지 않음 */
+	grid-template-columns: 1fr auto;
 	gap: 28px;
 	padding: var(--hero-pad) var(--hero-pad) var(--hero-pad)
 		calc(var(--hero-pad) + var(--hero-pad-left-extra));
-	align-items: center;
+    align-items: stretch;     /* ✅ 트랙 높이를 콘텐츠에 맞게 쭉 늘림 */
+    grid-auto-rows: minmax(min-content, auto); /* ✅ 행 높이 자동 확장(안전망) */
 }
 .hero-block .hero-text h1 {
 	font-weight: 800 !important;
@@ -103,13 +109,14 @@
 /* --- 고정 크기 비디오 컨테이너 (컨테이너 고정, 내부 영상 확대/이동) --- */
 .video-card {
 	position: relative;
+	/* 🧩 데스크톱에선 완전 '고정 크기' */
 	width: var(--video-w);
 	height: var(--video-h);
-	max-width: 100%;
 	border-radius: 12px;
 	overflow: hidden;
 	margin: 0 0 0 auto;
 }
+
 .video-card .video-media {
 	position: absolute;
 	top: 50%;
@@ -117,15 +124,12 @@
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	/* ✨ 작은 화면에서 과도한 확대/이동 완화(기본값 유지, 미디어쿼리에서 더 줄임) */
 	transform: translate(-50%, -50%)
 		scale(var(--video-scale))
 		translateX(var(--video-shift-x))
 		translateY(var(--video-shift-y));
 	pointer-events: none;
-}
-.hero-block .hero-video {
-	display: block;
-	border-radius: 12px;
 }
 
 /* --- HERO 반응형 (한 컬럼 스택) --- */
@@ -135,12 +139,29 @@
 		gap: 20px;
 		padding: var(--hero-pad);
 	}
+
+	/* 🧩 모바일: 가로 100% 쓰고, 16:9 비율로 높이 자동 계산 */
 	.video-card {
 		width: 100%;
-		height: clamp(240px, 56vw, var(--video-h));
-		margin: 0;
+		max-width: 100%;
+		height: auto;          /* 고정 높이 해제 */
+		aspect-ratio: 16 / 9;  /* 비율 박스로 전환 */
+		min-height: 220px;     /* 폰트/환경에 따라 너무 낮아지지 않게 바닥선 */
+	}
+
+	/* ✨ 모바일에서 확대/이동 강도 완화 → 잘림 줄이기 */
+	.video-card .video-media {
+		transform: translate(-50%, -50%) scale(1.08) translateX(0%) translateY(-2%);
 	}
 }
+
+/* 더 좁은 화면에서는 살짝 더 줄여서 로고/워터마크 가림과 잘림 간 밸런스 */
+@media (max-width: 600px) {
+	.video-card .video-media {
+		transform: translate(-50%, -50%) scale(1.04) translateX(0%) translateY(-1%);
+	}
+}
+
 
 /* =========================================================================
 	ML Loader (히어로와 동일 라운드/폭)
@@ -243,9 +264,18 @@
 	position: relative;
 	overflow: visible;
 }
+
+/* ✨ 우측 모델 배지 정렬/크기 보강(인라인 누락 대비) */
 .chart-stage-badge {
 	pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    line-height: 32px;
+    padding: 0 12px;
+    border-radius: 9999px;
 }
+
 .chart-card {
 	background: #fff;
 	border-radius: var(--surface-radius);
@@ -267,6 +297,62 @@
 	height: 100% !important;
 	display: block;
 }
+
+/* ✨ [추가] 차트 제목 아래 건물 라벨 */
+.chart-context{
+    margin: 4px 0 6px;
+    font-size: 13px;
+    opacity: .9;
+}
+
+/* ✨ 차트 라벨 배지(제목 아래, 좌측 정렬) : 우측 칩과 톤 통일(딥 그린 + 흰 글자) */
+.chart-badge{
+	/* 크기: 우측 모델 칩과 동일 높이 */
+	--chip-h: 32px;
+	display: inline-flex;
+	align-items: center;
+	height: var(--chip-h);
+	line-height: var(--chip-h);
+	padding: 0 12px;
+	border-radius: 9999px;
+	font-weight: 600;
+	letter-spacing: .2px;
+
+	/* ===== 딥그린 팔레트(추천) ===== */
+	/* 배경은 진하게, 보더는 살짝 더 진하게, 글자는 흰색 */
+	background: #0f6f58;		/* 딥 세이지 그린 */
+	border: 1px solid #0b5a46;	/* 배경보다 1단계 진한 경계 */
+	color: #ffffff;				/* 흰 글자 */
+
+	/* 긴 텍스트 대응 */
+	max-width: 80%;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+
+	/* 살짝 그림자 */
+	box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+
+/* ✨ 차트 카드 바닥 여백(축/툴팁과 KPI가 겹치지 않도록) */
+#chartA, #chartB, #chartC,
+.chart-card, .chart-box, .chart-wrap {
+	margin-bottom: 28px !important;	/* 24~32px 범위에서 조정 가능 */
+}
+
+/* ✨ KPI(결과) 섹션 상단 여백 — 차트와 확실히 분리 */
+#kpiSection, .kpi-section, .kpi-wrap, .kpi-area {
+	margin-top: 24px !important;	/* 20~28px 범위에서 조정 가능 */
+}
+
+/* ✨ 차트 영역 바닥 여백(축 라벨/툴팁이 카드 경계에 닿지 않게) */
+.chart-area{
+	padding-bottom: 8px;	/* 8~12px 선호 */
+}
+
+
+
 
 /* --- 연두 배경 면 (카드+요약+배너 감싸는 컨테이너) --- */
 .result-surface {
@@ -719,6 +805,15 @@ body.is-complete .progress-bar { opacity: 1; }
 	font-size: .9375rem;
 	line-height: 1.45;
 	font-variant-numeric: tabular-nums;
+}
+
+/* JS 동작 시 스페이서는 완전히 제거(중복 여백 차단) */
+.js .header-spacer {
+  display: none !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
 }
 
 /* =========================================================================

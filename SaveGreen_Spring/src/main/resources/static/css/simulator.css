@@ -1,6 +1,6 @@
 #introText {
     max-width: 1000px;       
-    margin: 80px auto 0;  
+    margin: 140px auto 0;  
     padding: 20px 20px;       
     font-size: 15px;
     text-align: center;      
@@ -376,7 +376,17 @@ body.swal2-shown {
   z-index: 9999;             
 }
 
-#intensityChart{
+#intensityChart1{
+    width : 1000px;
+    height : 480px;
+    margin: 0 auto; 
+}
+#intensityChart2{
+    width : 1000px;
+    height : 480px;
+    margin: 0 auto; 
+}
+#intensityChart3{
     width : 1000px;
     height : 480px;
     margin: 0 auto; 

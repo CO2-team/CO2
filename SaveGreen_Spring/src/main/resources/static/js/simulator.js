@@ -73,10 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
-        const box2 = document.getElementById('compareText');
-        if (!box2) return;
         const items = box.querySelectorAll('.result-item');
-        
+        const box3 = document.getElementById("intensityChart1");
+        const box4 = document.getElementById("intensityChart2");
+        const box5 = document.getElementById("intensityChart3");
+        const box2 = document.getElementById('compareText');
+        if (!box3) return;
+    
         
 
         const formData = new FormData(form);
@@ -100,8 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
        
-        box.style.display='block'
-        box2.style.display='block'
+        box.style.display='block';
+        box2.style.display='block';
+        box3.style.display='block';
+        box4.style.display='block';
+        box5.style.display='block';
+      
         
       
         items.forEach((item, index) => {
@@ -126,9 +133,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const box = document.getElementById('resultBox2');
         if (!box) return;
+        const box3 = document.getElementById("intensityChart1");
+        const box4 = document.getElementById("intensityChart2");
+        const box5 = document.getElementById("intensityChart3");
+        if (!box3) return;
         const box2 = document.getElementById('compareText');
-        if (!box2) return;
-
+     
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
 
@@ -140,7 +150,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         box.style.display = 'block';
-        box2.style.display = 'block';
+        box2.style.display='block'
+        box3.style.display = 'block';
+        box4.style.display = 'block';
+        box5.style.display = 'block';
+        
+        
 
       
         items.forEach((item, index) => {
@@ -316,6 +331,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           if (!data) return;
 
                           const energyInput = document.querySelector('#energy1');
+                          
                           if (energyInput) energyInput.value = data.electricityUsageKwh;
 
                           const cat = data.buildingType2;
@@ -331,8 +347,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           const eik2 = document.querySelector('#eik2');
                           if(eik2) eik2.value = eik;
                           console.log("eik : ",eik)
-                          // "energyIntensityKwhPerM2"
-                        
+                          
 
                     fetch(`/energy/avg-intensity?category=${encodeURIComponent(cat)}`)
                         .then(r => r.ok ? r.json() : null)
@@ -624,6 +639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (avgEl2) avgEl2.value = average;
       console.log("average : ",average);
       runCompare();
+      
     });
 });
 

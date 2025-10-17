@@ -40,7 +40,12 @@ public class SimulatorController {
     @ResponseBody
     @GetMapping("/search")
     public List<SimulatorDto> search(@RequestParam String keyword) throws Exception {
+        try {
         return simulatorService.searchAddress(keyword);
+    } catch (Exception e) {
+        System.err.println("주소 검색 중 오류 발생: " + e.getMessage());
+        return java.util.Collections.emptyList();  
+    }
     }
 }
 
