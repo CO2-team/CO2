@@ -115,6 +115,11 @@ function getPnuFromCoord(lon, lat, callback) {
                     requestParam.mnnmSlno = props.mnnmSlno ?? "";
 
                     $("#pnu").val(requestParam.pnu);
+                    sessionStorage.setItem("pnu", props.pnu);
+
+                    console.log("PNU/ldCodeNm/mnnmSlno 채워짐:", requestParam);
+
+                    // callback 호출
                     if (callback) callback(requestParam.pnu);
                 } else {
                     if (callback) callback(null);

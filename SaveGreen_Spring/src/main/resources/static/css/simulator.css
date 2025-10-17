@@ -8,6 +8,16 @@
     background-color: #d0dacf;
 }
 
+#compareText {
+    max-width: 1000px;       
+    margin: 80px auto 0;  
+    padding: 20px 20px;       
+    font-size: 15px;
+    text-align: center;      
+    border-radius: 10px;
+    background-color: #d0dacf;
+}
+
 
 
 .simulator-index{
@@ -234,16 +244,6 @@ html, body { min-width: 360px; }
     display: block;
 }
 
-/* .dropdown-item {
-    border: 1px solid #ccc;
-    padding: 8px 12px;
-    cursor: pointer;
-}
-
-.dropdown-item:hover {
-    background: #666;
-} */
-
 
 .dropdown-item {
     display: flex;            
@@ -336,9 +336,9 @@ html, body { min-width: 360px; }
     color: #0d47a1; 
 }
 
-
+/* 스크롤 숨기지 않게 */
 body.swal2-shown {
-    overflow: auto !important;   /* 스크롤 숨기지 않게 */
+    overflow: auto !important;   
     padding-right: 0 !important; 
 }
 
@@ -374,4 +374,10 @@ body.swal2-shown {
   flex-direction: column;   
   gap: 15px;                 
   z-index: 9999;             
+}
+
+#intensityChart{
+    width : 1000px;
+    height : 480px;
+    margin: 0 auto; 
 }

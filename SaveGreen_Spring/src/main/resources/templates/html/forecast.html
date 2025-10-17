@@ -48,7 +48,8 @@
                 <p class="hero-desc">
                     데이터 기반 머신러닝으로 예상 비용 절감, 에너지 절감량, 투자 회수 기간을 예측합니다.
                 </p>
-            </div>
+
+			</div>
             <div class="hero-media video-card">
                 <video
                         id="hero-video"
@@ -75,17 +76,20 @@
             aria-labelledby="mlLoaderTitle"
             aria-describedby="mlLoaderDesc"
     >
-        <div class="ml-card fade-in">
-            <div class="row">
-                <div>
-                    <div class="title" id="mlLoaderTitle">예측 계산 중…</div>
-                    <div class="muted" id="mlLoaderDesc">에너지 사용량 & 비용을 머신러닝 모델로 산출하고 있습니다.</div>
-                </div>
-                <div class="right">
-                    <div class="spinner" aria-hidden="true"></div>
-                    <span class="muted" id="mlStatusText">초기화</span>
-                </div>
-            </div>
+        <div class="ml-card">
+			<!-- [교체] 헤더 행: 좌측(타이틀/서브텍스트) + 우측(힌트/시작 버튼) -->
+			<div class="row">
+				<div class="head-left">
+					<div class="title" id="mlLoaderTitle">예측 진행</div>
+					<div class="small" id="mlLoaderDesc">데이터 전처리 → 모델 → 시각화</div>
+				</div>
+				<div class="actions">
+					<small class="muted" id="preload-hint-top">준비되면 시작을 눌러 주세요</small>
+					<button id="forecast-start" class="btn btn-primary btn-sm" type="button" aria-label="예측 시작">
+						<span class="btn-label">시작하기</span>
+					</button>
+				</div>
+			</div>
 
             <div class="spacer-12"></div>
 
@@ -140,7 +144,49 @@
                 </div>
             </div>
 
-            <div class="divider"></div>
+			<!-- [진행바 아래 정보패널 – 두 카드에 inverted 클래스 추가] -->
+			<section id="preload-panel" class="preload panel" aria-live="polite">
+				<div class="preload-head">
+					<span id="preload-status" class="status">대기 중 · 시작 버튼을 눌러 예측을 시작하세요</span>
+					<small id="preload-hint">연산은 보통 몇 초 내 완료됩니다</small>
+				</div>
+
+				<div class="preload-grid">
+					<article class="card preload-card inverted" id="preload-building">
+						<h4>건물 정보</h4>
+						<ul class="kv">
+							<li data-k="buildingName"><span class="k">건물명</span><span class="v"></span></li>
+							<li data-k="roadAddr"><span class="k">주소</span><span class="v"></span></li>
+							<li data-k="useName"><span class="k">용도</span><span class="v"></span></li>
+							<li data-k="builtYear"><span class="k">사용승인연도</span><span class="v"></span></li>
+							<li data-k="floorArea"><span class="k">면적</span><span class="v"></span></li>
+							<li data-k="pnu"><span class="k">PNU</span><span class="v"></span></li>
+						</ul>
+						<p class="sub">선택한 대상이 맞나요? 정보가 다르면 결과가 달라질 수 있어요.</p>
+						<div class="skeleton s-line"></div>
+					</article>
+
+					<article class="card preload-card inverted" id="preload-assumption">
+						<h4>예측 가정</h4>
+						<!-- 1줄: 전력단가 · 상승률 · 할인율 -->
+						<p id="assumption-line-1" class="mono"></p>
+						<!-- 2줄: 배출계수 · 효율개선  (없으면 요금제 · 가동률) -->
+						<p id="assumption-line-2" class="mono"></p>
+						<p class="sub">기간·단가 등 가정치는 설정에서 조정할 수 있습니다.</p>
+						<div class="skeleton s-line"></div>
+					</article>
+				</div>
+
+				<div class="preload-foot">
+					<div id="risk-badges" class="badges" aria-label="리스크 지표"></div>
+					<p id="benchmark-line" class="benchmark">
+						동일 용도 평균 EUI: <strong>약 180 kWh/㎡·년</strong> <em>(참고치)</em>
+					</p>
+				</div>
+			</section>
+
+
+			<div class="divider"></div>
             <div class="row">
                 <div class="small">완료 시 이 패널은 자동으로 닫히고 차트 애니메이션이 시작됩니다.</div>
             </div>

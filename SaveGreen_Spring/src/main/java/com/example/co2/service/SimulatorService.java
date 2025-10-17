@@ -44,7 +44,7 @@ public class SimulatorService {
         BigDecimal energySelf = generation.divide(annualUsage,3,RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
         System.out.println("generation = " + generation);
         System.out.println("energySelf = " + energySelf);
-        BigDecimal usage = dto.getEnergy().divide(dto.getArea(),3,RoundingMode.HALF_UP); // 소수점 3자리 반올림
+        BigDecimal usage = (dto.getEnergy().subtract(generation)).divide(dto.getArea(),3,RoundingMode.HALF_UP); // 소수점 3자리 반올림
         System.out.println("usage = " + usage);
 
        

@@ -7,7 +7,7 @@ Swal.fire({
          +'<b>2.</b>태양광 패널 갯수,정격출력 입력하기<br>'
          +'<b>3.</b> 결과확인 버튼 누르기<br>'
          +'<h4>태양광 에너지 효율 경제성 시뮬레이터</h4>'
-         +'<b>1.</b>지도 클릭(서비스) 혹은 주소검색으로 주소,면적 입력하기<br>'
+         +'<b>1.</b>지도 클릭(건물 정보 입력) 혹은 주소검색으로 주소,면적 입력하기<br>'
          +'<b>2.</b>현재 등급,목표 등급 선택하기<br>'
          +'<b>3.</b>태양광 패널 정격출력 입력하기<br>'
          +'<b>4.</b> 결과확인 버튼 누르기<br>',
@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
-     
+        const box2 = document.getElementById('compareText');
+        if (!box2) return;
         const items = box.querySelectorAll('.result-item');
         
         
@@ -100,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
        
         box.style.display='block'
+        box2.style.display='block'
         
       
         items.forEach((item, index) => {
@@ -124,6 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const box = document.getElementById('resultBox2');
         if (!box) return;
+        const box2 = document.getElementById('compareText');
+        if (!box2) return;
 
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
@@ -136,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         box.style.display = 'block';
+        box2.style.display = 'block';
 
       
         items.forEach((item, index) => {
@@ -154,11 +159,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// 위도경도가져오기
-document.addEventListener("DOMContentLoaded", () => {
+// 위도경도,pnu가져오기
+document.addEventListener("DOMContentLoaded",  () => {
     const lat = sessionStorage.getItem("lat");
     const lon = sessionStorage.getItem("lon");
+    
     console.log("세션스토리지에서 가져온 좌표:", lat, lon);
+    
     if (lat && lon) {
         document.querySelector("#lat1").value = lat;
         document.querySelector("#lon1").value = lon;
@@ -303,6 +310,44 @@ document.addEventListener("DOMContentLoaded", () => {
                         console.error("건물정보 API 오류:", error);
                       }
                     });
+                    fetch(`/simulator/${encodeURIComponent(pnu)}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then( data => {
+                          if (!data) return;
+
+                          const energyInput = document.querySelector('#energy1');
+                          if (energyInput) energyInput.value = data.electricityUsageKwh;
+
+                          const cat = data.buildingType2;
+                          const category1 = document.querySelector('#category1');
+                          if (category1) category1.value = cat;
+                          const category2 = document.querySelector('#category2');
+                          if (category2) category2.value = cat;
+                          console.log("cat : ",cat);
+
+                          const eik = data.energyIntensityKwhPerM2;
+                          const eik1 = document.querySelector('#eik1');
+                          if(eik1) eik1.value = eik;
+                          const eik2 = document.querySelector('#eik2');
+                          if(eik2) eik2.value = eik;
+                          console.log("eik : ",eik)
+                          // "energyIntensityKwhPerM2"
+                        
+
+                    fetch(`/energy/avg-intensity?category=${encodeURIComponent(cat)}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(average => {
+                          if (average == null) return;
+
+                          const avgEl1 = document.querySelector('#average1');
+                          if (avgEl1) avgEl1.value = average;
+                          const avgEl2 = document.querySelector('#average2');
+                          if (avgEl2) avgEl2.value = average;
+                          console.log("average : ",average);
+                          runCompare();
+                        });
+                                              })
+                        .catch(console.error);
                   },
                   error: function (xhr, status, error) {
                     console.error("PNU API 오류:", error);
@@ -436,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   if (!email) return;
 
-  // 📍 2. 진행중 안내창
+  //  진행중 안내창
   Swal.fire({
     title: '메일 전송 중...',
     html: `
@@ -547,8 +592,39 @@ function getTimestamp() {
 }
 
 
+document.addEventListener('DOMContentLoaded', async () => {
+  const pnu = sessionStorage.getItem('pnu');
+  if (!pnu) return;
+  console.log("세션스토리지에서 가져온 pnu:",pnu)
+  const resp = await fetch(`/simulator/${encodeURIComponent(pnu)}`);
+  if (!resp.ok) return;
+  const data = await resp.json();
+  const energyInput = document.querySelector('#energy1');
+  if (!energyInput) return;
 
+  const cat = data.buildingType2;
 
+  const category1 = document.querySelector('#category1');
+  if (category1) category1.value = cat;
 
+  const category2 = document.querySelector('#category2');
+  if (category2) category2.value = cat;
+
+  console.log("분류 : " ,cat)
+ 
+  energyInput.value = data.electricityUsageKwh;
+  fetch(`/energy/avg-intensity?category=${encodeURIComponent(cat)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(average => {
+      if (average == null) return;
+
+      const avgEl1 = document.querySelector('#average1');
+      if (avgEl1) avgEl1.value = average;
+      const avgEl2 = document.querySelector('#average2');
+      if (avgEl2) avgEl2.value = average;
+      console.log("average : ",average);
+      runCompare();
+    });
+});
 
 
