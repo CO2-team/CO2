@@ -9,6 +9,10 @@
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <link rel="stylesheet" th:href="@{/css/ml-loader.css}">
     <link rel="stylesheet" th:href="@{/css/forecast.css}">
+
+	<!-- /forecast 전용 jQuery (전역 script.js가 실행되기 전에 반드시 위치) -->
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+
 </head>
 
 <body class="page-forecast">
@@ -20,7 +24,7 @@
 <div class="header-spacer" aria-hidden="true"></div>
 
 <!-- 메인 -->
-<main id="forecast-root" class="wrap"
+<main id="forecast-root" class="wrap container"
       th:with="bid=${buildingId}"
       th:data-bid="${buildingId}"
       th:data-from="${fromYear}"

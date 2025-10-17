@@ -9,12 +9,18 @@ const CATALOG_URL = '/dummy/buildingenergydata.json';
 window.SaveGreen = window.SaveGreen || {};
 window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
-//document.addEventListener('DOMContentLoaded', () => {
-//	init().catch(err => console.error('[forecast] init failed:', err));
-//});
+// JS 켜짐 표시(헤더 스페이서 CSS 토글용) — header.html 수정 없이 JS가 직접 달아줌
+document.documentElement.classList.add('js');
+
 
 // 전역 clamp 폴리필(없으면 등록) — 수치 값을 [lo, hi] 구간에 강제
 if (typeof window.clamp !== 'function') window.clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* DOM 헬퍼(이 파일 전용) — jQuery 전역($)와 충돌 방지 */
+const $el  = (s, root=document) => root.querySelector(s);
+const $$el = (s, root=document) => Array.from(root.querySelectorAll(s));
+
+
 
 /* ========== [STEP5] 카달로그 연결/세션 파싱/매칭 유틸 ========== */
 (function () {
@@ -242,68 +248,108 @@ const BANNER_TEXTS = {
 	'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
 
+
 /* ---------- 예측 기간 상수(전역) ---------- */
 const NOW_YEAR = new Date().getFullYear();
 const HORIZON_YEARS = 10;
 
-/* ---------- Header offset ---------- */
-/**
- * 헤더가 fixed/sticky로 겹치는 환경에서,
- * 헤더 실제 높이 + 추가 간격(--header-extra-gap)만큼 본문 상단을 밀어준다.
- * JS가 없을 때는 CSS의 .header-spacer가 동일 역할을 수행.
- */
+
+/* =========================================================================
+ * Header Offset (자동 계산 버전)
+ * -------------------------------------------------------------------------
+ * 화면 상단을 겹치는 모든 바(헤더/네비 등)의 "실제 표시 높이"를 합산해서
+ * CSS 변수 --header-height 에 반영하고, 본문(.wrap) 시작 패딩을 조정합니다.
+ *
+ * 규칙
+ * - 대상: #menubar(헤더), nav.navbar(네비)  ← 필요 시 selector 추가
+ * - 겹침으로 간주되는 경우만 합산: position:fixed 이거나 position:sticky && rect.top <= 0
+ * - 숨김(display:none/visibility:hidden)은 제외
+ * - 추가 여유 간격은 :root --header-extra-gap (기본 16px)
+ *
+ * 사용
+ * - initHeaderOffset()에서 호출/바인딩하세요(리사이즈/스크롤/옵저버 반영).
+ * - JS가 켜진 환경에서 .header-spacer 는 자동으로 숨겨 중복 여백을 방지합니다.
+ * ========================================================================= */
+
 function applyHeaderOffset() {
-	const menubar = document.getElementById('menubar');   // header.html 내부 id 예상
-	const spacer = document.querySelector('.header-spacer');
-	const wrap = document.querySelector('main.wrap');
-	if (!wrap || !spacer) return;
+	const menubar = document.getElementById('menubar');
+	const navbar	= document.querySelector('nav.navbar');
+	const spacer	= document.querySelector('.header-spacer');
+	const wrap		= document.querySelector('main.wrap');
+	if (!wrap) return;
 
-	// CSS 변수에서 추가 간격 읽기(없으면 16px)
+	// 추가 여유(px): :root --header-extra-gap (없으면 16)
 	const rootCS = getComputedStyle(document.documentElement);
-	const extra = parseInt(rootCS.getPropertyValue('--header-extra-gap')) || 16;
+	const extra	= parseInt(rootCS.getPropertyValue('--header-extra-gap')) || 16;
 
-	let overlay = false;
-	let h = 0;
-
-	if (menubar) {
-		const cs = getComputedStyle(menubar);
-		const rect = menubar.getBoundingClientRect();
+	// 겹치는 바만 높이 포함 (fixed 또는 sticky 상태일 때만)
+	const getBarH = (el) => {
+		if (!el) return 0;
+		const cs = getComputedStyle(el);
+		if (cs.display === 'none' || cs.visibility === 'hidden') return 0;
+		const rect = el.getBoundingClientRect();
 		const isFixed = cs.position === 'fixed';
 		const isStickyNow = cs.position === 'sticky' && rect.top <= 0;
-		overlay = isFixed || isStickyNow;
-		h = rect.height;
+		return (isFixed || isStickyNow) ? Math.round(rect.height) : 0;
+	};
+
+	const baseH = getBarH(menubar) + getBarH(navbar);	// 실제 겹치는 높이 합계
+
+	// 전역 CSS 변수 업데이트
+	document.documentElement.style.setProperty('--header-height', baseH + 'px');
+
+	// 본문 오프셋(헤더+네비 합 + 여유)
+	const topPad = (baseH + extra) + 'px';
+	wrap.style.paddingTop = topPad;
+
+	// JS on이면 스페이서 중복 방지(완전 숨김), JS off면 동일 높이로 폴백
+	if (document.documentElement.classList.contains('js') && spacer) {
+		spacer.style.display = 'none';
+		spacer.style.height	 = '0px';
+		spacer.style.padding = '0';
+		spacer.style.margin	 = '0';
+		spacer.style.border	 = '0';
+	} else if (spacer) {
+		spacer.style.display = 'block';
+		spacer.style.height	 = topPad;
 	}
-
-	// 문서 루트 변수로 height 알려주고(선택), wrap/spacer에 실제 픽셀 적용
-	document.documentElement.style.setProperty('--header-height', h + 'px');
-
-	// 헤더가 겹치면 h+extra, 아니어도 extra는 유지(요청: "조금 더 아래" 시작)
-	const topPad = (h + extra) + 'px';
-	wrap.style.paddingTop = overlay ? topPad : (extra + 'px');
-	spacer.style.height = overlay ? topPad : (extra + 'px');
 }
+
+/**
+ * 오프셋 초기화/바인딩
+ * - resize/scroll/orientationchange에서 재계산
+ * - 헤더/네비가 동적으로 높이 변할 때(축소/확장)도 잡도록 ResizeObserver 사용
+ */
 function initHeaderOffset() {
 	applyHeaderOffset();
+
 	let ticking = false;
-	const onScrollTick = () => {
+	const request = () => {
 		if (ticking) return;
 		ticking = true;
 		requestAnimationFrame(() => { applyHeaderOffset(); ticking = false; });
 	};
-	window.addEventListener('resize', applyHeaderOffset);
-	window.addEventListener('orientationchange', applyHeaderOffset);
-	window.addEventListener('scroll', onScrollTick, { passive: true });
+
+	window.addEventListener('resize', request);
+	window.addEventListener('orientationchange', request);
+	window.addEventListener('scroll', request, { passive: true });
 
 	const wrap = document.querySelector('main.wrap');
-	if (wrap) wrap.addEventListener('scroll', onScrollTick, { passive: true });
+	if (wrap) wrap.addEventListener('scroll', request, { passive: true });
 
-	// 헤더 높이가 변하는 경우(축소/확장, 메뉴 열림 등)
+	// 헤더/네비 높이 변경 감지
 	const menubar = document.getElementById('menubar');
-	if (window.ResizeObserver && menubar) {
-		const ro = new ResizeObserver(applyHeaderOffset);
-		ro.observe(menubar);
+	const navbar  = document.querySelector('nav.navbar');
+
+	if (window.ResizeObserver) {
+		const ro = new ResizeObserver(request);
+		if (menubar) ro.observe(menubar);
+		if (navbar)  ro.observe(navbar);
 	}
 }
+
+
+
 
 /* ---------- Provider 쿼리 빌더 ---------- */
 // - getBuildingContext → fetchForecast 간 URLSearchParams 구성
@@ -722,6 +768,16 @@ async function init() {
 			const pnu      = sget('pnu');        // [NEW] PNU(스샷 hidden input)
 			const bname    = sget('buildingName') || sget('buldNm') || ''; // [NEW] 건물명(있으면)
 
+            // ✨ [추가] 세션→dataset 전용: builtYear 계산(세션 builtYear 우선, 없으면 useConfmDe 앞 4자리)
+            // ⚠ Forecast에서는 sessionStorage "읽기만" 한다(쓰기 금지)
+            const builtYear = (() => {
+                const by = (sessionStorage.getItem('builtYear') || '').trim();
+                if (/^\d{4}$/.test(by)) return by;
+                const u = (sessionStorage.getItem('useConfmDe') || '').trim();
+                return (/^\d{4}/.test(u) ? u.slice(0, 4) : '');
+            })();
+
+
 			// 지번 주소 문자열 구성 (둘 다 있을 때만)
 			const jibun = [ldCodeNm, mnnmSlno].filter(Boolean).join(' ');
 
@@ -736,8 +792,9 @@ async function init() {
 			setIfEmpty('jibunAddr', jibun, 'session');
 			setIfEmpty('lat', lat, 'session');
 			setIfEmpty('lon', lon, 'session');
-			setIfEmpty('pnu', pnu, 'session');                  // [NEW] PNU 주입
-			setIfEmpty('buildingName', bname, 'session');       // [NEW] 건물명 주입
+			setIfEmpty('pnu', pnu, 'session');                  // PNU 주입
+			setIfEmpty('buildingName', bname, 'session');       // 건물명 주입
+			setIfEmpty('builtYear', builtYear, 'session');      // 연식 주입
 
 			// 사용상 편의를 위해 'addr' 헬퍼도 만들어줌(없을 때만)
 			if (!root.dataset.addr && (root.dataset.roadAddr || root.dataset.jibunAddr)) {
@@ -823,9 +880,9 @@ document.addEventListener('DOMContentLoaded', () => {
  *  - KPI/상태 판정 → 로더 종료 → ABC 차트 시퀀스 → 결과 요약 렌더
  * ========================================================== */
 async function runForecast() {
-	const $result = $('#result-section');
-	const $ml = $('#mlLoader');
-	const $surface = $('.result-surface');   // KPI/요약/배너 래퍼
+    const $result = $el('#result-section');
+    const $ml = $el('#mlLoader');
+    const $surface = $el('.result-surface');
 
 	// 로더 시작
 	show($ml);
@@ -1130,16 +1187,16 @@ function estimateEnergyGrade(savingPct) {
 
 // 상태 배너/루트 결과에 추천/조건부/비추천 클래스 적용 + 메시지 텍스트 갱신
 function applyStatus(status) {
-	const banner = $('#status-banner');
-	const result = $('#result-section');
+	const banner = $el('#status-banner');
+	const result = $el('#result-section');
 	const classes = ['recommend', 'conditional', 'not-recommend'];
 	classes.forEach((c) => { banner?.classList?.remove(c); result?.classList?.remove(c); });
 	if (classes.includes(status)) {
 		banner?.classList?.add(status);
 		result?.classList?.add(status);
 	}
-	const msg = $('#banner-message');
-	const badge = $('#banner-badge');
+	const msg = $el('#banner-message');
+	const badge = $el('#banner-badge');
 	if (msg) msg.textContent = BANNER_TEXTS[status] || '';
 	if (badge) badge.textContent =
 		status === 'recommend' ? '추천' :
@@ -1166,10 +1223,10 @@ function updateMetaPanel({ years, model, features }) {
 
 // KPI 수치판 렌더
 function renderKpis(kpi, { gradeNow }) {
-	const g = $('#kpi-grade');
-	const sc = $('#kpi-saving-cost');
-	const pb = $('#kpi-payback');
-	const sp = $('#kpi-saving-pct');
+	const g = $el('#kpi-grade');
+	const sc = $el('#kpi-saving-cost');
+	const pb = $el('#kpi-payback');
+	const sp = $el('#kpi-saving-pct');
 	if (g) g.textContent = String(gradeNow);
 	if (sc) sc.textContent = nf(kpi.savingCostYr);
 	if (pb) pb.textContent = (Math.round(kpi.paybackYears * 10) / 10).toFixed(1);
@@ -1178,7 +1235,7 @@ function renderKpis(kpi, { gradeNow }) {
 
 // 요약 리스트 렌더(등급/EUI 경계/필요 절감률 등)
 function renderSummary({ gradeNow }) {
-	const ul = $('#summary-list');
+	const ul = $el('#summary-list');
 	if (!ul) return;
 	ul.innerHTML = '';
 	const targetGrade = Math.max(1, gradeNow - 1);
@@ -1316,8 +1373,6 @@ function styleAssumptionLines() {
 function nf(n) { try { return new Intl.NumberFormat('ko-KR').format(Math.round(Number(n) || 0)); } catch { return String(n); } }
 function range(a, b) { const arr = []; for (let y = a; y <= b; y++) arr.push(y); return arr; }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-function $(s, root = document) { return root.querySelector(s); }
-function $all(s, root = document) { return Array.from(root.querySelectorAll(s)); }
 function show(el) { if (el) el.classList.remove('hidden'); }
 function hide(el) { if (el) el.classList.add('hidden'); }
 

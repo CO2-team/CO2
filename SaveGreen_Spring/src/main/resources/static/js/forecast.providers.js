@@ -64,42 +64,60 @@
 	 */
 	// [NEW] GreenFinder → sessionStorage 스니핑
 	function sniffSessionForBuilding() {
-		try {
-			// 그린파인더가 남기는 키들(스샷 기준)
-			const get = (k) => (sessionStorage.getItem(k) || '').toString().trim();
+    	try {
+    		// 그린파인더가 남기는 키들(스샷 기준)
+    		const get = (k) => (sessionStorage.getItem(k) || '').toString().trim();
 
-			const ldCodeNm = get('ldCodeNm');		// 예: '대전광역시 서구 둔산동'
-			const mnnmSlno = get('mnnmSlno');		// 예: '1268'
-			const pnu      = get('pnu');			// 예: '3017011200112680000'
-			const lat      = get('lat');			// 위도
-			// [수정] 경도는 lon/lng 둘 다 수용
-			const lonRaw = get('lon') || get('lng');
-			const lon    = lonRaw;
+    		const ldCodeNm = get('ldCodeNm');      // 예: '대전광역시 서구 둔산동'
+    		const mnnmSlno = get('mnnmSlno');      // 예: '1268'
+    		const pnu      = get('pnu');           // 예: '3017011200112680000'
+    		const latStr   = get('lat');           // 위도(문자열)
+    		// [수정] 경도는 lon/lng 둘 다 수용
+    		const lonRaw   = get('lon') || get('lng');
+    		const buildingName = get('buildingName') || get('buldNm') || '';
 
-			// 있으면 건물명도 흡수(없어도 무관)
-			const buildingName = get('buildingName') || get('buldNm') || '';
+    		// ✨ [추가] 사용승인일/연식 스니핑(세션 "읽기 전용")
+    		const useConfmDe = get('useConfmDe'); // 예: '1996-12-05' (없어도 무관)
+    		const builtYearRaw = get('builtYear'); // 예: '1996' (없으면 빈 문자열)
+    		// 🧩 [추가] 연식 계산: builtYear가 있으면 우선 사용, 없으면 useConfmDe 앞 4자리
+    		const builtYear = (() => {
+    			if (/^\d{4}$/.test(builtYearRaw)) return builtYearRaw;
+    			if (/^\d{4}/.test(useConfmDe)) return useConfmDe.slice(0, 4);
+    			return '';
+    		})();
 
-			// 지번주소 조립(둘 다 있을 때만)
-			const jibunAddr = (ldCodeNm && mnnmSlno) ? `${ldCodeNm} ${mnnmSlno}` : '';
+    		// 지번주소 조립(둘 다 있을 때만)
+    		const jibunAddr = (ldCodeNm && mnnmSlno) ? `${ldCodeNm} ${mnnmSlno}` : '';
 
-			const o = {
-				// 표준 필드로 정규화
-				pnu: pnu || undefined,
-				jibunAddr: jibunAddr || undefined,
-				lat: lat ? Number(lat) : undefined,
-				lon: lon ? Number(lon) : undefined,
-				buildingName: buildingName || undefined,
-				// from/to는 isValid()에서 필요하므로 기본값 제공
-				from: String(NOW_YEAR),
-				to: String(NOW_YEAR + HORIZON_YEARS)
-			};
-			// 하나라도 있으면 반환
-			return Object.values(o).some(v => v != null && String(v).trim() !== '') ? o : null;
-		} catch (e) {
-			console.warn('[provider] sniffSessionForBuilding error:', e);
-			return null;
-		}
-	}
+    		// 숫자 파싱(NaN 방지)
+    		const latNum = Number(latStr);
+    		const lonNum = Number(lonRaw);
+
+    		const o = {
+    			// 표준 필드로 정규화
+    			pnu: pnu || undefined,
+    			jibunAddr: jibunAddr || undefined,
+    			lat: Number.isFinite(latNum) ? latNum : undefined,
+    			lon: Number.isFinite(lonNum) ? lonNum : undefined,
+    			buildingName: buildingName || undefined,
+
+    			// ✨ [추가] 연식/사용승인일 주입(있을 때만)
+    			builtYear: builtYear || undefined,
+    			useConfmDe: useConfmDe || undefined,
+
+    			// from/to는 isValid()에서 필요하므로 기본값 제공
+    			from: String(NOW_YEAR),
+    			to: String(NOW_YEAR + HORIZON_YEARS)
+    		};
+
+    		// 하나라도 있으면 반환
+    		return Object.values(o).some(v => v != null && String(v).trim() !== '') ? o : null;
+    	} catch (e) {
+    		console.warn('[provider] sniffSessionForBuilding error:', e);
+    		return null;
+    	}
+    }
+
 
 	/* ---------- 컨텍스트 보강(도로명/지번/건물명) ---------- */
 	/**

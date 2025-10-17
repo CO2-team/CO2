@@ -17,6 +17,38 @@
 	}
 	function __pushTimer(id) { __stageTimers.push(id); }
 
+    // ✨ [추가] 제목 아래에 "건물명 · 주소" 라벨을 렌더/업데이트
+    function renderChartBuildingLabel(containerEl, datasetLike) {
+        // 1) 컨테이너 탐색(캔버스를 싸고 있는 카드/박스 엘리먼트)
+        const box = containerEl?.closest?.('.chart-card, .chart-box, .chart, .card, .kpi-card') || containerEl?.parentElement || containerEl;
+        if (!box) return;
+
+        // 2) 라벨 엘리먼트 확보(1회 생성, 이후 재사용)
+        let label = box.querySelector('#chart-building-label');
+        if (!label) {
+            label = document.createElement('div');
+            label.id = 'chart-building-label';
+            label.className = 'chart-building-label';
+            // 제목은 h1~h3 또는 .chart-title 를 모두 허용
+            const titleEl = box.querySelector('h1,h2,h3,.chart-title');
+            if (titleEl && titleEl.parentElement === box) {
+                titleEl.insertAdjacentElement('afterend', label);
+            } else {
+                const canvasEl = box.querySelector('canvas, .echart, .chartjs');
+                if (canvasEl) box.insertBefore(label, canvasEl);
+                else box.appendChild(label);
+            }
+        }
+
+        // 3) 값 구성(폴백 포함)
+        const name = (datasetLike?.buildingName || '건물명 없음').trim();
+        const addr = (datasetLike?.roadAddr || datasetLike?.jibunAddr || datasetLike?.address || '-').trim();
+
+        // 4) 텍스트 주입
+        label.textContent = `${name} · ${addr}`;
+    }
+
+
 	// [NEW] 단계 배지 엘리먼트 보장(차트 우상단)
 	// - 차트 우측 상단에 A/B/C 단계 배지를 표시(요구 사양: A=적색, B=주황, C=녹색)
 	function ensureStageBadge() {
@@ -31,18 +63,70 @@
 		let badge = wrap.querySelector('#chart-stage-badge');
 		if (!badge) {
 			badge = document.createElement('div');
+
 			badge.id = 'chart-stage-badge';
-			badge.style.position = 'absolute';
-			badge.style.top = '8px';
-			badge.style.right = '8px';
-			badge.style.padding = '6px 10px';
-			badge.style.borderRadius = '999px';
-			badge.style.fontSize = '12px';
-			badge.style.fontWeight = '700';
-			badge.style.color = '#fff';
-			badge.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-			badge.style.zIndex = '10';
-			badge.className = 'chart-stage-badge';
+            badge.className = 'chart-stage-badge';
+
+            /* ✨ 위치/크기/정렬을 좌측 배지와 최대한 동일하게 맞춘다.
+             *  - top을 6px로 살짝 올려 ‘미세하게 아래’ 보이는 느낌 제거
+             *  - 높이/라인높이/패딩을 좌측(32px 캡슐)과 동일
+             *  - inline-flex + align-items:center로 세로 중앙정렬 보장
+             */
+            badge.style.position    = 'absolute';
+            badge.style.top         = '6px';                 // ← 기존 8px ▶ 6px로 미세 조정
+            badge.style.right       = '8px';
+
+            badge.style.display     = 'inline-flex';
+            badge.style.alignItems  = 'center';
+            badge.style.height      = '32px';                // 좌측 캡슐과 동일 높이
+            badge.style.lineHeight  = '32px';
+            badge.style.padding     = '0 12px';              // 좌/우 여백 맞춤
+            badge.style.borderRadius= '999px';
+
+            badge.style.fontSize    = '13px';                // 좌측 기준(13/600)과 동일
+            badge.style.fontWeight  = '600';
+            badge.style.color       = '#fff';
+            badge.style.boxShadow   = '0 2px 6px rgba(0,0,0,0.15)';
+            badge.style.zIndex      = '10';
+
+            /* 🧩 좌측 배지 기준으로 우측 배지 top 동기화
+             * - container 변수를 쓰지 않고, badge를 기준으로 안전하게 루트를 탐색
+             * - 폰트/렌더러 차이에 의한 1px 오프셋까지 흡수
+             */
+            (function syncTopWithLeftBadge(){
+            	try {
+            		// 1) 루트 컨테이너 탐색(가장 안전한 순서)
+            		let root =
+            			badge.closest('#chartA, #chartB, #chartC, .chart-card, .chart-box, .chart-wrap')
+            			|| document.getElementById('chartA')
+            			|| document.getElementById('chartB')
+            			|| document.getElementById('chartC')
+            			|| badge.parentElement;
+
+            		if (!root) return;
+
+            		// 2) 좌측 배지(차트 라벨) 찾기
+            		const leftBadge =
+            			root.querySelector('.chart-context.chart-badge')
+            			|| document.querySelector('.chart-context.chart-badge'); // 최후 폴백
+
+            		if (!leftBadge) return;
+
+            		// 3) 좌측 배지의 top(컨테이너 기준) 계산
+            		const rootRect = root.getBoundingClientRect();
+            		const leftRect = leftBadge.getBoundingClientRect();
+            		const topPx = Math.max(0, Math.round(leftRect.top - rootRect.top));
+
+            		// 4) 미세 보정치(필요 시 -1/0/+1)
+            		const nudge = -2;
+            		badge.style.top = (topPx + nudge) + 'px';
+            	} catch(e) {
+            		console.warn('[stageBadge] syncTopWithLeftBadge skipped:', e);
+            	}
+            })();
+
+
+
 			wrap.appendChild(badge);
 		}
 		return badge;
@@ -140,28 +224,67 @@
 		window.SaveGreen = window.SaveGreen || {};
 		window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 
-		// chartCardId: 차트 카드 컨테이너 id (예: 'chartA', 'chartB', 'chartC')
-		function injectChartContextLine(chartCardId) {
-			const root = document.getElementById(chartCardId);
-			if (!root) return;
+		/* ========== [STEP5] 차트 컨텍스트 라벨(제목 아래, 범례 위) 공통 유틸 ========== */
+        /**
+         * 차트 카드(예: chartA/B/C) 안에 "건물명 or 주소 or '건물명 없음'" 라벨을 1회만 삽입한다.
+         * - 우선순위: (1) 건물명 → (2) 주소(roadAddr→jibunAddr→address) → (3) '건물명 없음'
+         * - Chart.js 제목(plugins.title)은 캔버스 내부에 그려지므로 DOM에 .chart-title가 없을 수 있음.
+         *   → 제목 엘리먼트가 없으면 캔버스 앞에 라벨을 꽂는다.
+         * - Chart A에서 한 번 생성되면 Chart B/C 호출 시에는 덮어쓰지 않고 유지한다.
+         * - dataset은 #forecast-root.dataset 에서 읽는다(세션은 이 단계에서 건드리지 않음).
+         */
+        function injectChartContextLine(chartCardId) {
+        	// 1) 루트 컨테이너 탐색: chartCardId → (폴백) 에너지 캔버스 부모
+        	let root = document.getElementById(chartCardId);
+        	if (!root) {
+        		// 폴백 후보: 에너지 콤보 차트 캔버스 및 그 부모
+        		const canvas = document.getElementById('chart-energy-combo');
+        		root = document.getElementById('chart-energy-container')
+        			|| document.getElementById('chart-energy-wrap')
+        			|| (canvas ? canvas.parentElement : null);
+        	}
+        	if (!root) return;
 
-			// 차트 카드 내부 구조 예: .chart-card > .chart-title + (여기에 .chart-context) + canvas/legend...
-			// 제목 요소 찾기
-			const titleEl = root.querySelector('.chart-title');
-			const infoText = (window.SaveGreen.Forecast._chartContextText || '').trim();
-			if (!titleEl || !infoText) return;
+        	// 2) 제목 요소(있으면 사용), 없으면 캔버스 엘리먼트를 확보하여 앞에 꽂는다.
+        	const titleEl	= root.querySelector('h1,h2,h3,.chart-title');	// 제목 DOM (없을 수 있음)
+        	const canvasEl	= root.querySelector('#chart-energy-combo, canvas');	// 주요 캔버스
 
-			// 기존 라인이 있으면 교체, 없으면 생성
-			let ctxEl = root.querySelector('.chart-context');
-			if (!ctxEl) {
-				ctxEl = document.createElement('div');
-				ctxEl.className = 'chart-context';
-				// 제목 바로 다음 위치(범례 위로 밀기)
-				titleEl.insertAdjacentElement('afterend', ctxEl);
-			}
-			// 내용: “빌딩명 → 주소 → 용도” (빌딩명 없으면 ‘건물명 없음’이 이미 계산됨)
-			ctxEl.textContent = infoText;
-		}
+        	// 3) 텍스트 구성: 우선순위 (건물명 → 주소 → '건물명 없음')
+        	const ds		= document.getElementById('forecast-root')?.dataset || {};
+        	const name		= (ds.buildingName || '').trim();
+        	const addr		= (ds.roadAddr || ds.jibunAddr || ds.address || '').trim();
+        	let infoText	= '';
+        	if (name) infoText = name;
+        	else if (addr) infoText = addr;
+        	else infoText = '건물명 없음';
+        	if (!infoText) return;
+
+        	// 4) 이미 라벨이 있고 텍스트가 비어있지 않다면 유지(Chart A에서 만든 걸 B/C에서 계속 사용)
+        	const existsText = root.querySelector('.chart-context')?.textContent?.trim();
+        	if (existsText) return;
+
+        	// 5) 라벨 엘리먼트 생성/삽입 (제목 아래 → 캔버스 앞 → 루트 맨 앞 순)
+        	let ctxEl = root.querySelector('.chart-context');
+        	if (!ctxEl) {
+                ctxEl = document.createElement('div');
+                /* ✨ 차트 라벨: 현재 위치(제목 아래) + 배지(알약) 스타일. 오버레이는 쓰지 않음 */
+                ctxEl.className = 'chart-context chart-badge';
+        		if (titleEl) {
+        			// 제목 DOM이 있으면 "그 아래"에 삽입
+        			titleEl.insertAdjacentElement('afterend', ctxEl);
+        		} else if (canvasEl) {
+        			// 제목 DOM이 없고, 차트 제목이 캔버스 내부에 그려지는 경우 → 캔버스 "앞"에 삽입
+        			root.insertBefore(ctxEl, canvasEl);
+        		} else {
+        			// 최후 폴백: 루트의 맨 앞
+        			root.prepend(ctxEl);
+        		}
+        	}
+
+        	// 6) 텍스트 주입
+        	ctxEl.textContent = infoText;
+        }
+
 
 		// 외부에서 호출
 		window.SaveGreen.Forecast.injectChartContextLine = injectChartContextLine;
