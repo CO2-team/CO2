@@ -205,12 +205,12 @@
     </div>
 
     <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과</strong>와 <strong>평균</strong> 비교해보기</div>
-    <canvas id="intensityChart" >비교차트</canvas>
+    <canvas id="intensityChart" style="display: none;" >비교차트</canvas>
 </div>
 
 
    
-    <div th:replace="layouts/footer :: footer"></div>
+   
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
@@ -220,4 +220,5 @@
 <script th:src="@{/js/compare.js}" defer></script>
 
 </body>
+<!-- <div th:replace="layouts/footer :: footer"></div> -->
 </html>
