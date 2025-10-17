@@ -137,17 +137,20 @@ body {
 }
 
 .search-container {
-    position: absolute; /* 지도 위에 올라오도록 */
-    top: 100px;
+    position: absolute;
+    top: 15%;
     left: 5%;
-    z-index: 100; /* 지도보다 위 */
+    z-index: 100;
     width: 300px;
+    border-radius: 18px;
 }
 
 .searchBox {
     width: 100%;
     padding: 8px;
+    height: 38px;
     box-sizing: border-box;
+    border-radius: 10px;
 }
 
 .searchResult {

@@ -1,25 +1,25 @@
 $(function(){
-  let lastScrollTop = 0;
-  const delta = 15;
-  let scrollBlocked = false; // 스크롤 카운트 중복 방지용
+  // let lastScrollTop = 0;
+  // const delta = 15;
+  // let scrollBlocked = false; // 스크롤 카운트 중복 방지용
 
-  // ① 헤더 숨김/보임
-  $(window).on('scroll', function(){
-    const st = $(this).scrollTop();
+  // // ① 헤더 숨김/보임
+  // $(window).on('scroll', function(){
+  //   const st = $(this).scrollTop();
 
-    // 너무 작은 스크롤은 무시
-    if(Math.abs(lastScrollTop - st) <= delta) return;
+  //   // 너무 작은 스크롤은 무시
+  //   if(Math.abs(lastScrollTop - st) <= delta) return;
 
-    // 내릴 때 → 숨김
-    if(st > lastScrollTop && st > 0){
-      $('.navbar').addClass('nav-up');
-    } else {
-      // 올릴 때 → 다시 보이기
-      $('.navbar').removeClass('nav-up');
-    }
+  //   // 내릴 때 → 숨김
+  //   if(st > lastScrollTop && st > 0){
+  //     $('.navbar').addClass('nav-up');
+  //   } else {
+  //     // 올릴 때 → 다시 보이기
+  //     $('.navbar').removeClass('nav-up');
+  //   }
 
-    lastScrollTop = st;
-  });
+  //   lastScrollTop = st;
+  // });
 
   // ② scroll-snap 자동 스크롤 (한 번만 반응)
   window.addEventListener('wheel', function(e) {
@@ -98,3 +98,4 @@ document.addEventListener("scroll", function() {
         }
     });
 });
+
