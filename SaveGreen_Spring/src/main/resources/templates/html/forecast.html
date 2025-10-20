@@ -310,21 +310,26 @@
 
 <!-- 페이지 전용 스크립트(순서 중요!) -->
 <script th:src="@{/js/forecast.vworld.client.js}"></script>
+
+<!-- 컨텍스트/설정/매핑 헬퍼를 먼저 -->
+<script th:src="@{/js/forecast.providers.js}"></script>
+
+<!-- KPI 계산 모듈 -->
 <script th:src="@{/js/forecast.kpi.js}"></script>
 
-<!-- ★ 모델을 차트보다 먼저 로드 -->
+<!-- 모델을 차트보다 먼저 로드 -->
 <script th:src="@{/js/forecast.models.js}"></script>
 
 <!-- 모델 다음에 차트/렌더 모듈 -->
 <script th:src="@{/js/forecast.chart.js}"></script>
 
 <!-- 데이터/로더/개발 도우미 -->
-<script th:src="@{/js/forecast.providers.js}"></script>
 <script th:src="@{/js/forecast.loader.js}"></script>
 <script th:src="@{/js/forecast.vworld.dev.js}"></script>
 
 <!-- 마지막에 메인 컨트롤러 -->
 <script th:src="@{/js/forecast.main.js}"></script>
+
 
 </body>
 </html>

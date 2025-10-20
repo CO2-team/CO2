@@ -1,0 +1,106 @@
+{
+	"_doc": {
+		"title": "대전(DAE) 리모델링 가정값 — KPI/예측/등급판정",
+		"apiVersion": "1.0.0",
+		"purpose": "프런트 KPI/결과요약/차트 계산 및 등급 판정에 사용하는 기본 가정값. ML·실측 데이터로 교체되면 초기값 역할.",
+		"how_to_use": [
+			"1) buildingType2(factory|school|hospital|office)로 type 식별.",
+			"2) types[type].base에서 전력단가(tariff), CAPEX/㎡(capexPerM2), 절감률(savingPct)을 읽어 KPI 계산.",
+			"3) KPI 수식은 meta.formulas 참고(절감량/비용/회수기간/EUI/등급).",
+			"4) EUI 계산은 baseline_kWh와 floorArea_m2가 필요.",
+			"5) 등급 판정은 euiRules.mode에 따라 전력(Electricity) 임계값 또는 1차 에너지 밴드 사용.",
+			"6) 1차 모드에서는 전력 Site EUI에 pef.electricity를 곱해 1차 EUI로 변환 후 primaryGradeBands로 판정."
+		],
+		"labels": {
+			"factory": "공장(제조)",
+			"school": "학교",
+			"hospital": "병원",
+			"office": "회사/오피스"
+		}
+	},
+
+	"meta": {
+		"region": "daejeon",
+		"asOf": "2025-03",
+		"sources": [
+			"한국전력(KEPCO) 고압/특고 평균단가 공개자료(시간대/수요요금 단순화 평균)",
+			"국토부·공공기관 공사비 지수 및 리모델링 사례 단가",
+			"LED/HVAC/BEMS 절감률 국내외 케이스 평균",
+			"태양광(PV) CAPEX/LCOE 최근 입찰가 사례(참고)"
+		],
+		"disclaimer": "가정값은 공개자료·업계 평균 기반의 추정치이며 실제 요금제·공사범위에 따라 달라질 수 있습니다.",
+		"units": {
+			"tariff": "KRW/kWh",
+			"capexPerM2": "KRW/m²",
+			"savingPct": "fraction(0~1)",
+			"EUI": "kWh/m²·y"
+		},
+		"formulas": {
+			"energySaving_kWh_per_year": "baseline_kWh * savingPct",
+			"costSaving_krw_per_year": "energySaving_kWh_per_year * tariff",
+			"capex_krw": "capexPerM2 * floorArea_m2",
+			"payback_years": "capex_krw / costSaving_krw_per_year",
+			"EUI_site_el": "baseline_kWh / floorArea_m2",
+			"EUI_primary": "EUI_site_el * pef.electricity",
+			"grade_rule_electricity": "EUI_site_el < T1 → 1등급, < T2 → 2등급, < T3 → 3등급, 그 외 4등급+",
+			"grade_rule_primary": "primaryGradeBands의 [min,max) 구간 매칭"
+		},
+		"defaults": {
+			"electricityEscalationPctPerYear": 0.03,
+			"discountRate": 0.05,
+			"maintenanceOpexAsPctOfCapex": 0.01,
+			"pvDegradationPctPerYear": 0.007
+		}
+	},
+
+	"euiRules": {
+		"mode": "electricity",
+		"electricityGradeThresholds": { "1": 120, "2": 140, "3": 180 },
+		"pef": { "electricity": 2.7 },
+		"primaryGradeBands": [
+			{ "min": 0,   "max": 80,  "grade": "1+++", "label": "최우수" },
+			{ "min": 80,  "max": 140, "grade": "1++",  "label": "최우수" },
+			{ "min": 140, "max": 200, "grade": "1+",   "label": "최우수" },
+			{ "min": 200, "max": 260, "grade": "1",    "label": "우수" },
+			{ "min": 260, "max": 320, "grade": "2",    "label": "우수" },
+			{ "min": 320, "max": 380, "grade": "3",    "label": "양호" },
+			{ "min": 380, "max": 450, "grade": "4",    "label": "양호" },
+			{ "min": 450, "max": 520, "grade": "5",    "label": "일반" },
+			{ "min": 520, "max": 610, "grade": "6",    "label": "일반" },
+			{ "min": 610, "max": 700, "grade": "7",    "label": "일반" }
+		]
+	},
+
+	"kpiDisplay": {
+		"targetPolicy": {
+			"upgradeOneStep": true,
+			"usePrimaryBoundaryMax": true,
+			"labelElectricity": "전력 사용 기준 EUI",
+			"labelPrimary": "1차에너지 기준(전력 계수 적용)"
+		},
+		"footnote": "등급 판정은 설정된 모드에 따르며(전력/1차), 타 연료가 있을 경우 실제 인증과 차이가 날 수 있습니다."
+	},
+
+	"types": {
+		"factory": {
+			"label": "공장(제조)",
+			"base": { "tariff": 140, "capexPerM2": 80000, "savingPct": 0.14 },
+			"_notes": "산업용 평균단가 보수적 추정, 조명/제어+공조최적화 중심 CAPEX, 절감률은 설비다양성 고려"
+		},
+		"school": {
+			"label": "학교",
+			"base": { "tariff": 130, "capexPerM2": 70000, "savingPct": 0.12 },
+			"_notes": "조명/제어 비중 큼, 공조는 가동시간 제한적 → CAPEX/절감률 중간"
+		},
+		"hospital": {
+			"label": "병원",
+			"base": { "tariff": 155, "capexPerM2": 120000, "savingPct": 0.15 },
+			"_notes": "24/7 운영·의료설비 부하, 공조 비중 大 → 단가/절감률/투자비 모두 높게"
+		},
+		"office": {
+			"label": "회사/오피스",
+			"base": { "tariff": 145, "capexPerM2": 90000, "savingPct": 0.13 },
+			"_notes": "업무시간 위주, 조명/공조 균형형"
+		}
+	}
+}
