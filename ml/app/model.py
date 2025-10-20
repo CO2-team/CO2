@@ -1,284 +1,262 @@
 # ============================================================
-# SaveGreen / 모델 래퍼(더미 → 실전 교체 지점)
+# SaveGreen / app/model.py — 예측 매니저(A/B/C) with auto-ensemble weights
 # ------------------------------------------------------------
-# [이 파일의 목적]
-# 	- FastAPI 엔드포인트(app.main)와 분리된 "예측 로직"의 단일 진입점.
-# 	- 서버 기동 시 학습 모델 아티팩트(data/model.pkl)가 있으면 로드해서 사용하고,
-# 	  없으면 규칙/휴리스틱 기반의 더미(DUMMY) 로직으로 안전하게 동작한다.
-# 	- train.py가 모델을 학습해 pkl을 갱신하면, 서버 재시작만으로 실전에 반영 가능.
+# [역할]
+# - ./data 의 model_A.pkl, model_B.pkl, manifest.json 을 로드해서 /predict 응답.
+# - C(앙상블)의 가중치:
+#   1) manifest.ensemble.suggested_by_inverse_mae.{wA,wB}  ← 매 학습마다 자동 갱신
+#   2) manifest.ensemble.{wA,wB}
+#   3) 폴백 0.5 / 0.5
+# - 가중치는 항상 합=1.0으로 정규화.
 #
-# [핵심 인터페이스]
-# 	- predict(req_dict: dict) -> dict
-# 		입력: 스프링에서 표준화된 JSON(dict)
-# 		출력: savingKwhYr, savingCostYr, savingPct(%), paybackYears, label
-#
-# [현재 버전의 주요 정책/가정]
-# 	- 타입별 정책(type_policy):
-# 		* 전력단가(tariff, KRW/kWh)
-# 		* CAPEX = capex_fixed + capex_per_m2 * max(0, floorArea - capex_free_area)
-# 		* 기본 절감률(base_saving_pct, 0~1)
-# 	- 절감률 보정:
-# 		* 연식(builtYear) 보정: 오래될수록 절감 ↑, 최신일수록 약간 ↓
-# 		* 부하율(load factor) 보정: 낮으면 약간 ↑, 매우 높으면 약간 ↓
-# 		* (필요 시) EUI 보정은 추후 추가 가능
-# 	- 라벨 기준:
-# 		* RECOMMEND: savingPct ≥ 15% AND paybackYears ≤ 5년
-# 		* CONDITIONAL: paybackYears ≤ 8년
-# 		* 그 외 NOT_RECOMMEND
-#
-# [변경 내역(중요)]
-# 	- 타입 정책값 업데이트(전력단가/고정비/무상구간/㎡당 CAPEX/기본 절감률).
-# 	- CAPEX 계산식을 "고정비 + 무상구간 + 초과면적 비례"로 교체.
-# 	- 알 수 없는 type의 폴백을 'office'로 변경(데모 스코프: 4종 고정).
+# [폴더 정책]
+# - 표준 저장소는 프로젝트 루트의 "./data".
+# - 과거 혼선을 막기 위해 "./app/data"가 보이면 경고 로그만 찍고 필요 시 참조.
+#   (권장: app/data는 삭제하고 ./data로 통일)
 # ============================================================
 
-from typing import Dict, Any, Optional
-from pathlib import Path
-import pandas as pd
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
 
 try:
-	from joblib import load as joblib_load  # scikit-learn 계열 모델 로딩(선택)
+	import joblib
+	_LOAD = joblib.load
 except Exception:
-	joblib_load = None  # 패키지 미설치 시 더미로 안전 처리
+	import pickle
+	_LOAD = lambda path: pickle.load(open(path, "rb"))  # noqa: E731
 
-from .utils import monthly_features, yearly_total_kwh
+# ---------------------------- 경로 설정 ----------------------------
 
+# 표준 데이터 디렉터리(1순위)
+DATA_PRIMARY = "./data"
+
+# 하위호환(가능하면 삭제 권장): app/data 가 남아있을 때만 보조로 조회
+DATA_DEPRECATED = "./app/data"
+
+MODEL_A = "model_A.pkl"
+MODEL_B = "model_B.pkl"
+MODEL_SINGLE = "model.pkl"
+MANIFEST = "manifest.json"
+
+
+def _first_existing_path(*candidates: str) -> Optional[str]:
+	"""여러 경로 후보 중 가장 먼저 존재하는 파일 경로 반환."""
+	for p in candidates:
+		if p and os.path.isfile(p):
+			return p
+	return None
+
+
+def _resolve(pathname: str) -> Optional[str]:
+	"""
+	동일 파일명을 표준 위치(./data)에서 먼저 찾고,
+	없을 경우에만 (비권장) ./app/data 에서 찾는다.
+	"""
+	p1 = os.path.join(DATA_PRIMARY, pathname)
+	p2 = os.path.join(DATA_DEPRECATED, pathname)
+	found = _first_existing_path(p1, p2)
+	if found and found.startswith(DATA_DEPRECATED):
+		print(f"[ML][WARN] using deprecated path: {found}  (please move files to {DATA_PRIMARY})")
+	return found
+
+
+# ---------------------------- 데이터 구조 ----------------------------
+
+@dataclass
+class Loaded:
+	path: str
+	pipe: Any
+
+
+# ---------------------------- ModelManager ----------------------------
 
 class ModelManager:
-	def __init__(self):
-		# -------------------------------------------------------
-		# [정책] 타입별 기본 가정값
-		#  - tariff(KRW/kWh): 전력단가
-		#  - capex_fixed(KRW): 기본 고정 투자(설계/계측/기준 장비 등)
-		#  - capex_free_area(㎡): 이 면적까지는 고정비로 커버(무상구간)
-		#  - capex_per_m2(KRW/㎡): 무상구간 초과면적에만 비례 비용 적용
-		#  - base_saving_pct(0~1): 타입별 기본 절감률
-		# -------------------------------------------------------
-		self.type_policy = {
-			"factory":  {"tariff": 140, "capex_fixed": 30_000_000, "capex_free_area": 500, "capex_per_m2": 220_000, "base_saving_pct": 0.18},
-			"school":   {"tariff": 130, "capex_fixed": 25_000_000, "capex_free_area": 400, "capex_per_m2": 180_000, "base_saving_pct": 0.16},
-			"hospital": {"tariff": 170, "capex_fixed": 40_000_000, "capex_free_area": 300, "capex_per_m2": 260_000, "base_saving_pct": 0.17},
-			"office":   {"tariff": 150, "capex_fixed": 20_000_000, "capex_free_area": 300, "capex_per_m2": 200_000, "base_saving_pct": 0.15},
+	def __init__(self) -> None:
+		self.A: Optional[Loaded] = None
+		self.B: Optional[Loaded] = None
+		self.S: Optional[Loaded] = None  # single
+		self.manifest: Optional[dict] = None
+		self.manifest_path: Optional[str] = None
+		self._load_all()
+
+	def _load_all(self) -> None:
+		# manifest
+		mf = _resolve(MANIFEST)
+		if mf:
+			self.manifest_path = mf
+			try:
+				with open(mf, "r", encoding="utf-8") as f:
+					self.manifest = json.load(f)
+			except Exception as e:
+				print(f"[ML][WARN] failed to load manifest: {e!r}")
+
+		# models A/B/SINGLE
+		a = _resolve(MODEL_A)
+		b = _resolve(MODEL_B)
+		s = _resolve(MODEL_SINGLE)
+
+		if a:
+			try:
+				self.A = Loaded(a, _LOAD(a))
+			except Exception as e:
+				print(f"[ML][WARN] failed to load A: {a} err={e!r}")
+		if b:
+			try:
+				self.B = Loaded(b, _LOAD(b))
+			except Exception as e:
+				print(f"[ML][WARN] failed to load B: {b} err={e!r}")
+		if s:
+			try:
+				self.S = Loaded(s, _LOAD(s))
+			except Exception as e:
+				print(f"[ML][WARN] failed to load SINGLE: {s} err={e!r}")
+
+		if self.A or self.B:
+			print(f"[ML] model loaded: A={'ok' if self.A else '-'} B={'ok' if self.B else '-'} manifest={self.manifest_path or '-'}")
+		elif self.S:
+			print(f"[ML] model loaded: SINGLE={self.S.path}")
+		else:
+			print("[ML][WARN] no model files found → rule-based fallback")
+
+	def status(self) -> dict:
+		return {
+			"has_A": bool(self.A),
+			"has_B": bool(self.B),
+			"SINGLE": self.S.path if self.S else None,
+			"manifest": self.manifest_path,
+			"ensemble_weights_effective": self._ensemble_weights()
 		}
 
-		# 라벨 기준(권고/조건부/비권고)
-		self.recommend_pct_threshold = 0.15
-		self.recommend_payback_years = 5.0
-		self.conditional_payback_years = 8.0
+	# ---------------------- public inference ----------------------
 
-		# (선택) 학습 모델/전처리 로드
-		self.model: Optional[Any] = None
-		self.preprocess: Optional[Any] = None
-		self.model_path = Path(__file__).resolve().parent.parent / "data" / "model.pkl"
-		self.preprocess_path = Path(__file__).resolve().parent.parent / "data" / "preprocess.pkl"
-		self._try_load_artifacts()
+	def predict_variant(self, payload: Dict[str, Any], variant: str = "C") -> Dict[str, Any]:
+		pct = self._predict_pct(payload, variant=(variant or "C").upper())
+		return self._finalize(payload, pct, variant)
 
-	def status(self) -> str:
-		"""헬스체크/로그용 상태 문자열."""
-		return "loaded" if self.model is not None else "dummy"
+	def predict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+		# backward-compat: C로 동작
+		return self.predict_variant(payload, "C")
 
-	def _try_load_artifacts(self):
-		"""
-		data/model.pkl, preprocess.pkl을 가능하면 로드한다.
-		- joblib 미설치/모델 미존재 시 더미 모드로 안전하게 동작.
-		"""
-		if joblib_load is None:
-			return
+	# ---------------------- core logic ----------------------
+
+	def _predict_pct(self, payload: Dict[str, Any], variant: str) -> float:
+		# A/B 단일
+		if variant == "A" and self.A:
+			return self._predict_with(self.A, payload)
+		if variant == "B" and self.B:
+			return self._predict_with(self.B, payload)
+
+		# 앙상블(C) 또는 단일 폴백
+		a = self._predict_with(self.A, payload) if self.A else None
+		b = self._predict_with(self.B, payload) if self.B else None
+
+		# 단일만 있을 때
+		if a is None and b is None and self.S:
+			return self._predict_with(self.S, payload)
+
+		# 둘 중 하나만 있을 때
+		if a is None and b is not None:
+			return b
+		if b is None and a is not None:
+			return a
+
+		# 둘 다 있을 때 → 가중 평균
+		wA, wB = self._ensemble_weights()
+		return wA * a + wB * b  # type: ignore
+
+	def _predict_with(self, loaded: Optional[Loaded], payload: Dict[str, Any]) -> float:
+		if not loaded:
+			return 0.0
+		row = self._to_row(payload)
 		try:
-			if self.model_path.exists():
-				self.model = joblib_load(self.model_path)
-			if self.preprocess_path.exists():
-				self.preprocess = joblib_load(self.preprocess_path)
-			if self.model is not None:
-				print(f"[ML] model loaded: {self.model_path.name}")
-			else:
-				print("[ML] model not found. Running in DUMMY mode.")
+			y = loaded.pipe.predict([row])
+			val = float(y[0] if isinstance(y, (list, tuple)) else y)
 		except Exception as e:
-			print(f"[ML] model load failed → DUMMY mode. reason={e}")
-			self.model = None
-			self.preprocess = None
+			print(f"[ML][WARN] predict failed via {loaded.path}: {e!r}")
+			return 0.0
+		return max(0.0, min(val, 100.0))
 
-	def _pick_policy(self, typ: str) -> Dict[str, float]:
+	def _to_row(self, js: Dict[str, Any]) -> list:
+		# 학습 파이프라인의 피처 순서와 맞춰야 함.
+		def f(v, d=0.0):
+			try:
+				return float(v)
+			except Exception:
+				return float(d)
+
+		typ = (js.get("type") or "office").strip().lower()
+		t_factory = 1.0 if "factory" in typ else 0.0
+		t_hospital = 1.0 if "hospital" in typ else 0.0
+		t_school = 1.0 if "school" in typ else 0.0
+		t_office = 1.0 if "office" in typ else 0.0
+
+		return [
+			f(js.get("floorAreaM2")),   # NUM
+			f(js.get("energy_kwh")),
+			f(js.get("eui_kwh_m2y")),
+			f(js.get("builtYear")),
+			t_factory, t_hospital, t_school, t_office  # CAT (간단 원핫)
+		]
+
+	# ---------------------- ensemble weights ----------------------
+
+	def _ensemble_weights(self) -> Tuple[float, float]:
 		"""
-		입력 type 문자열을 바탕으로 정책 딕셔너리를 선택한다.
-		- 데모 스코프는 4종(type ∈ {factory, school, hospital, office})이므로
-		  알 수 없는 값은 'office'로 폴백한다.
+		가중치 우선순위:
+		 1) manifest.ensemble.suggested_by_inverse_mae.{wA,wB}
+		 2) manifest.ensemble.{wA,wB}
+		 3) (0.5, 0.5)
+		반드시 합=1.0로 정규화해서 반환.
 		"""
-		return self.type_policy.get((typ or "office").lower(), self.type_policy["office"])
+		wA, wB = 0.5, 0.5
+		if isinstance(self.manifest, dict):
+			ens = self.manifest.get("ensemble") or {}
+			sugg = ens.get("suggested_by_inverse_mae") or {}
+			sA, sB = sugg.get("wA"), sugg.get("wB")
+			if isinstance(sA, (int, float)) and isinstance(sB, (int, float)):
+				wA, wB = float(sA), float(sB)
+			else:
+				mA, mB = ens.get("wA"), ens.get("wB")
+				if isinstance(mA, (int, float)) and isinstance(mB, (int, float)):
+					wA, wB = float(mA), float(mB)
 
-	def _adjust_saving_pct(self, base_pct: float, built_year: Optional[int]) -> float:
-		"""
-		절감률 연식 보정:
-		- 오래될수록 개선 여지↑ → 약간 상향(최대 +0.03)
-		- 최근 건물은 기본적으로 효율이 좋아 약간 하향(-0.01)
-		- 하한은 5%로 클램프
-		"""
-		if not built_year:
-			return base_pct
-		if built_year < 2000:
-            # 2000년 이전: 노후 → 개선 여지 큼
-			base_pct += 0.03
-		elif built_year <= 2010:
-			base_pct += 0.02
-		elif built_year <= 2018:
-			base_pct += 0.01
-		else:
-			base_pct -= 0.01
-		return max(0.05, base_pct)
+		total = (wA or 0.0) + (wB or 0.0)
+		if total <= 0:
+			return 0.5, 0.5
+		return wA / total, wB / total
 
-	def _calc_label(self, saving_pct: float, payback_years: float) -> str:
-		"""
-		라벨 판정:
-		- RECOMMEND: 절감률 충분(≥15%) + 회수기간 짧음(≤5년)
-		- CONDITIONAL: 회수기간이 8년 이내 (절감률 요건 미달이어도 조건부)
-		- NOT_RECOMMEND: 그 외
-		"""
-		if saving_pct >= self.recommend_pct_threshold and payback_years <= self.recommend_payback_years:
-			return "RECOMMEND"
-		if payback_years <= self.conditional_payback_years:
-			return "CONDITIONAL"
-		return "NOT_RECOMMEND"
+	# ---------------------- 결과 마무리 ----------------------
 
-	def _predict_dummy(self, req: Dict[str, Any]) -> Dict[str, Any]:
-		"""
-		룰 기반(더미) 예측 로직.
-		- 입력: 스프링 표준화된 dict (type/region/builtYear/floorAreaM2/…)
-		- 처리:
-			1) 타입별 정책 조회
-			2) 월/연 시계열에서 보조 특징(부하율 등) 추출
-			3) 절감률 보정(연식, 부하율)
-			4) 기준 사용량 산정(연시계열 평균 또는 월평균×12)
-			5) CAPEX 계산(고정비 + 무상구간 + 초과면적 비례)
-			6) 절감량/비용/회수기간/라벨 계산
-		- 출력: KPI 딕셔너리
-		"""
-		typ = (req.get("type") or "office").lower()
-		policy = self._pick_policy(typ)
-		floor = float(req.get("floorAreaM2") or 0.0)
-		built_year = req.get("builtYear")
+	def _finalize(self, payload: Dict[str, Any], saving_pct: float, variant: str) -> Dict[str, Any]:
+		# 간단 KPI 계산(데모): 실제 운영은 정책 모듈로 분리 권장
+		def f(v, d=0.0):
+			try:
+				return float(v)
+			except Exception:
+				return float(d)
 
-		# 1) 월/연 특성
-		m_feats = monthly_features(req.get("monthlyConsumption"))
-		n_years, yearly_sum = yearly_total_kwh(req.get("yearlyConsumption"))
+		energy = f(payload.get("energy_kwh"))
+		floor = f(payload.get("floorAreaM2"))
 
-		# 2) 절감률(기본 + 연식 보정)
-		saving_pct = self._adjust_saving_pct(policy["base_saving_pct"], built_year)
+		# 임시 단가/투자(서버 정책으로 대체 가능)
+		COST_PER_KWH = 130.0
+		CAPEX_PER_SQM = 200_000.0
 
-		# 3) 부하율 보정: 평균/피크 비율이 낮으면 개선 여지↑ (소폭 +), 매우 높으면 개선 여지↓ (소폭 -)
-		lf = m_feats.get("load_factor", 0.0)
-		if lf > 0:
-			if lf < 0.5:
-				saving_pct += 0.01
-			elif lf >= 0.8:
-				saving_pct -= 0.01
-		# 안전 범위로 클램프(5~30%)
-		saving_pct = max(0.05, min(saving_pct, 0.30))
+		saving_kwh = energy * (saving_pct / 100.0)
+		saving_cost = saving_kwh * COST_PER_KWH
+		capex = floor * CAPEX_PER_SQM
+		payback = (capex / saving_cost) if saving_cost > 0 else 99.0
 
-		# 4) 기준 사용량: 연시계열 평균(데이터 없으면 월평균×12 폴백)
-		baseline_kwh = (yearly_sum / n_years) if n_years > 0 else m_feats.get("avg_kwh", 0.0) * 12.0
-
-		# 5) CAPEX 계산식 (중요 변경)
-		# 	- 고정비(capex_fixed) + 초과면적 비례(capex_per_m2 × max(0, 면적 - capex_free_area))
-		eff_area = max(0.0, floor - policy["capex_free_area"])
-		if floor > 0:
-			capex = policy["capex_fixed"] + policy["capex_per_m2"] * eff_area
-		else:
-			# 면적 정보가 없으면 보수적으로 500㎡ 기준을 적용(무상구간 반영)
-			capex = policy["capex_fixed"] + policy["capex_per_m2"] * max(0.0, 500.0 - policy["capex_free_area"])
-
-		# 6) KPI 산출
-		saving_kwh_yr = baseline_kwh * saving_pct
-		saving_cost_yr = saving_kwh_yr * policy["tariff"]
-		payback_years = (capex / saving_cost_yr) if saving_cost_yr > 0 else 99.0
-		label = self._calc_label(saving_pct, payback_years)
+		label = "RECOMMEND" if (saving_pct >= 15.0 and payback <= 5.0) else ("CONDITIONAL" if payback <= 8.0 else "NOT_RECOMMEND")
 
 		return {
-			"savingKwhYr": float(round(saving_kwh_yr, 2)),
-			"savingCostYr": float(round(saving_cost_yr, 2)),
-			"savingPct": float(round(saving_pct * 100.0, 2)),  # % 단위로 반환
-			"paybackYears": float(round(payback_years, 2)),
+			"savingKwhYr": round(saving_kwh, 4),
+			"savingCostYr": round(saving_cost, 2),
+			"savingPct": round(saving_pct, 4),
+			"paybackYears": round(payback, 3),
 			"label": label
 		}
-
-	def _featurize(self, req: Dict[str, Any]) -> Dict[str, float]:
-		"""
-		학습과 동일한 피처셋을 생성한다.
-		- train.py와 동일: type(원핫은 파이프라인에서), builtYear, floorAreaM2, energy_kwh, eui_kwh_m2y
-		- energy_kwh/eui는 요청에 명시가 없으면 월/연 시계열에서 근사 산출
-		"""
-		typ = (req.get("type") or "office").lower()
-		floor = float(req.get("floorAreaM2") or 0.0)
-
-		m_feats = monthly_features(req.get("monthlyConsumption"))
-		n_years, yearly_sum = yearly_total_kwh(req.get("yearlyConsumption"))
-
-		# 연간 사용량 근사
-		if n_years > 0:
-			energy_kwh = yearly_sum / n_years
-		else:
-			energy_kwh = m_feats.get("avg_kwh", 0.0) * 12.0
-
-		# EUI
-		eui = (energy_kwh / floor) if floor > 0 else 0.0
-
-		return {
-			"type": typ,
-			"builtYear": int(req.get("builtYear") or 2010),
-			"floorAreaM2": float(floor or 0.0),
-			"energy_kwh": float(energy_kwh or 0.0),
-			"eui_kwh_m2y": float(eui or 0.0),
-		}
-
-	def predict(self, req_dict: Dict[str, Any]) -> Dict[str, Any]:
-		"""
-		핵심 예측 함수.
-		- 학습 모델이 있으면 그걸 사용(전처리 포함), 없으면 _predict_dummy로 대체.
-		- 학습 모델 사용 시: train.py와 동일한 전처리/피처링을 반드시 재현해야 한다.
-		"""
-		if self.model is None:
-			return self._predict_dummy(req_dict)
-
-		# ==== 학습 모델 경로 ====
-		try:
-			# 1) 피처 생성
-			feat = self._featurize(req_dict)
-			dfX = pd.DataFrame([feat])  # 모델이 pandas 입력을 받아도 되도록
-
-			# 2) 절감률 예측(0~1 범위로 클램프)
-			pred_pct = float(self.model.predict(dfX)[0])
-			pred_pct = max(0.05, min(pred_pct, 0.30))
-
-			# 3) 아래는 기존 정책 계산 재사용
-			typ = feat["type"]
-			policy = self._pick_policy(typ)
-			floor = feat["floorAreaM2"]
-
-			# 기준 사용량
-			baseline_kwh = feat["energy_kwh"]
-
-			# CAPEX (고정비 + 무상구간 + 초과면적 비례)
-			eff_area = max(0.0, floor - policy["capex_free_area"])
-			if floor > 0:
-				capex = policy["capex_fixed"] + policy["capex_per_m2"] * eff_area
-			else:
-				capex = policy["capex_fixed"] + policy["capex_per_m2"] * max(0.0, 500.0 - policy["capex_free_area"])
-
-			# KPI
-			saving_kwh_yr = baseline_kwh * pred_pct
-			saving_cost_yr = saving_kwh_yr * policy["tariff"]
-			payback_years = (capex / saving_cost_yr) if saving_cost_yr > 0 else 99.0
-			label = self._calc_label(pred_pct, payback_years)
-
-			return {
-				"savingKwhYr": float(round(saving_kwh_yr, 2)),
-				"savingCostYr": float(round(saving_cost_yr, 2)),
-				"savingPct": float(round(pred_pct * 100.0, 2)),
-				"paybackYears": float(round(payback_years, 2)),
-				"label": label
-			}
-		except Exception as e:
-			print(f"[ML] predict via model failed → fallback dummy. reason={e}")
-			return self._predict_dummy(req_dict)
-
-
-

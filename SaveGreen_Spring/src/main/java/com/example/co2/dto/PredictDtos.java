@@ -1,67 +1,61 @@
 // src/main/java/com/example/co2/dto/PredictDtos.java
 // ============================================================================
-// SaveGreen / 예측 DTO 묶음  (데모 스코프: 4종 type, region=daejeon 고정)
+// SaveGreen / PredictDtos
 // ----------------------------------------------------------------------------
-// [클래스]
-// - MonthPoint: 월별 전력(kWh)
-// - YearPoint : 연별 전력(kWh)
-// - ForecastRawRequest: FE 원시 입력(raw) — 컨트롤러에서 표준화.
-// - PredictRequest:     FastAPI로 넘기는 표준화 후 입력.
-// - PredictResponse:    FastAPI 결과(차트/KPI 바인딩용).
-//
-// [스코프 합의]
-// - type: factory | hospital | school | office (4개 고정)
-// - region: daejeon (고정; normalizer에서 강제 설정)
+// [역할]
+// - FastAPI /predict 입력/출력 DTO 정의.
+// - 스키마는 FastAPI(schema.py)의 PredictRequest/Response와 필드명을 일치시킨다.
+// ----------------------------------------------------------------------------
+// [주의]
+// - 키 이름(energy_kwh, eui_kwh_m2y 등)은 파이썬 단과 동일해야 직렬화가 정확히 맞음.
+// - null 허용 필드는 NPE 방지를 위해 박싱 타입(Double/Integer) 사용.
 // ============================================================================
 
 package com.example.co2.dto;
 
-import lombok.*;
-import java.util.List;
+import lombok.Data;
 
+@Data
 public class PredictDtos {
 
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor
-    public static class MonthPoint {
-        private int month;            // 1~12
-        private double electricity;   // kWh
-    }
+	// ---------- 요청 DTO ----------
+	@Data
+	public static class PredictRequest {
+		// 타입(예: factory/hospital/school/office) — 정규화 유틸로 정리
+		private String type;
 
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor
-    public static class YearPoint {
-        private int year;             // 예: 2018
-        private double electricity;   // kWh
-    }
+		// 지역(데모: 'daejeon' 고정). 추후 확장 시 정규화
+		private String region;
 
-    // FE → 서버: 원시(raw)
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-    public static class ForecastRawRequest {
-        private String typeRaw;                       // "공장/병원/학교/사무…" 등 자유 텍스트
-        private String regionRaw;                     // 어떤 값이 와도 demo에선 무시됨
-        private Integer builtYear;
-        private Double floorAreaM2;
-        private List<MonthPoint> monthlyConsumption;
-        private List<YearPoint>  yearlyConsumption;
-    }
+		// 연간 전력 사용량(kWh/년)
+		private Double energy_kwh;
 
-    // 서버 → FastAPI: 표준화 후(4종 type + region=daejeon)
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-    public static class PredictRequest {
-        private String type;                          // factory | hospital | school | office
-        private String region;                        // "daejeon" 고정
-        private Integer builtYear;
-        private Double floorAreaM2;
-        private List<MonthPoint> monthlyConsumption;
-        private List<YearPoint>  yearlyConsumption;
-    }
+		// 전력 EUI(kWh/㎡·년)
+		private Double eui_kwh_m2y;
 
-    // FastAPI → 서버/FE: 결과
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-    public static class PredictResponse {
-        private double savingKwhYr;
-        private double savingCostYr;
-        private double savingPct;
-        private double paybackYears;
-        private String label;          // RECOMMEND | CONDITIONAL | NOT_RECOMMEND
-    }
+		// 준공연도
+		private Integer builtYear;
+
+		// 연면적(㎡)
+		private Double floorAreaM2;
+	}
+
+	// ---------- 응답 DTO ----------
+	@Data
+	public static class PredictResponse {
+		// 절감량(kWh/년)
+		private Double savingKwhYr;
+
+		// 비용 절감(원/년)
+		private Double savingCostYr;
+
+		// 절감률(%)
+		private Double savingPct;
+
+		// 투자 회수기간(년)
+		private Double paybackYears;
+
+		// 레이블(RECOMMEND/CONDITIONAL/NOT_RECOMMEND)
+		private String label;
+	}
 }
