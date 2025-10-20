@@ -266,11 +266,13 @@
 			return __daeConfigCache;
 		}
 
-		function getBaseAssumptions(dae, type) {
-			if (!dae || !type) return null;
-			const t = String(type).toLowerCase();
-			return dae?.base?.[t] || null;
-		}
+        // [수정] dae.types[t].base 우선 → 호환(dae.base[t]) 폴백
+        function getBaseAssumptions(dae, type) {
+            if (!dae || !type) return null;
+            const t = String(type).toLowerCase();
+            // 새 스키마(types.*.base) 우선, 구스키마(base.*) 폴백
+            return (dae?.types?.[t]?.base) || (dae?.base?.[t]) || null;
+        }
 
         /**
          * EUI/등급 규칙 가져오기
@@ -567,6 +569,84 @@
 			lon:        isFiniteNum(v.lon) ? Number(v.lon) : undefined
 		};
 	}
+
+    // forecast.providers.js
+    // -------------------------------------------------------
+    // ml_dataset.json 기반 카달로그 선택 → ML에 필요한 필드 정규화
+    // -------------------------------------------------------
+
+    // === ml_dataset.json 1건을 컨텍스트에 주입 ===
+    (function () {
+    	// 한글 용도 → ML 타입 4종 매핑
+    	function mapMlType(name = '') {
+    		const s = String(name).trim();
+    		if (s.includes('공장') || s.includes('제조')) return 'factory';
+    		if (s.includes('창고')) return 'warehouse';
+    		if (s.includes('사무') || s.includes('오피스')) return 'office';
+    		if (s.includes('병원') || s.includes('의료')) return 'hospital';
+    		if (s.includes('학교') || s.includes('교육')) return 'school';
+    		return 'factory';
+    	}
+
+    	// "대전광역시 대덕구 ... " → "대전 대덕구"
+    	function toRegionRaw(address) {
+    		if (!address) return '대전';
+    		const parts = String(address).trim().split(/\s+/);
+    		const city = (parts[0] || '').replace('광역시','').replace('특별시','');
+    		return [city || '대전', parts[1] || ''].filter(Boolean).join(' ');
+    	}
+
+    	// 핵심: 카달로그 값 → ctx 주입
+    	function applyCatalogToContext(item, ctx) {
+    		if (!item || !ctx) return ctx;
+
+    		// 화면 라벨/주소
+    		ctx.buildingName = item.buildingName || ctx.buildingName || '';
+    		ctx.roadAddr     = item.address     || ctx.roadAddr     || '';
+    		ctx.jibunAddr    = ctx.jibunAddr || '';
+    		ctx.pnu          = item.pnu || ctx.pnu;
+
+    		// ML 필드
+    		const area = Number(item.floorAreaM2);
+    		if (Number.isFinite(area) && area > 0) ctx.floorAreaM2 = area;
+
+    		const by = Number(item.usageYear);
+    		if (Number.isFinite(by) && by > 0) ctx.builtYear = by;
+
+    		ctx.yearlyConsumption  = Array.isArray(item.yearlyConsumption)  ? item.yearlyConsumption  : (ctx.yearlyConsumption  || []);
+    		ctx.monthlyConsumption = Array.isArray(item.monthlyConsumption) ? item.monthlyConsumption : (ctx.monthlyConsumption || []);
+
+    		// 타입(한글 라벨 + ML용)
+    		const useName = item.buildingType2 || item.buildingType1 || ctx.useName || '공장';
+    		ctx.useName    = useName;                 // 디버그/라벨용
+    		ctx.typeRaw    = useName;                 // 서버에 라벨도 전달
+    		ctx.mappedType = mapMlType(useName);      // ML용
+
+    		// 지역
+    		ctx.regionRaw  = toRegionRaw(item.address || ctx.address);
+
+    		// 면적 우선순위: floorAreaM2 → floorArea → area
+            const areaFromRec = Number(rec?.floorAreaM2 ?? rec?.floorArea ?? rec?.area);
+            if (!Number.isFinite(Number(ctx.floorAreaM2)) && Number.isFinite(areaFromRec) && areaFromRec > 0) {
+            	ctx.floorAreaM2 = areaFromRec;
+            }
+
+
+    		// 보관(툴팁/라벨 용)
+    		ctx.catalogItem = item;
+
+    		return ctx;
+    	}
+
+    	// 전역 네임스페이스로 공개 (모듈이 아닌 스크립트 환경)
+    	window.SaveGreen = window.SaveGreen || {};
+    	window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
+    	window.SaveGreen.Forecast.providers = window.SaveGreen.Forecast.providers || {};
+    	window.SaveGreen.Forecast.providers.applyCatalogToContext = applyCatalogToContext;
+    })();
+
+
+
 
 	/* ---- 미세 유틸 ---- */
 

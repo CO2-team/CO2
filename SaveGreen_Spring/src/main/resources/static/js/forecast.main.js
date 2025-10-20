@@ -26,6 +26,12 @@ window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
 // JS 켜짐 표시(헤더 스페이서 CSS 토글용)
 document.documentElement.classList.add('js');
 
+// 버튼 락 전역 변수
+let __RUN_LOCK__ = false;
+
+// 헤더 기본 높이(최소값) 캐시
+let __HEADER_BASE_MIN__ = null;
+
 /* =========================================================
  * SaveGreen Logger (lightweight)
  * - window.SaveGreen.log 로 노출
@@ -136,7 +142,7 @@ document.documentElement.classList.add('js');
 	// [수정] ...rest 스프레드로 구조 페이로드를 정상 출력
 	function debug(){ const [tag,msg,...rest]=arguments; if(_ok('debug',tag)) console.debug(`%c[${_stamp()}][${tag}]%c ${msg}`, _sty(tag), 'color:inherit', ...rest); }
 	function info (){ const [tag,msg,...rest]=arguments; if(_ok('info' ,tag)) console.info (`%c[${_stamp()}][${tag}]%c ${msg}`, _sty(tag), 'color:inherit', ...rest); }
-	function warn (){ const [tag,msg,...rest]=arguments; if(_ok('warn' ,tag)) console.warn (`%c[${_stamp()}][${tag}]%c ${msg}`, _sty(tag), 'color:inherit', ...rest); }
+	function warn (){ const [tag,msg,...rest]=arguments; if(_ok('warn' ,tag)) console.warn(`%c[${_stamp()}][${tag}]%c ${msg}`, _sty(tag), 'color:inherit', ...rest);  }
 	function error(){ const [tag,msg,...rest]=arguments; if(_ok('error',tag)) console.error(`%c[${_stamp()}][${tag}]%c ${msg}`, _sty(tag), 'color:inherit', ...rest); }
 
 	// kv는 위에서 이미 정의돼 있음(멀티라인 키:값 블록 출력)
@@ -197,12 +203,21 @@ function applyHeaderOffset() {
 		return (isFixed || isStickyNow) ? Math.round(rect.height) : 0;
 	};
 
+    // baseH: menubar+navbar의 현재 표시 높이
 	const baseH = getBarH(menubar) + getBarH(navbar);
 
-	document.documentElement.style.setProperty('--header-height', baseH + 'px');
+	// [추가] 최초 값이거나 더 작은 값이 나오면 갱신 (증가분은 무시)
+    if (__HEADER_BASE_MIN__ == null || baseH < __HEADER_BASE_MIN__) {
+    	__HEADER_BASE_MIN__ = baseH;
+    }
 
-	const topPad = (baseH + extra) + 'px';
-	wrap.style.paddingTop = topPad;
+    // [수정] 실제로 쓰는 높이는 "기준 최소값"
+    const effH = __HEADER_BASE_MIN__ ?? baseH;
+
+    // CSS 변수/패딩에 effH 사용
+    document.documentElement.style.setProperty('--header-height', effH + 'px');
+    const topPad = (effH + extra) + 'px';
+    wrap.style.paddingTop = topPad;
 
 	// JS on이면 스페이서 숨김
 	if (document.documentElement.classList.contains('js') && spacer) {
@@ -392,35 +407,36 @@ function renderPreloadInfoAndRisks() {
 	}
 
     // ---------------------------------------------------------
-    // [추가] 필수 필드 미존재 시 경고 배지 + (추론) 라벨 보강
-    //  - useName 없으면: 타입 추론 후 "(추론) type"으로 우측 카드/칩에 표기
-    //  - floorArea/lat/lon 없으면: 좌측 카드 하단에 경고 배지 추가
+    // [수정] 필수 필드 미존재 시 라벨 보강 (조용히, 충분한 재료가 있을 때만)
+    //  - useName 비면: (buildingName 또는 주소가 있을 때만) 조용히 추론 → 칩 라벨 보강
+    //  - 여기서는 "경고 배지"를 만들지 않는다(로그도 찍지 않음)
     // ---------------------------------------------------------
-    // [보강] useName 비면 '(추론) type'만 표시 — 경고 배지는 완전 제거
     (function () {
-    	const root = document.getElementById('forecast-root');
-    	const ds = (root?.dataset) || {};
-    	const pick = (k) => (ds[k] || '').toString().trim();
+        const root = document.getElementById('forecast-root');
+        const ds = (root?.dataset) || {};
+        const pick = (k) => (ds[k] || '').toString().trim();
 
-    	if (!pick('use') && !pick('useName')) {
-    		try {
-    			const ctxLite = {
-    				useName: undefined,
-    				buildingName: pick('buildingName') || pick('bname'),
-    				roadAddr: pick('roadAddr'),
-    				jibunAddr: pick('jibunAddr')
-    			};
-    			const guessed = window.SaveGreen?.Forecast?.providers?.pickTypeFromContext?.(ctxLite);
-    			if (guessed) {
-    				const label = `(추론) ${guessed}`;
-    				const el = document.querySelector('#preload-building .kv [data-field="useName"]');
-    				if (el) el.textContent = label;
-    			}
-    		} catch {}
-    	}
+        const hasUse    = !!(pick('use') || pick('useName'));
+        const hasAnyRef = !!(pick('buildingName') || pick('roadAddr') || pick('jibunAddr'));
 
-    	// 기존 경고 배지 생성/삽입/제거 로직은 전부 삭제됨
+        if (!hasUse && hasAnyRef) {
+            try {
+                const ctxLite = {
+                    useName: undefined,
+                    buildingName: pick('buildingName') || pick('bname'),
+                    roadAddr: pick('roadAddr'),
+                    jibunAddr: pick('jibunAddr')
+                };
+                const fn = window.SaveGreen?.Forecast?.providers?.pickTypeFromContext;
+                const guessed = (typeof fn === 'function') ? fn(ctxLite, /*quiet=*/true) : null;
+                if (guessed) {
+                    const el = document.querySelector('#preload-building .kv [data-field="useName"]');
+                    if (el) el.textContent = `(추론) ${guessed}`;
+                }
+            } catch {/* 조용히 무시 */}
+        }
     })();
+
 }
 
 /** 가정 라인(1·2줄) 스타일링 보정 */
@@ -677,12 +693,20 @@ function wireStartButtonAndFallback() {
 	renderPreloadInfoAndRisks();
 
 	if (btn) {
-		// [수정] 클릭 시 runForecast() 실제 호출 누락 보강
-		btn.addEventListener('click', () => {
-			setPreloadState('running');
-			// [추가]
-			runForecast().catch(e => SaveGreen.log.error('forecast', 'run failed', e));
-		});
+        btn.onclick = async () => {
+            if (__RUN_LOCK__) return;
+            __RUN_LOCK__ = true;
+            btn.disabled = true;
+            try {
+                setPreloadState('running');
+                await runForecast();
+            } catch (e) {
+                SaveGreen.log.error('forecast', 'run failed', e);
+            } finally {
+                __RUN_LOCK__ = false;
+                btn.disabled = false;
+            }
+        };
 	} else {
 		setPreloadState('running');
 		// [수정] 버튼 없을 때 자동 실행에서도 runForecast() 누락 보강
@@ -853,7 +877,7 @@ SaveGreen.Catalog.report = async function (url = '/dummy/buildingenergydata.json
 		const rsp = await fetch(url, { cache: 'no-store' });
 		const rows = await rsp.json();
 		if (!Array.isArray(rows)) {
-			console.warn('[catalog] not an array');
+			SaveGreen.log.warn('[catalog] not an array');
 			return;
 		}
 		const bad = [];
@@ -879,7 +903,7 @@ SaveGreen.Catalog.report = async function (url = '/dummy/buildingenergydata.json
 			URL.revokeObjectURL(href);
 		}
 	} catch (e) {
-		console.warn('[catalog] report failed', e);
+		SaveGreen.log.warn('[catalog] report failed', e);
 	}
 };
 
@@ -1034,39 +1058,151 @@ async function applyCatalogHints(ctx) {
 
 /* ===== HOTFIX END ===== */
 
-// === ML 브리지 호출(POST /api/forecast/ml) ===
+
+// ───────────────────────────────────────────────────────────
+// ML 브리지 호출
+//  - 스프링 컨트롤러는 다음 3개 엔드포인트를 제공
+//    1) POST /api/forecast/ml/train           → 학습 시작(jobId)
+//    2) GET  /api/forecast/ml/train/status    → 학습 상태 조회
+//    3) POST /api/forecast/ml/predict         → 예측(variant=A|B|C)
+//  - 프론트는 예측만 필요하므로 /predict 로 POST 해야 함.
+//  - 예전 코드처럼 /api/forecast/ml 로 POST 하면 스프링에 매핑이 없어 405가 발생함.
+//    (이번 패치의 핵심이 바로 이 경로 수정)
+// ───────────────────────────────────────────────────────────
+const ML_ENDPOINT = '/api/forecast/ml';	// 백엔드(스프링)측 베이스 경로
+const ML_VARIANT  = 'C';					// 기본은 앙상블(C) 사용
+
+
+// === ML 브리지 호출(POST /api/forecast/ml/predict?variant=C) ===
 async function callMl(payload) {
-	const res = await fetch('/api/forecast/ml', {
+	/*
+		payload 구조(이미 buildMlPayload에서 맞춰줌)
+		{
+			typeRaw,				// 예: '사무동' (컨트롤러에서 ML 서버로 그대로 전달)
+			regionRaw,				// 예: '대전 서구'
+			builtYear,				// 숫자
+			floorAreaM2,			// 숫자
+			yearlyConsumption: [ { year, electricity } ],	// 옵션
+			monthlyConsumption: [ ... ]						// 옵션
+		}
+		스프링 → FastAPI로 그대로 프록시되며, FastAPI의 Pydantic 스키마와 일치
+	*/
+
+	// 1) 최종 요청 URL 조립 (variant=C 기본)
+	const url = `${ML_ENDPOINT}/predict?variant=${encodeURIComponent(ML_VARIANT)}`;
+
+	// 2) POST 호출
+	const res = await fetch(url, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
 		body: JSON.stringify(payload)
 	});
-	if (!res.ok) throw new Error('ML ' + res.status);
-	return res.json(); // { savingKwhYr, savingCostYr, savingPct, paybackYears, label }
+
+	// 3) 에러 처리(405 등) → 메시지에 상세 상태 포함
+	if (!res.ok) {
+		// 네트워크 탭/콘솔에서 원인 파악을 쉽게 하기 위해 상태코드/본문 일부를 붙여줌
+		let detail = '';
+		try { detail = await res.text(); } catch {}
+		throw new Error(`ML ${res.status} ${res.statusText} — ${detail?.slice(0, 200)}`);
+	}
+
+	// 4) 정상일 때 ML KPI JSON 반환
+	//    { savingKwhYr, savingCostYr, savingPct, paybackYears, label }
+	return res.json();
 }
 
-// === FE가 받은 data로 ML 페이로드 구성 ===
-function buildMlPayload(ctx, data) {
-	const fromYear = Number(ctx.from ?? new Date().getFullYear());
-	const floor = Number(ctx.floorAreaM2 ?? ctx.floorArea ?? 0);
 
-	// 현재 기준 사용량(kWh/yr) 추정: after[0] + saving[0]
-	let baselineKwh = 0;
+// === FE가 받은 data로 ML 페이로드 구성 (FastAPI 스키마 준수 버전) ===
+// FastAPI /predict 가 기대하는 키:
+//   type (string), region (string),
+//   builtYear (number), floorAreaM2 (number),
+//   energy_kwh (number)  또는  eui_kwh_m2y (number)  둘 중 하나(또는 둘 다)
+//   monthlyConsumption?, yearlyConsumption?  ← 있을 때만 포함
+// forecast.main.js
+
+
+// -------------------------------------------------------
+// FE → ML 요청 페이로드 생성 (ml_dataset.json 기반 ctx 사용)
+// -------------------------------------------------------
+// -------------------------------------------------------
+// FE → ML 요청 페이로드 생성 (ml_dataset.json 기반 ctx 사용)
+// -------------------------------------------------------
+// [수정] ML 페이로드 생성 — 면적 폴백/지역/에너지 힌트 포함
+function buildMlPayload(ctx, data) {
+	// 1) 타입 표준화
+	const core = new Set(['factory', 'school', 'hospital', 'office']);
+	let raw = (ctx?.mappedType ?? ctx?.type ?? 'office') + '';
+	raw = raw.toLowerCase().trim();
+	const type = core.has(raw) ? raw : 'office';
+
+	// 2) 면적(㎡) — floorAreaM2 → floorArea → area, 최종 폴백 1000
+	const areaNum = Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
+	const floorAreaM2 = (Number.isFinite(areaNum) && areaNum > 0) ? areaNum : 1000;
+
+	// 3) 사용연도 — 없으면 2000
+	const builtYearNum = Number(ctx?.builtYear);
+	const builtYear = Number.isFinite(builtYearNum) && builtYearNum > 0 ? builtYearNum : 2000;
+
+	// 4) 지역 문자열 정규화(광역시/특별시 표기 간소화)
+	const addrBase = (ctx?.roadAddr || ctx?.jibunAddr || ctx?.address || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+	let regionRaw = (ctx?.regionRaw || addrBase.split(/\s+/).slice(0, 2).join(' ') || '대전') + '';
+	regionRaw = regionRaw.replace('광역시', '').replace('특별시', '').trim();
+	const region = regionRaw; // 백엔드 호환 키
+
+	// 5) 연/월 사용량(있으면 전달)
+	let yearly = undefined, monthly = undefined;
+	try { yearly = Array.isArray(data?.series?.after) ? data.series.after.slice() : undefined; } catch {}
+	try { monthly = Array.isArray(data?.series?.monthly) ? data.series.monthly.slice() : undefined; } catch {}
+
+	// 6) 모델 힌트: 최근연 에너지(kWh)와 EUI(kWh/㎡·년)
+	let energy_kwh = undefined;
+	let eui_kwh_m2y = undefined;
 	try {
-		const a0 = Number(data?.series?.after?.[0] ?? 0);
-		const s0 = Number(data?.series?.saving?.[0] ?? 0);
-		baselineKwh = Math.max(0, Math.round(a0 + s0));
+		const lastAfter = Array.isArray(yearly) ? Number(yearly[yearly.length - 1]) : NaN;
+		if (Number.isFinite(lastAfter) && lastAfter > 0) {
+			energy_kwh = lastAfter;
+			if (Number.isFinite(floorAreaM2) && floorAreaM2 > 0) {
+				eui_kwh_m2y = Math.round(lastAfter / floorAreaM2);
+			}
+		}
 	} catch {}
 
+	// 7) 식별/로그용 필드
+	const buildingName = ctx?.buildingName || null;
+	const pnu = ctx?.pnu || null;
+	const address = ctx?.address || ctx?.jibunAddr || ctx?.roadAddr || null;
+
 	return {
-		typeRaw:   ctx.useName || ctx.mappedType || ctx.typeRaw || '사무동',
-		regionRaw: ctx.regionRaw || '대전 서구',
-		builtYear: Number(ctx.builtYear ?? (fromYear - 13)),
-		floorAreaM2: floor > 0 ? floor : 1500,
-		yearlyConsumption: baselineKwh > 0 ? [{ year: fromYear, electricity: baselineKwh }] : [],
-		monthlyConsumption: ctx.monthlyConsumption || []
+		// 타입
+		typeRaw: type,
+		type: type,
+
+		// 지역
+		region: region,
+		regionRaw: regionRaw,
+
+		// 핵심 입력
+		builtYear: builtYear,
+		floorAreaM2: floorAreaM2,
+
+		// 힌트(있으면 사용)
+		energy_kwh: energy_kwh,
+		eui_kwh_m2y: eui_kwh_m2y,
+
+		// 시계열(옵션)
+		yearlyConsumption: yearly,
+		monthlyConsumption: monthly,
+
+		// 식별/로그
+		buildingName: buildingName,
+		pnu: pnu,
+		address: address
 	};
 }
+
+
+
+
 
 
 /* ==========================================================
@@ -1175,35 +1311,8 @@ async function runForecast() {
 		// 5-1) 컨텍스트 수집
 		ctx = await getBuildingContext();
 
-			// [추가] 컨텍스트 검증(필수값 누락 안내)
-        	// - 면적(floorArea) 없으면: EUI/등급 계산은 추정치(절감률 기반)로만 표시하도록 경고
-        	// - 사용연도(builtYear) 없으면: from-13으로 추정하고, 경고 배지/토스트 표시
-        	(function () {
-        		const n = (x) => Number.isFinite(Number(x)) ? Number(x) : NaN;
-
-        		const hasArea = Number.isFinite(n(ctx.floorArea)) && n(ctx.floorArea) > 0;
-        		const hasBuiltYear = Number.isFinite(n(ctx.builtYear)) && n(ctx.builtYear) > 0;
-
-        		// 화면/로깅에서 쓰기 쉽게 플래그 보관
-        		ctx.__flags = {
-        			missingArea: !hasArea,
-        			missingBuiltYear: !hasBuiltYear
-        		};
-
-        		if (!hasArea) {
-        			showToast('면적 값이 없어 EUI 등급은 추정 기준으로 표시됩니다.', 'warn');
-        			SaveGreen.log.info('main', 'validation = missing floorArea');
-        		}
-        		if (!hasBuiltYear) {
-        			// runForecast 기존 로직이 from-13 등으로 보정하더라도, 사용자에게는 추정임을 알려줌
-        			showToast('사용연도가 없어 추정값으로 계산됩니다.', 'warn');
-        			SaveGreen.log.info('main', 'validation = missing builtYear (use inferred)');
-        		}
-        	})();
-
-
 		// 5-2) 컨텍스트 보강(enrich)
-		// [수정] 깨진 try/catch 복구(+ e 미정의 오류 제거)
+		// 깨진 try/catch 복구(+ e 미정의 오류 제거)
 		try {
 			const P = window.SaveGreen?.Forecast?.providers;
 			if (P && typeof P.enrichContext === 'function') {
@@ -1213,7 +1322,65 @@ async function runForecast() {
 			SaveGreen.log.warn('forecast', 'enrich skipped', e);
 		}
 
-		// 5-3) 타입 결정 + dae.json 로드 + 기본가정(base) 추출
+		// 5-3) 카탈로그 로드/매칭 → 프리로드 힌트 반영
+        try {
+            const catalogList = await loadCatalog();
+            const matched = matchCatalogItem(ctx, catalogList);
+            ctx.catalog = matched || null;
+
+            if (matched) {
+                SaveGreen.log.info('catalog', 'matched');
+
+                // ① 카탈로그 값을 실제 컨텍스트에 주입 (면적/연식/타입/주소 등)
+                if (window.SaveGreen?.Forecast?.providers?.applyCatalogToContext) {
+                    ctx = window.SaveGreen.Forecast.providers.applyCatalogToContext(matched, ctx);
+                }
+
+                // ② UI 칩/가정 문구 보강 (주소/연식/면적 표시 등)
+                await applyCatalogHints(ctx);
+            }
+        } catch (e) {
+            SaveGreen.log.warn('catalog', 'pipeline error', e);
+        }
+
+        // [추가] 컨텍스트 검증(필수값 누락 안내)
+        // - 면적(floorArea) 없으면: EUI/등급 계산은 추정치(절감률 기반)로만 표시하도록 경고
+        // - 사용연도(builtYear) 없으면: from-13으로 추정하고, 경고 배지/토스트 표시
+        (function () {
+            const n = (x) => Number.isFinite(Number(x)) ? Number(x) : NaN;
+
+            const areaVal = n(ctx.floorAreaM2 ?? ctx.floorArea ?? ctx.area);
+            const hasArea = Number.isFinite(areaVal) && areaVal > 0;
+
+            const byVal = n(ctx.builtYear);
+            const hasBuiltYear = Number.isFinite(byVal) && byVal > 0;
+
+            // 화면/로깅용 플래그
+            ctx.__flags = { missingArea: !hasArea, missingBuiltYear: !hasBuiltYear };
+
+            if (!hasArea) {
+                showToast('면적 값이 없어 EUI 등급은 추정 기준으로 표시됩니다.', 'warn');
+                SaveGreen.log.info('main', 'validation = missing floorArea');
+            } else {
+                // ✅ 확정 면적을 표준 키(floorAreaM2)에 고정
+                ctx.floorAreaM2 = areaVal;
+            }
+
+            if (!hasBuiltYear) {
+                showToast('사용연도가 없어 추정값으로 계산됩니다.', 'warn');
+                SaveGreen.log.info('main', 'validation = missing builtYear (use inferred)');
+            }
+        })();
+
+        SaveGreen.log.kv('main', 'ctx after validation', {
+            floorAreaM2: ctx.floorAreaM2,
+            floorArea:   ctx.floorArea,
+            area:        ctx.area,
+            builtYear:   ctx.builtYear
+        }, ['floorAreaM2','floorArea','area','builtYear']);
+
+
+		// 5-4) 타입 결정 + dae.json 로드 + 기본가정(base) 추출
 		try {
 			const F = window.SaveGreen?.Forecast || {};
 
@@ -1295,19 +1462,7 @@ async function runForecast() {
 		applyAssumptionsToDataset(root, ctx);
 	}
 
-	// 5-4) 카탈로그 로드/매칭 → 프리로드 힌트 반영
-	try {
-		const catalogList = await loadCatalog();
-		const matched = matchCatalogItem(ctx, catalogList);
-		ctx.catalog = matched || null;
-		if (matched) {
-			SaveGreen.log.info('catalog', 'matched');
-			await applyCatalogHints(ctx);
-		}
-	} catch (e) {
-		// [수정] console.warn → SaveGreen.log.warn
-		SaveGreen.log.warn('catalog', 'pipeline error', e);
-	}
+
 
 	// 5-5) 데이터 로드(실제 API 또는 더미)
 	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
@@ -1316,13 +1471,23 @@ async function runForecast() {
 	// ▼ ML KPI 호출(파이썬)
     let kpiFromServer = null;
     try {
-    	const mlPayload = buildMlPayload(ctx, data);
-    	kpiFromServer = await callMl(mlPayload);
-    	SaveGreen.log.kv('kpi', 'ml kpi', kpiFromServer, ['savingKwhYr','savingCostYr','savingPct','paybackYears','label']);
+        const mlPayload = buildMlPayload(ctx, data);
+        SaveGreen.log.kv('kpi', 'ml payload', mlPayload, ['type','region','regionRaw','builtYear','floorAreaM2','energy_kwh','eui_kwh_m2y']);
+        kpiFromServer = await callMl(mlPayload);		// ← 재선언 금지
     } catch (e) {
-    	console.warn('ML bridge failed → fallback', e?.message || e);
-    	// 화면이 멈추지 않도록 안전 폴백
-    	kpiFromServer = { savingKwhYr:0, savingCostYr:0, savingPct:0, paybackYears:99, label:'NOT_RECOMMEND' };
+        SaveGreen.log.warn('kpi', 'ML bridge failed → fallback', e?.message || e);	// 로그 통일
+        kpiFromServer = { savingKwhYr:0, savingCostYr:0, savingPct:0, paybackYears:99, label:'NOT_RECOMMEND' };
+    }
+
+    // [권장 가드] 숫자 강제
+    if (kpiFromServer) {
+    	kpiFromServer.savingKwhYr = Number(kpiFromServer.savingKwhYr) || 0;
+    	kpiFromServer.savingCostYr = Number(kpiFromServer.savingCostYr) || 0;
+    	kpiFromServer.savingPct = Number(kpiFromServer.savingPct) || 0;
+    	kpiFromServer.paybackYears = Number.isFinite(Number(kpiFromServer.paybackYears))
+    		? Number(kpiFromServer.paybackYears)
+    		: 99;
+    	kpiFromServer.label = kpiFromServer.label || 'NOT_RECOMMEND';
     }
 
 
@@ -1353,7 +1518,7 @@ async function runForecast() {
 	});
 
 	// 5-8) KPI/등급/배너
-	const floorArea = Number(ctx?.floorArea ?? ctx?.area);
+	const floorArea = Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
 	const kpi = SaveGreen.Forecast.computeKpis({
 		years: data.years,
 		series: data.series,
@@ -1365,7 +1530,7 @@ async function runForecast() {
 
 	// EUI 룰 기반 등급 산정(룰/면적 없으면 절감률 폴백)
 	const euiRules = ctx.euiRules || window.SaveGreen?.Forecast?._euiRules || null;
-	const euiNow = SaveGreen.Forecast.KPI.computeCurrentEui(data, Number(ctx?.floorArea ?? ctx?.area));
+	const euiNow = SaveGreen.Forecast.KPI.computeCurrentEui(data, Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area));
 	let gradeNow   = null;
 	if (euiRules && euiNow != null) {
         gradeNow = SaveGreen.Forecast.KPI.pickGradeByRules(euiNow, euiRules);
