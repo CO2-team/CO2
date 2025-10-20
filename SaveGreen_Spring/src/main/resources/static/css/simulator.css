@@ -377,17 +377,17 @@ body.swal2-shown {
 }
 
 #intensityChart1{
-    width : 1000px;
-    height : 480px;
+    width : 1000px ;
+    height : 500px ;
     margin: 0 auto; 
 }
 #intensityChart2{
     width : 1000px;
-    height : 480px;
+    height : 500px;
     margin: 0 auto; 
 }
 #intensityChart3{
     width : 1000px;
-    height : 480px;
+    height : 500px;
     margin: 0 auto; 
 }

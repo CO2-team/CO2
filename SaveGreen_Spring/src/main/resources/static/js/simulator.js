@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         box3.style.display='block';
         box4.style.display='block';
         box5.style.display='block';
-      
+        runCompare();
         
       
         items.forEach((item, index) => {
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         box3.style.display = 'block';
         box4.style.display = 'block';
         box5.style.display = 'block';
-        
+        runCompare();
         
 
       
@@ -359,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           const avgEl2 = document.querySelector('#average2');
                           if (avgEl2) avgEl2.value = average;
                           console.log("average : ",average);
-                          runCompare();
+                          // runCompare();
                         });
                                               })
                         .catch(console.error);
@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const avgEl2 = document.querySelector('#average2');
       if (avgEl2) avgEl2.value = average;
       console.log("average : ",average);
-      runCompare();
+      // runCompare();
       
     });
 });
