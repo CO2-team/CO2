@@ -1,0 +1,504 @@
+# ============================================================
+# SaveGreen / app/train.py — 모델 학습 파이프라인(8:2 + K-Fold + 후보모델 비교)
+# ------------------------------------------------------------
+# [역할]
+# - FastAPI /train 백그라운드 잡에서 호출되는 학습 엔진.
+# - 데이터 적재 → 전처리/피처링 → train/test(8:2) 분할 → K-Fold(CV)로
+#   후보 모델(ElasticNet=모델A, RandomForest=모델B) 성능 비교 →
+#   최적 하이퍼파라미터 선택 → train 전체 재학습 →
+#   ./data 에 산출물 저장:
+#     * model_A.pkl : 해석성(선형계열, ElasticNet)
+#     * model_B.pkl : 비선형 성능(RandomForest)
+#     * model.pkl   : 하위호환 단일(베스트 모델 복사)
+#     * manifest.json : 버전/피처/지표/앙상블 가중치(wA,wB)
+#
+# [설계 핵심]
+# 1) 일반화 성능
+#    - 전체 → train/test 8:2 분할(재현성: random_state=42)
+#    - train(80%) 내부에서만 K-Fold(기본 K=5) 교차검증 → 평균±표준편차 로그
+#    - 최종 test(20%) 평가는 1회만 수행(누수 방지)
+# 2) 전처리/누수 방지
+#    - ColumnTransformer + Pipeline 으로 스케일/원핫 + 모델을 한 덩어리 저장
+#    - 각 fold의 train에서만 fit → val/test엔 transform만 (Pipeline 자동 보장)
+# 3) 앙상블(C)
+#    - 기본 wA=0.5, wB=0.5 저장
+#    - manifest에 역수비례(1/MAE) 가중치 제안도 저장(참고용)
+# 4) 성능/안정/리소스
+#    - 경고(ConvergenceWarning) 숨김: 콘솔 노이즈 제거
+#    - RF 내부 병렬 OFF(n_jobs=1), CV만 제한된 병렬 사용(코어 절반, 최대 4)
+#    - BLAS/OpenBLAS/MKL 스레드 1로 제한(threadpoolctl 사용 시)
+#
+# [입력 칼럼 기대]
+#   - type(str), region(str), energy_kwh(float), eui_kwh_m2y(float),
+#     builtYear(int), floorAreaM2(float), target(float; 없으면 샘플 생성부에서 만듦)
+#
+# [출력 파일]
+#   - ./data/model_A.pkl, ./data/model_B.pkl, ./data/model.pkl, ./data/manifest.json
+#
+# [실행]
+#   - FastAPI trainer 가 import 하여 main() 호출
+#   - 단독 실행도 가능:  python -m app.train
+# ============================================================
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
+
+# (리소스 제어) BLAS 스레드 제한용
+try:
+	from threadpoolctl import threadpool_limits
+except Exception:
+	threadpool_limits = None
+
+# (경고 숨김) ElasticNet 수렴 경고 제거
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+import numpy as np
+import pandas as pd
+
+# sklearn
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split, KFold, cross_validate
+from sklearn.linear_model import ElasticNet
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+# 저장/로드
+try:
+	import joblib
+	_DUMP = joblib.dump
+except Exception:
+	# joblib 미설치 환경 폴백
+	import pickle
+	_DUMP = lambda obj, path: pickle.dump(obj, open(path, "wb"))  # noqa: E731
+
+
+# ------------------------------- 경로/유틸 -------------------------------
+
+DATA_DIRS = ["./data", "./ml/data"]
+
+def _ensure_data_dir() -> str:
+	"""
+	산출물 저장 디렉터리(./data)를 보장한다. 존재하지 않으면 생성.
+	우선순위는 ./data
+	"""
+	target = "./data"
+	os.makedirs(target, exist_ok=True)
+	return target
+
+def _timestamp_kst() -> str:
+	"""한국시간(서버 로컬 기준) 타임스탬프 문자열."""
+	return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+def _clip_pct(x: np.ndarray | float, lo: float = 0.0, hi: float = 100.0) -> np.ndarray | float:
+	"""절감률을 안전하게 0~100으로 클리핑."""
+	return np.clip(x, lo, hi)
+
+def _cv_pool_size() -> int:
+	"""
+	CV 병렬 워커 수를 합리적으로 제한.
+	- 기본: CPU 코어의 절반, 최대 4
+	- 너무 크게 잡으면 IDE/OS가 버벅이므로 보수적으로 제한
+	"""
+	try:
+		return max(1, min(4, (os.cpu_count() or 4) // 2))
+	except Exception:
+		return 2
+
+
+# ------------------------- 데이터 적재/생성 로직 -------------------------
+
+def _build_training_frame() -> pd.DataFrame:
+	"""
+	시연/테스트를 위한 샘플 데이터프레임을 생성한다.
+	- 운영에서는 CSV/DB 로 교체.
+	- target(절감률)이 없으면 간단 휴리스틱 + 노이즈로 생성.
+	"""
+	n = 1200
+	rng = np.random.default_rng(42)
+
+	types = rng.choice(["factory", "hospital", "school", "office"], size=n, p=[0.35, 0.15, 0.25, 0.25])
+	region = rng.choice(["daejeon"], size=n)
+	floor = rng.uniform(300, 8000, size=n)              # ㎡
+	year = rng.integers(1980, 2021, size=n)             # 준공연도
+	energy = rng.uniform(50_000, 2_000_000, size=n)     # kWh/yr
+	eui = energy / floor                                # kWh/㎡·yr (러프)
+
+	# 절감률 가짜 타깃(현실을 흉내낸 단순 휴리스틱 + 노이즈)
+	base = 8.0 + 0.015 * (eui - 200) + 0.0004 * (floor - 2000) + 0.01 * (2005 - year)
+	type_bias = np.array([{"factory": 2.5, "hospital": -0.5, "school": 1.0, "office": 0.0}[t] for t in types])
+	target = base + type_bias + rng.normal(0, 2.5, size=n)
+	target = _clip_pct(target, 4.0, 35.0)
+
+	df = pd.DataFrame({
+		"type": types,
+		"region": region,
+		"energy_kwh": energy,
+		"eui_kwh_m2y": eui,
+		"builtYear": year,
+		"floorAreaM2": floor,
+		"target": target
+	})
+	return df
+
+
+def build_training_frame() -> pd.DataFrame:
+	"""
+	데이터프레임을 생성/적재하는 엔트리.
+	- 프로젝트 util에 동일 이름 함수가 있으면 그걸 우선 사용(호환성↑)
+	- 없으면 내부 샘플 생성(_build_training_frame)
+	- (확장) CSV가 있으면 우선 로드하도록 변경 가능
+	"""
+	# 1) 외부 유틸 시도
+	try:
+		from .utils import build_training_frame as ext_build  # type: ignore
+		df = ext_build()
+		if not isinstance(df, pd.DataFrame):
+			raise RuntimeError("utils.build_training_frame() returned non-DataFrame")
+		return df
+	except Exception:
+		pass
+
+	# 2) CSV 시도 (있다면)
+	for d in DATA_DIRS:
+		csv = os.path.join(d, "training_data.csv")
+		if os.path.isfile(csv):
+			df = pd.read_csv(csv)
+			if "target" not in df.columns:
+				raise RuntimeError(f"{csv} must include 'target' column for supervised learning")
+			return df
+
+	# 3) 내부 샘플
+	return _build_training_frame()
+
+
+# ----------------------------- 피처/파이프라인 -----------------------------
+
+NUM_COLS = ["floorAreaM2", "energy_kwh", "eui_kwh_m2y", "builtYear"]
+CAT_COLS = ["type"]  # region은 데모에서 단일값이라 제외(필요 시 추가)
+TARGET = "target"
+
+def make_preprocessor() -> ColumnTransformer:
+	"""
+	수치/범주 전처리를 묶은 ColumnTransformer 생성
+	- 수치: StandardScaler
+	- 범주: OneHotEncoder(handle_unknown='ignore')
+	"""
+	num = Pipeline(steps=[("scaler", StandardScaler())])
+	cat = Pipeline(steps=[("ohe", OneHotEncoder(handle_unknown="ignore"))])
+	pre = ColumnTransformer(
+		transformers=[
+			("num", num, NUM_COLS),
+			("cat", cat, CAT_COLS),
+		],
+		remainder="drop"
+	)
+	return pre
+
+
+def make_models() -> Dict[str, Tuple[Any, Dict[str, List[Any]]]]:
+	"""
+	후보 모델과 간단 하이퍼파라미터 그리드를 반환.
+	- A: ElasticNet (해석성)
+	- B: RandomForestRegressor (비선형 성능)
+	"""
+	models: Dict[str, Tuple[Any, Dict[str, List[Any]]]] = {
+		"A_ElasticNet": (
+			ElasticNet(random_state=42, max_iter=50_000),
+			{
+				"model__alpha": [0.05, 0.1, 0.5, 1.0],   # 0.01보다 보수적으로 시작(수렴 안정↑)
+				"model__l1_ratio": [0.2, 0.5, 0.8, 1.0], # 0(Ridge)는 제외(경고↓)
+			}
+		),
+		"B_RandomForest": (
+			RandomForestRegressor(random_state=42, n_estimators=200, n_jobs=1),  # 내부 병렬 OFF
+			{
+				"model__max_depth": [None, 6, 10, 14],
+				"model__min_samples_leaf": [1, 2, 5],
+			}
+		),
+	}
+	return models
+
+
+def build_pipeline(estimator: Any) -> Pipeline:
+	"""ColumnTransformer + Estimator 로 파이프라인 구성"""
+	pre = make_preprocessor()
+	return Pipeline(steps=[("pre", pre), ("model", estimator)])
+
+
+# ----------------------------- 평가/교차검증 -----------------------------
+
+def cv_evaluate(pipe: Pipeline, X: pd.DataFrame, y: pd.Series, k: int = 5) -> Dict[str, float]:
+	"""
+	K-Fold 교차검증 수행(주지표=MAE, 보조=RMSE/R²) → 평균/표준편차 반환
+	- scoring:
+	  * 'neg_mean_absolute_error' (MAE)
+	  * 'neg_root_mean_squared_error' (RMSE)
+	  * 'r2'
+	- 리소스 제어:
+	  * cross_validate 의 n_jobs 를 코어 절반(최대4)로 제한
+	  * threadpool_limits 로 BLAS 스레드 1로 고정(가능 시)
+	"""
+	scoring = {
+		"mae": "neg_mean_absolute_error",
+		"rmse": "neg_root_mean_squared_error",
+		"r2": "r2",
+	}
+	cv = KFold(n_splits=k, shuffle=True, random_state=42)
+	pool = _cv_pool_size()
+
+	if threadpool_limits:
+		with threadpool_limits(limits=1):
+			cvres = cross_validate(pipe, X, y, scoring=scoring, cv=cv, n_jobs=pool, return_train_score=False)
+	else:
+		cvres = cross_validate(pipe, X, y, scoring=scoring, cv=cv, n_jobs=pool, return_train_score=False)
+
+	# 음수 지표 복구(neg -> pos)
+	mae = -cvres["test_mae"]
+	rmse = -cvres["test_rmse"]
+	r2 = cvres["test_r2"]
+	return {
+		"cv_mae_mean": float(np.mean(mae)),
+		"cv_mae_std": float(np.std(mae)),
+		"cv_rmse_mean": float(np.mean(rmse)),
+		"cv_rmse_std": float(np.std(rmse)),
+		"cv_r2_mean": float(np.mean(r2)),
+		"cv_r2_std": float(np.std(r2)),
+	}
+
+
+def _train_scores(pipe: Pipeline, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, float]:
+	"""
+	Train set(학습 데이터)에서의 성능 지표 계산(MAE/RMSE/R²)
+	- 과적합 체크용: Train vs Test 간 격차를 비교한다.
+	"""
+	yhat = pipe.predict(X_train)
+	mae = mean_absolute_error(y_train, yhat)
+	try:
+		rmse = mean_squared_error(y_train, yhat, squared=False)
+	except TypeError:
+		rmse = float(np.sqrt(mean_squared_error(y_train, yhat)))
+	r2 = r2_score(y_train, yhat)
+	return {"train_mae": float(mae), "train_rmse": float(rmse), "train_r2": float(r2)}
+
+
+def final_test_score(pipe: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, float]:
+	"""
+	최종 test(20%) 성능 지표 계산(MAE/RMSE/R²)
+	- 구버전 sklearn 호환: mean_squared_error(..., squared=False) 미지원 시 sqrt(MSE)
+	"""
+	y_pred = pipe.predict(X_test)
+	mae = mean_absolute_error(y_test, y_pred)
+	try:
+		rmse = mean_squared_error(y_test, y_pred, squared=False)
+	except TypeError:
+		rmse = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+	r2 = r2_score(y_test, y_pred)
+	return {"test_mae": float(mae), "test_rmse": float(rmse), "test_r2": float(r2)}
+
+
+# ----------------------------- 저장/매니페스트 -----------------------------
+
+def save_artifacts(pipes: Dict[str, Pipeline], manifest: Dict[str, Any], outdir: str) -> None:
+	"""
+	파이프라인과 manifest를 ./data 에 저장
+	- model_A.pkl  : ElasticNet 파이프라인
+	- model_B.pkl  : RandomForest 파이프라인
+	- model.pkl    : 베스트 모델(하위호환용 단일)
+	- manifest.json: 메타/지표/가중치
+	"""
+	a_path = os.path.join(outdir, "model_A.pkl")
+	b_path = os.path.join(outdir, "model_B.pkl")
+	s_path = os.path.join(outdir, "model.pkl")
+	mf_path = os.path.join(outdir, "manifest.json")
+
+	if "A" in pipes and pipes["A"] is not None:
+		_DUMP(pipes["A"], a_path)
+	if "B" in pipes and pipes["B"] is not None:
+		_DUMP(pipes["B"], b_path)
+
+	# 단일 베스트 복사 저장
+	best_key = manifest.get("best", {}).get("key")
+	if best_key and best_key in pipes and pipes[best_key] is not None:
+		_DUMP(pipes[best_key], s_path)
+
+	with open(mf_path, "w", encoding="utf-8") as f:
+		json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+
+# ----------------------------- 메인 파이프라인 -----------------------------
+
+def main(k: int = 5, test_size: float = 0.2) -> None:
+	"""
+	한 번의 학습 전체 과정을 실행한다.
+	- k: K-Fold 개수(기본 5)
+	- test_size: test 비율(기본 0.2 = 8:2 분할)
+	- 콘솔 출력: CV 평균±표준편차, 각 모델의 Train/Test 점수, 과적합 지표(ΔMAE)
+	"""
+	print("[train] loading/creating dataset ...")
+	df = build_training_frame().copy()
+
+	if TARGET not in df.columns:
+		raise RuntimeError("training dataframe must include a 'target' column")
+
+	X = df[NUM_COLS + CAT_COLS].copy()
+	y = df[TARGET].astype(float).copy()
+
+	# train/test 분할(재현성 고정)
+	X_train, X_test, y_train, y_test = train_test_split(
+		X, y, test_size=test_size, shuffle=True, random_state=42
+	)
+	print(f"[train] split: train={len(X_train):,}  test={len(X_test):,}")
+
+	# 후보 모델/그리드
+	model_defs = make_models()
+
+	cv_summary: Dict[str, Dict[str, Any]] = {}
+	best_key = None
+	best_mae = float("inf")
+	best_pipe = None
+
+	# 각 후보 모델: 파이프라인 구성 → 간이 그리드 탐색 → CV 평가 → train 재학습 → train/test 점수 출력
+	for key, (estimator, grid) in model_defs.items():
+		pipe = build_pipeline(estimator)
+
+		# 간이 그리드 탐색(수동 루프) — 안정/속도 목적
+		results: List[Tuple[Dict[str, Any], Dict[str, float]]] = []
+		param_names = list(grid.keys())
+		param_values = list(grid.values())
+
+		def _product(idx: int, cur: Dict[str, Any]):
+			if idx == len(param_names):
+				yield cur.copy()
+				return
+			name = param_names[idx]
+			for val in param_values[idx]:
+				cur[name] = val
+				yield from _product(idx + 1, cur)
+
+		print(f"[cv] {key} grid search start ...")
+		for params in _product(0, {}):
+			tuned = Pipeline(steps=pipe.steps)  # shallow copy
+			tuned.set_params(**params)
+			scores = cv_evaluate(tuned, X_train, y_train, k=k)
+			results.append((params.copy(), scores.copy()))
+			print(f"[cv] {key} params={params} → "
+			      f"MAE={scores['cv_mae_mean']:.4f}±{scores['cv_mae_std']:.4f}, "
+			      f"RMSE={scores['cv_rmse_mean']:.4f}±{scores['cv_rmse_std']:.4f}, "
+			      f"R2={scores['cv_r2_mean']:.4f}±{scores['cv_r2_std']:.4f}")
+
+		# 최적 파라미터(주지표=MAE 최소) 선택
+		results.sort(key=lambda pr: pr[1]["cv_mae_mean"])
+		best_params, best_scores = results[0]
+		cv_summary[key] = {"best_params": best_params, **best_scores}
+
+		# 현재 모델로 train 전체 재학습(최적 파라미터 반영)
+		best_model = build_pipeline(estimator)
+		best_model.set_params(**best_params)
+		if threadpool_limits:
+			with threadpool_limits(limits=1):
+				best_model.fit(X_train, y_train)
+		else:
+			best_model.fit(X_train, y_train)
+		print(f"[fit] {key} best_params={best_params}  (fitted on train)")
+
+		# Train/Test 점수 계산 + 과적합 지표(ΔMAE)
+		train_scores = _train_scores(best_model, X_train, y_train)
+		test_scores = final_test_score(best_model, X_test, y_test)
+		delta_mae = test_scores["test_mae"] - train_scores["train_mae"]
+		cv_summary[key].update(train_scores)
+		cv_summary[key].update(test_scores)
+
+		print(f"[score] {key} TRAIN  MAE={train_scores['train_mae']:.4f}, "
+		      f"RMSE={train_scores['train_rmse']:.4f}, R2={train_scores['train_r2']:.4f}")
+		print(f"[score] {key} TEST   MAE={test_scores['test_mae']:.4f}, "
+		      f"RMSE={test_scores['test_rmse']:.4f}, R2={test_scores['test_r2']:.4f}  "
+		      f"(ΔMAE={delta_mae:+.4f})")
+
+		# 글로벌 베스트(주지표=Test MAE 최소, 동률 시 CV MAE)
+		candidate_mae = test_scores["test_mae"]
+		if candidate_mae < best_mae:
+			best_mae = candidate_mae
+			best_key = "A" if key.startswith("A_") else "B"
+			best_pipe = best_model
+
+	# 산출물 저장
+	outdir = _ensure_data_dir()
+	pipes_to_save: Dict[str, Pipeline] = {}
+
+	# A/B 매핑: 키 접두사로 구분하여 재학습 → 저장
+	for key, summary in cv_summary.items():
+		if key.startswith("A_"):
+			est = ElasticNet(random_state=42, max_iter=50_000)
+			a_pipe = build_pipeline(est)
+			a_pipe.set_params(**summary["best_params"])
+			if threadpool_limits:
+				with threadpool_limits(limits=1):
+					a_pipe.fit(X_train, y_train)
+			else:
+				a_pipe.fit(X_train, y_train)
+			pipes_to_save["A"] = a_pipe
+		elif key.startswith("B_"):
+			est = RandomForestRegressor(random_state=42, n_estimators=200, n_jobs=1)
+			b_pipe = build_pipeline(est)
+			b_pipe.set_params(**summary["best_params"])
+			if threadpool_limits:
+				with threadpool_limits(limits=1):
+					b_pipe.fit(X_train, y_train)
+			else:
+				b_pipe.fit(X_train, y_train)
+			pipes_to_save["B"] = b_pipe
+
+	# best 단일 파이프라인(하위호환용)
+	if best_pipe is None:
+		best_pipe = pipes_to_save.get("A") or pipes_to_save.get("B")
+
+	# 앙상블 가중치(기본 0.5/0.5 + 역수비례 정보)
+	mae_a = cv_summary.get("A_ElasticNet", {}).get("cv_mae_mean", None)
+	mae_b = cv_summary.get("B_RandomForest", {}).get("cv_mae_mean", None)
+	wA = 0.5
+	wB = 0.5
+	inv_wA = inv_wB = None
+	if isinstance(mae_a, float) and isinstance(mae_b, float) and mae_a > 0 and mae_b > 0:
+		invA, invB = 1.0 / mae_a, 1.0 / mae_b
+		s = invA + invB
+		inv_wA, inv_wB = float(invA / s), float(invB / s)
+
+	manifest = {
+		"version": _timestamp_kst(),
+		"features": NUM_COLS + CAT_COLS,
+		"split": {"test_size": test_size, "random_state": 42},
+		"kfold": {"k": k, "random_state": 42, "shuffle": True},
+		"models": cv_summary,  # { "A_ElasticNet": {...}, "B_RandomForest": {...} }
+		"best": {"key": best_key, "by": "test_mae"},  # "A" | "B"
+		"ensemble": {
+			"wA": wA,
+			"wB": wB,
+			"suggested_by_inverse_mae": {"wA": inv_wA, "wB": inv_wB}
+		}
+	}
+
+	save_artifacts(pipes_to_save, manifest, outdir)
+	print(f"[save] model_A.pkl={'ok' if 'A' in pipes_to_save else '-'}, "
+	      f"model_B.pkl={'ok' if 'B' in pipes_to_save else '-'}")
+	if best_pipe is not None:
+		_DUMP(best_pipe, os.path.join(outdir, "model.pkl"))
+		print("[save] model.pkl (compat) saved")
+
+	with open(os.path.join(outdir, "manifest.json"), "r", encoding="utf-8") as f:
+		print("[manifest]\n" + f.read())
+
+
+# ----------------------------- 단독 실행 지원 -----------------------------
+
+if __name__ == "__main__":
+	# 기본값: k=5, test_size=0.2 (8:2 분할)
+	main(k=5, test_size=0.2)
