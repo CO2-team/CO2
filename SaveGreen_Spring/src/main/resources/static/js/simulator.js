@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           if(eik2) eik2.value = eik;
                           console.log("eik : ",eik)
                           
-
+                          // 에버리지
                     fetch(`/energy/avg-intensity?category=${encodeURIComponent(cat)}`)
                         .then(r => r.ok ? r.json() : null)
                         .then(average => {
@@ -359,7 +359,36 @@ document.addEventListener("DOMContentLoaded", () => {
                           const avgEl2 = document.querySelector('#average2');
                           if (avgEl2) avgEl2.value = average;
                           console.log("average : ",average);
-                          // runCompare();
+                         
+                        });
+                        //상위 몇퍼센트인지 알아보기
+                    fetch(`/energy/percentile?category=${encodeURIComponent(cat)}&value=${eik}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(percentile => {
+                          if (percentile == null) return;
+                          
+                          const percent = document.querySelector('#percent');
+                          percent.value = percentile;
+                          console.log("상위"+percent.value+"%");
+                        });
+                    // 선택 건물 퍼센트 가져오기
+                    fetch(`/energy/monthly-percent/pnu?pnu=${encodeURIComponent(pnu)}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                          if (!data) return;
+                          const BM = document.querySelector('#buildingMonthly')
+                          BM.value = JSON.stringify(data);
+                          console.log("선택건물 월별비중:", data);
+                        });
+
+                    // 카테고리 평균 퍼센트 가져오기
+                    fetch(`/energy/monthly-percent/category?category=${encodeURIComponent(cat)}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                          if (!data) return;
+                          const CM = document.querySelector('#categoryMonthly');
+                          CM.value = JSON.stringify(data);
+                          console.log("비교군 월별비중:", data);
                         });
                                               })
                         .catch(console.error);
