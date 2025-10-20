@@ -12,8 +12,19 @@ console.log('캔버스들:', document.getElementById('intensityChart1'), documen
     if (!eikEl1 && !eikEl2) return;
     if (!avgEl1 && !avgEl2) return;
 
-    var eikStr = eikEl1 && eikEl1.value !== '' ? eikEl1.value : (eikEl2 ? eikEl2.value : '');
-    var avgStr = avgEl1 && avgEl1.value !== '' ? avgEl1.value : (avgEl2 ? avgEl2.value : '');
+    var eikStr = '';
+    if (eikEl1 && eikEl1.value !== '') {
+    eikStr = eikEl1.value;
+    } else if (eikEl2 && eikEl2.value !== '') {
+    eikStr = eikEl2.value;
+    }
+
+    var avgStr = '';
+    if (avgEl1 && avgEl1.value !== '') {
+    avgStr = avgEl1.value;
+    } else if (avgEl2 && avgEl2.value !== '') {
+    avgStr = avgEl2.value;
+}
 
     var eik = Number(eikStr);
     var avg = Number(avgStr);
@@ -46,16 +57,26 @@ console.log('캔버스들:', document.getElementById('intensityChart1'), documen
         window.__intensityChart1 = new window.Chart(canvas1, {
         type: 'bar',
         data: {
-        labels: ['비교'],
+        // labels: ['비교'],
         datasets: [
             { label: '선택',  data: [eik] },
             { label: '평균',  data: [avg] }
         ]
         },
         options: {
-        responsive: false,
-        plugins: { legend: { display: true } },
-        scales: { y: { beginAtZero: true } }
+            responsive: false,
+            plugins: { 
+                legend: { display: true },
+                title: { 
+                    display: true,
+                    text: "단위면적당 에너지 사용량 비교",
+                    font: {size:16},
+                    color:'#333'} },
+            scales: { y: { beginAtZero: true } },
+            animation:{
+                duration:10000,
+                easing:'easeOutBounce'
+            }
         }
         
     });
@@ -69,7 +90,7 @@ console.log('캔버스들:', document.getElementById('intensityChart1'), documen
         window.__intensityChart2 = new window.Chart(canvas2, {
         type: 'bar',
         data: {
-        labels: ['비교'],
+        // labels: ['비교'],
         datasets: [
             { label: '선택',  data: [eik] },
             { label: '평균',  data: [avg] }
@@ -82,7 +103,7 @@ console.log('캔버스들:', document.getElementById('intensityChart1'), documen
                         title: { display: true,
                                 text: "단위면적당 에너지 사용량 비교",
                                 font: {size:16},
-                                color:'#333'},
+                                color:'#333'}
                     },
             scales: { y: { beginAtZero: true } }
         }
@@ -98,16 +119,20 @@ console.log('캔버스들:', document.getElementById('intensityChart1'), documen
         window.__intensityChart3 = new window.Chart(canvas3, {
         type: 'bar',
         data: {
-        labels: ['비교'],
+        // labels: ['비교'],
         datasets: [
             { label: '선택',  data: [eik] },
             { label: '평균',  data: [avg] }
         ]
         },
         options: {
-        responsive: false,
-        plugins: { legend: { display: true } },
-        scales: { y: { beginAtZero: true } }
+            responsive: false,
+            plugins: { legend: { display: true },
+                        title: { display: true,
+                                text: "단위면적당 에너지 사용량 비교",
+                                font: {size:16},
+                                color:'#333'} },
+            scales: { y: { beginAtZero: true } }
         }
         
     });
