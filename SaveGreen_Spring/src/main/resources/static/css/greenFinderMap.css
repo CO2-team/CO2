@@ -166,9 +166,66 @@ body {
     z-index: 101;
 }
 
+.searchResult ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.searchResult li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.searchResult li:hover {
+  background: #f0f0f0;
+}
+
 .searchResult.show {
     display: block;
 }
+
+.addr-section-title {
+  font-weight: bold;
+  color: #2c662d;
+  padding: 6px 10px;
+  background: #f0f7f0;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.dropdown-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.dropdown-item:hover {
+  background-color: #eaf5ea;
+}
+
+.addr-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.addr-road {
+  font-weight: 500;
+  color: #333;
+}
+
+.addr-jibun {
+  font-size: 0.85em;
+  color: #777;
+}
+
+.addr-zip {
+  font-size: 0.8em;
+  color: #555;
+  align-self: center;
+}
+
 
 .dropdown-item {
     padding: 5px;

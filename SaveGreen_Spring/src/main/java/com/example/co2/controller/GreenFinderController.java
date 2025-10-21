@@ -1,12 +1,24 @@
 package com.example.co2.controller;
 
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 
+import com.example.co2.dto.AddressDto;
+import com.example.co2.service.GreenFinderService;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Controller
 public class GreenFinderController {
+
+    private final GreenFinderService greenFinderService;
+
+    public GreenFinderController(GreenFinderService greenFinderService) {
+        this.greenFinderService = greenFinderService;
+    }
+
 
     @GetMapping("/GreenFinder")
     public String getServicePage() {
@@ -20,5 +32,11 @@ public class GreenFinderController {
         
     }
     
+    @GetMapping("/GreenFinder/search")
+    @ResponseBody
+    public ResponseEntity<List<AddressDto>> search(@RequestParam("keyword") String keyword) {
+        List<AddressDto> result = greenFinderService.searchAddress(keyword);
+        return ResponseEntity.ok(result);
+    }
     
 }
