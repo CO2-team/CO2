@@ -222,6 +222,38 @@ const BANNER_TEXTS = {
     'not-recommend': '현재 조건에서 리모델링 효과가 제한적입니다.'
 };
 
+// 예측 창 산출: FE 상수(NOW_YEAR/HORIZON_YEARS) 또는 dataset/from,to 기반
+function calcForecastWindow(ctx, data) {
+	/*
+	 * 정책(포함 범위, inclusive):
+	 *  - from = 시작 연도
+	 *  - to   = 시작 연도 + HORIZON_YEARS
+	 *  예) NOW_YEAR=2025, HORIZON_YEARS=10 → 2025~2035 (사용자 정의에 맞춤)
+	 */
+	let fromY;
+	let toY;
+
+	// 1순위: baseForecast(data)에서 이미 계산된 years가 있으면 그걸 신뢰
+	if (Array.isArray(data?.years) && data.years.length) {
+		fromY = Number(data.years[0]);
+		toY = Number(data.years[data.years.length - 1]);
+	}
+
+	// 2순위: 컨텍스트에 from/to가 있으면 사용
+	if (!Number.isFinite(fromY) && Number.isFinite(Number(ctx?.from))) fromY = Number(ctx.from);
+	if (!Number.isFinite(toY) && Number.isFinite(Number(ctx?.to))) toY = Number(ctx.to);
+
+	// 3순위: 상수 기반 기본값 지정
+	if (!Number.isFinite(fromY)) fromY = NOW_YEAR;
+	if (!Number.isFinite(toY)) toY = fromY + HORIZON_YEARS; // ← 2025~2035(포함) 규칙
+
+	// 방어 로직
+	if (toY < fromY) [fromY, toY] = [toY, fromY];
+
+	return { from: fromY, to: toY };
+}
+
+
 /* ==========================================================
  * 1) 헤더 오프셋 자동계산
  * ========================================================== */
@@ -828,7 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((!candidates || candidates.length === 0) && (session.lat != null && session.lng != null)) {
             candidates = catalog.filter(it => _isNear(
                 { lat: session.lat, lng: session.lng },
-                { lat: parseFloat(it.lat), lng: parseFloat(it.lng) },
+                { lat: parseFloat(it.lat), lng: parseFloat(it.lon ?? it.lng) },
                 30
             ));
         }
@@ -914,7 +946,7 @@ SaveGreen.Catalog.report = async function (url = '/dummy/buildingenergydata.json
         const rsp = await fetch(url, { cache: 'no-store' });
         const rows = await rsp.json();
         if (!Array.isArray(rows)) {
-            SaveGreen.log.warn('[catalog] not an array');
+            SaveGreen.log.warn('catalog', 'not an array');
             return;
         }
         const bad = [];
@@ -940,7 +972,7 @@ SaveGreen.Catalog.report = async function (url = '/dummy/buildingenergydata.json
             URL.revokeObjectURL(href);
         }
     } catch (e) {
-        SaveGreen.log.warn('[catalog] report failed', e);
+        SaveGreen.log.warn('catalog', 'report failed', e);
     }
 };
 
@@ -1026,7 +1058,7 @@ function matchCatalogItem(ctx, list) {
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
         let best = null, bestD = Infinity;
         for (const it of list) {
-            const d = roughDistM({ lat, lon }, { lat: Number(it.lat), lon: Number(it.lon) });
+            const d = roughDistM({ lat, lon }, { lat: Number(it.lat), lon: Number(it.lon ?? it.lng) });
             if (d < bestD) { best = it; bestD = d; }
         }
         if (best && bestD <= 120) return best;
@@ -1260,6 +1292,7 @@ function buildMlPayload(ctx, data) {
     const address = ctx?.address || ctx?.jibunAddr || ctx?.roadAddr || null;
 
     // 8) 최종 조립
+    const win = calcForecastWindow(ctx, data); // ← 추가: 예측 창 계산
     const payload = {
         // 타입
         typeRaw: type,
@@ -1280,7 +1313,11 @@ function buildMlPayload(ctx, data) {
         // 식별/로그
         buildingName: buildingName,
         pnu: pnu,
-        address: address
+        address: address,
+
+        // ★ ML에 명시: FE 차트와 동일한 예측 창(포함 범위)
+        yearsFrom: win.from,
+        yearsTo: win.to
     };
 
     // 9) 시계열(옵션) — 값이 있을 때만 붙임(없으면 JSON에서 생략)
@@ -1377,278 +1414,341 @@ function applyAssumptionsToDataset(rootEl, ctx) {
     }
 }
 
+
 /** 메인 실행 시퀀스 */
 async function runForecast() {
-    const $result = $el('#result-section');
-    const $ml = $el('#mlLoader');
-    const $surface = $el('.result-surface');
+	const $result = $el('#result-section');
+	const $ml = $el('#mlLoader');
+	const $surface = $el('.result-surface');
 
-    SaveGreen.log.info('forecast', 'run start');
+	SaveGreen.log.info('forecast', 'run start');
 
-    show($ml);
-    hide($result);
-    startLoader();
+	show($ml);
+	hide($result);
+	startLoader();
 
-    let ctx, useDummy = false;
-    const root = document.getElementById('forecast-root');
+	let ctx, useDummy = false;
+	const root = document.getElementById('forecast-root');
 
-    try {
-        // 5-1) 컨텍스트 수집
-        ctx = await getBuildingContext();
+	try {
+		// 5-1) 컨텍스트 수집
+		ctx = await getBuildingContext();
 
-        // 5-2) 컨텍스트 보강(enrich)
-        // 깨진 try/catch 복구(+ e 미정의 오류 제거)
-        try {
-            const P = window.SaveGreen?.Forecast?.providers;
-            if (P && typeof P.enrichContext === 'function') {
-                ctx = await P.enrichContext(ctx) || ctx;
-            }
-        } catch (e) {
-            SaveGreen.log.warn('forecast', 'enrich skipped', e);
-        }
+		// 5-1-1) 컨텍스트 수집 직후 기간 고정/데이터셋 반영
+		{
+			const win = calcForecastWindow(ctx, /* data 아직 없음 */ null);
+			if (!Number.isFinite(Number(ctx.from))) ctx.from = String(win.from);
+			if (!Number.isFinite(Number(ctx.to))) ctx.to = String(win.to);
 
-        // 5-3) 카탈로그 로드/매칭 → 프리로드 힌트 반영
-        try {
-            const catalogList = await loadCatalog();
-            const matched = matchCatalogItem(ctx, catalogList);
-            ctx.catalog = matched || null;
+			const rootEl = document.getElementById('forecast-root');
+			if (rootEl && rootEl.dataset) {
+				if (!rootEl.dataset.from) rootEl.dataset.from = String(win.from);
+				if (!rootEl.dataset.to) rootEl.dataset.to = String(win.to);
+			}
+		}
 
-            if (matched) {
-                SaveGreen.log.info('catalog', 'matched');
+		// 5-2) 컨텍스트 보강(enrich)
+		try {
+			const P = window.SaveGreen?.Forecast?.providers;
+			if (P && typeof P.enrichContext === 'function') {
+				ctx = await P.enrichContext(ctx) || ctx;
+			}
+		} catch (e) {
+			SaveGreen.log.warn('forecast', 'enrich skipped', e);
+		}
 
-                // ① 카탈로그 값을 실제 컨텍스트에 주입 (면적/연식/타입/주소 등)
-                if (window.SaveGreen?.Forecast?.providers?.applyCatalogToContext) {
-                    ctx = window.SaveGreen.Forecast.providers.applyCatalogToContext(matched, ctx);
-                }
+		// 5-3) 카탈로그 로드/매칭 → 컨텍스트/프리로드 보강 (단일 블록)
+		try {
+			const catalogList = await loadCatalog();
+			const matched = matchCatalogItem(ctx, catalogList);
+			ctx.catalog = matched || null;
 
-                // ② UI 칩/가정 문구 보강 (주소/연식/면적 표시 등)
-                await applyCatalogHints(ctx);
-            }
-        } catch (e) {
-            SaveGreen.log.warn('catalog', 'pipeline error', e);
-        }
+			if (matched) {
+				SaveGreen.log.info('catalog', 'matched');
 
-        // [추가] 컨텍스트 검증(필수값 누락 안내)
-        (function () {
-            const n = (x) => Number.isFinite(Number(x)) ? Number(x) : NaN;
+				if (window.SaveGreen?.Forecast?.providers?.applyCatalogToContext) {
+					ctx = window.SaveGreen.Forecast.providers.applyCatalogToContext(matched, ctx);
+				} else {
+					// 폴백 주입
+					const pick = (v) => (v == null || String(v).trim() === '') ? undefined : v;
+					ctx.buildingName = ctx.buildingName || pick(matched.buildingName);
+					ctx.pnu          = ctx.pnu          || pick(matched.pnu);
+					ctx.roadAddr     = ctx.roadAddr     || pick(matched.roadAddr || matched.roadAddress);
+					ctx.jibunAddr    = ctx.jibunAddr    || pick(matched.jibunAddr);
+					ctx.useName      = ctx.useName      || pick(matched.useName || matched.use);
+					ctx.builtYear    = ctx.builtYear    || pick(matched.builtYear);
+					ctx.floorAreaM2  = ctx.floorAreaM2  || pick(Number(matched.floorArea));
+				}
 
-            const areaVal = n(ctx.floorAreaM2 ?? ctx.floorArea ?? ctx.area);
-            const hasArea = Number.isFinite(areaVal) && areaVal > 0;
+				await applyCatalogHints(ctx);
+			}
+		} catch (e) {
+			SaveGreen.log.warn('catalog', 'pipeline error', e);
+		}
 
-            const byVal = n(ctx.builtYear);
-            const hasBuiltYear = Number.isFinite(byVal) && byVal > 0;
+		// [추가] 컨텍스트 검증(필수값 누락 안내)
+		(function () {
+			const n = (x) => Number.isFinite(Number(x)) ? Number(x) : NaN;
 
-            // 화면/로깅용 플래그
-            ctx.__flags = { missingArea: !hasArea, missingBuiltYear: !hasBuiltYear };
+			const areaVal = n(ctx.floorAreaM2 ?? ctx.floorArea ?? ctx.area);
+			const hasArea = Number.isFinite(areaVal) && areaVal > 0;
 
-            if (!hasArea) {
-                showToast('면적 값이 없어 EUI 등급은 추정 기준으로 표시됩니다.', 'warn');
-                SaveGreen.log.info('main', 'validation = missing floorArea');
-            } else {
-                // ✅ 확정 면적을 표준 키(floorAreaM2)에 고정
-                ctx.floorAreaM2 = areaVal;
-            }
+			const byVal = n(ctx.builtYear);
+			const hasBuiltYear = Number.isFinite(byVal) && byVal > 0;
 
-            if (!hasBuiltYear) {
-                showToast('사용연도가 없어 추정값으로 계산됩니다.', 'warn');
-                SaveGreen.log.info('main', 'validation = missing builtYear (use inferred)');
-            }
-        })();
+			// 화면/로깅용 플래그
+			ctx.__flags = { missingArea: !hasArea, missingBuiltYear: !hasBuiltYear };
 
-        SaveGreen.log.kv('main', 'ctx after validation', {
-            floorAreaM2: ctx.floorAreaM2,
-            floorArea: ctx.floorArea,
-            area: ctx.area,
-            builtYear: ctx.builtYear
-        }, ['floorAreaM2', 'floorArea', 'area', 'builtYear']);
+			if (!hasArea) {
+				showToast('면적 값이 없어 EUI 등급은 추정 기준으로 표시됩니다.', 'warn');
+				SaveGreen.log.info('main', 'validation = missing floorArea');
+			} else {
+				// ✅ 확정 면적을 표준 키(floorAreaM2)에 고정
+				ctx.floorAreaM2 = areaVal;
+			}
 
-        // 5-4) 타입 결정 + dae.json 로드 + 기본가정(base) 추출
-        try {
-            const F = window.SaveGreen?.Forecast || {};
+			if (!hasBuiltYear) {
+				showToast('사용연도가 없어 추정값으로 계산됩니다.', 'warn');
+				SaveGreen.log.info('main', 'validation = missing builtYear (use inferred)');
+			}
+		})();
 
-            // (a) 타입 결정
-            let mappedType = null;
-            if (typeof F.providers?.pickTypeFromContext === 'function') {
-                mappedType = F.providers.pickTypeFromContext(ctx);
-            }
-            if (!mappedType && typeof F.mapUseNameToType === 'function') {
-                mappedType = F.mapUseNameToType(ctx.useName);
-            }
-            if (!mappedType) {
-                const fromStore =
-                    sessionStorage.getItem('forecast.type') ||
-                    localStorage.getItem('forecast.type');
-                const ok = ['factory', 'school', 'hospital', 'office'];
-                mappedType = ok.includes(fromStore) ? fromStore : null;
-            }
-            if (!mappedType) mappedType = 'office';
+		SaveGreen.log.kv('main', 'ctx after validation', {
+			floorAreaM2: ctx.floorAreaM2,
+			floorArea: ctx.floorArea,
+			area: ctx.area,
+			builtYear: ctx.builtYear
+		}, ['floorAreaM2', 'floorArea', 'area', 'builtYear']);
 
-            // (b) dae.json 로드 & 타입별 base 가정
-            const dae = (typeof F.loadDaeConfig === 'function') ? await F.loadDaeConfig() : null;
-            let base = (dae && typeof F.getBaseAssumptions === 'function')
-                ? F.getBaseAssumptions(dae, mappedType)
-                : null;
-            if (!base && mappedType !== 'office' && dae && typeof F.getBaseAssumptions === 'function') {
-                base = F.getBaseAssumptions(dae, 'office');
-            }
+		// 5-4) 타입 결정 + dae.json 로드 + 기본가정(base) 추출
+		try {
+			const F = window.SaveGreen?.Forecast || {};
 
-            // (c) 컨텍스트에 보관 + euiRules/defaults 보관
-            ctx.mappedType = mappedType;
-            ctx.daeBase = base || null;
+			// (a) 타입 결정
+			let mappedType = null;
+			if (typeof F.providers?.pickTypeFromContext === 'function') {
+				mappedType = F.providers.pickTypeFromContext(ctx);
+			}
+			if (!mappedType && typeof F.mapUseNameToType === 'function') {
+				mappedType = F.mapUseNameToType(ctx.useName);
+			}
+			if (!mappedType) {
+				const fromStore =
+					sessionStorage.getItem('forecast.type') ||
+					localStorage.getItem('forecast.type');
+				const ok = ['factory', 'school', 'hospital', 'office'];
+				mappedType = ok.includes(fromStore) ? fromStore : null;
+			}
+			if (!mappedType) mappedType = 'office';
 
-            try {
-                if (dae) {
-                    const getT = (F.getEuiRulesForType || F.getEuiRules);
-                    if (typeof getT === 'function') {
-                        ctx.euiRules = getT(dae, mappedType);
-                        window.SaveGreen.Forecast._euiRules = ctx.euiRules;
-                    }
-                }
-                if (dae && typeof F.getDefaults === 'function') {
-                    ctx.daeDefaults = F.getDefaults(dae);
-                }
-            } catch { }
+			// (b) dae.json 로드 & 타입별 base 가정
+			const dae = (typeof F.loadDaeConfig === 'function') ? await F.loadDaeConfig() : null;
+			let base = (dae && typeof F.getBaseAssumptions === 'function')
+				? F.getBaseAssumptions(dae, mappedType)
+				: null;
+			if (!base && mappedType !== 'office' && dae && typeof F.getBaseAssumptions === 'function') {
+				base = F.getBaseAssumptions(dae, 'office');
+			}
 
-            // (d) 표시용/계산용 가정 반영
-            applyAssumptionsToDataset(root, ctx);
+			// (c) 컨텍스트에 보관 + euiRules/defaults 보관
+			ctx.mappedType = mappedType;
+			ctx.daeBase = base || null;
 
-            // (e) 로더 상태 라벨
-            try {
-                if (window.LOADER && ctx.mappedType) {
-                    const labelMap = { factory: '제조/공장', school: '교육/학교', hospital: '의료/병원', office: '업무/오피스' };
-                    window.LOADER.setStatus(`예측 가정: ${labelMap[ctx.mappedType] || ctx.mappedType}`);
-                }
-            } catch { }
+			try {
+				if (dae) {
+					const getT = (F.getEuiRulesForType || F.getEuiRules);
+					if (typeof getT === 'function') {
+						ctx.euiRules = getT(dae, mappedType);
+						window.SaveGreen.Forecast._euiRules = ctx.euiRules;
+					}
+				}
+				if (dae && typeof F.getDefaults === 'function') {
+					ctx.daeDefaults = F.getDefaults(dae);
+				}
+			} catch { }
 
-            const b = ctx.daeBase || {};
+			// (d) 표시용/계산용 가정 반영
+			applyAssumptionsToDataset(root, ctx);
 
-            logMainBasePretty({ mappedType: ctx.mappedType, base: b });
+			// (e) 로더 상태 라벨
+			try {
+				if (window.LOADER && ctx.mappedType) {
+					const labelMap = { factory: '제조/공장', school: '교육/학교', hospital: '의료/병원', office: '업무/오피스' };
+					window.LOADER.setStatus(`예측 가정: ${labelMap[ctx.mappedType] || ctx.mappedType}`);
+				}
+			} catch { }
 
-        } catch (e) {
-            // [수정] console.warn → SaveGreen.log.warn
-            SaveGreen.log.warn('forecast', 'dae.json/base inject skipped', e);
-        }
+			const b = ctx.daeBase || {};
+			logMainBasePretty({ mappedType: ctx.mappedType, base: b });
 
-    } catch (e) {
-        // [수정] console.warn → SaveGreen.log.warn
-        SaveGreen.log.warn('forecast', 'no context → fallback to dummy', e);
-        ctx = fallbackDefaultContext(root);
-        useDummy = true;
-        applyAssumptionsToDataset(root, ctx);
-    }
+		} catch (e) {
+			SaveGreen.log.warn('forecast', 'dae.json/base inject skipped', e);
+		}
 
-    // 5-5) 데이터 로드(실제 API 또는 더미)
-    const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
-    window.FORECAST_DATA = data;
+	} catch (e) {
+		SaveGreen.log.warn('forecast', 'no context → fallback to dummy', e);
+		ctx = fallbackDefaultContext(root);
+		useDummy = true;
+		applyAssumptionsToDataset(root, ctx);
+	}
 
-    // ▼ ML KPI 호출(파이썬)
-    let kpiFromServer = null;
-    try {
-        const mlPayload = buildMlPayload(ctx, data);
-        logMlPayloadPretty(mlPayload);
-        kpiFromServer = await callMl(mlPayload);      // ← 재선언 금지
-    } catch (e) {
-        SaveGreen.log.warn('kpi', 'ML bridge failed → fallback', e?.message || e);
-        kpiFromServer = { savingKwhYr: 0, savingCostYr: 0, savingPct: 0, paybackYears: 99, label: 'NOT_RECOMMEND' };
-    }
+	// 5-5) 데이터 로드(실제 API 또는 더미)
+	const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
+	window.FORECAST_DATA = data;
 
-    // [권장 가드] 숫자 강제
-    if (kpiFromServer) {
-        kpiFromServer.savingKwhYr = Number(kpiFromServer.savingKwhYr) || 0;
-        kpiFromServer.savingCostYr = Number(kpiFromServer.savingCostYr) || 0;
-        kpiFromServer.savingPct = Number(kpiFromServer.savingPct) || 0;
-        kpiFromServer.paybackYears = Number.isFinite(Number(kpiFromServer.paybackYears))
-            ? Number(kpiFromServer.paybackYears)
-            : 99;
-        kpiFromServer.label = kpiFromServer.label || 'NOT_RECOMMEND';
-    }
+	// ML 호출 직전 보강(식별 필드)
+	(function ensureIdentityFields() {
+		const rootEl = document.getElementById('forecast-root');
+		const ds = (rootEl?.dataset) || {};
+		const sget = (k) => (sessionStorage.getItem(k) || '').trim();
+		const lget = (k) => (localStorage.getItem(k) || '').trim();
 
-    // 5-6) 배열 길이/타입 보정(Forward-fill)
-    {
-        const expectedYears = Array.isArray(data.years) ? data.years.map(String) : [];
-        const L = expectedYears.length;
+		if (!ctx.buildingName) {
+			ctx.buildingName =
+				ds.buildingName || ds.bname ||
+				sget('buildingName') || sget('buldNm') ||
+				lget('forecast.buildingName') || null;
+		}
+		if (!ctx.pnu) {
+			ctx.pnu =
+				ds.pnu ||
+				sget('pnu') ||
+				lget('forecast.pnu') || null;
+		}
 
-        data.years = expectedYears;
-        data.series = data.series || {};
-        data.cost = data.cost || {};
+		if (typeof ctx.buildingName === 'string' && !ctx.buildingName.trim()) ctx.buildingName = null;
+		if (typeof ctx.pnu === 'string' && !ctx.pnu.trim()) ctx.pnu = null;
 
-        data.series.after = toNumArrFFill(data.series.after, L);
-        data.series.saving = toNumArrFFill(data.series.saving, L);
-        data.cost.saving = toNumArrFFill(data.cost.saving, L);
-    }
+		SaveGreen.log.kv('kpi', 'ml id fields', {
+			buildingName: ctx.buildingName,
+			pnu: ctx.pnu,
+			address: ctx.address || ctx.jibunAddr || ctx.roadAddr
+		}, ['buildingName', 'pnu', 'address']);
+	})();
 
-    // 5-7) 메타패널(기간/모델/특징)
-    updateMetaPanel({
-        years: window.FORECAST_DATA.years,
-        model: 'Linear Regression',
-        features: (function () {
-            const feats = ['연도'];
-            if (Array.isArray(window.FORECAST_DATA?.series?.after)) feats.push('사용량');
-            if (Array.isArray(window.FORECAST_DATA?.cost?.saving)) feats.push('비용 절감');
-            return feats;
-        })()
-    });
+	// ▼ ML KPI 호출
+	let kpiFromServer = null;
+	try {
+		const mlPayload = buildMlPayload(ctx, data);
+		logMlPayloadPretty(mlPayload);
 
-    // 5-8) KPI/등급/배너
-    const floorArea = Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
-    const kpi = SaveGreen.Forecast.computeKpis({
-        years: data.years,
-        series: data.series,
-        cost: data.cost,
-        kpiFromApi: kpiFromServer,
-        base: ctx.daeBase || null,
-        floorArea: Number.isFinite(floorArea) ? floorArea : undefined
-    });
+		const mlResp = await callMl(mlPayload);
+		const kpi = mlResp?.kpi || null;
 
-    // EUI 룰 기반 등급 산정(룰/면적 없으면 절감률 폴백)
-    const euiRules = ctx.euiRules || window.SaveGreen?.Forecast?._euiRules || null;
-    const euiNow = SaveGreen.Forecast.KPI.computeCurrentEui(data, Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area));
-    let gradeNow = null;
-    if (euiRules && euiNow != null) {
-        gradeNow = SaveGreen.Forecast.KPI.pickGradeByRules(euiNow, euiRules);
-    }
-    if (gradeNow == null) {
-        gradeNow = (kpi.savingPct >= 30) ? 1 : (kpi.savingPct >= 20) ? 2 : (kpi.savingPct >= 10) ? 3 : 4;
-    }
+		if (kpi) {
+			kpiFromServer = {
+				savingKwhYr: Number(kpi.savingKwhYr) || 0,
+				savingCostYr: Number(kpi.savingCostYr) || 0,
+				savingPct: Number(kpi.savingPct) || 0,
+				paybackYears: Number.isFinite(Number(kpi.paybackYears)) ? Number(kpi.paybackYears) : 99,
+				label: kpi.label || 'NOT_RECOMMEND'
+			};
+		} else {
+			kpiFromServer = { savingKwhYr: 0, savingCostYr: 0, savingPct: 0, paybackYears: 99, label: 'NOT_RECOMMEND' };
+		}
+	} catch (e) {
+		SaveGreen.log.warn('kpi', 'ML bridge failed → fallback', e?.message || e);
+		kpiFromServer = { savingKwhYr: 0, savingCostYr: 0, savingPct: 0, paybackYears: 99, label: 'NOT_RECOMMEND' };
+	}
 
-    const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
-    const statusObj = SaveGreen.Forecast.decideStatusByScore(kpi, { builtYear });
-    applyStatus(statusObj.status);
+	// [권장 가드] 숫자 강제
+	if (kpiFromServer) {
+		kpiFromServer.savingKwhYr = Number(kpiFromServer.savingKwhYr) || 0;
+		kpiFromServer.savingCostYr = Number(kpiFromServer.savingCostYr) || 0;
+		kpiFromServer.savingPct = Number(kpiFromServer.savingPct) || 0;
+		kpiFromServer.paybackYears = Number.isFinite(Number(kpiFromServer.paybackYears))
+			? Number(kpiFromServer.paybackYears)
+			: 99;
+		kpiFromServer.label = kpiFromServer.label || 'NOT_RECOMMEND';
+	}
 
-    // 로더 종료 → 결과 표시
-    await ensureMinLoaderTime();
-    await finishLoader();
-    hide($ml);
-    show($result);
-    if ($surface) hide($surface);
+	// 5-6) 배열 길이/타입 보정(Forward-fill)
+	{
+		const expectedYears = Array.isArray(data.years) ? data.years.map(String) : [];
+		const L = expectedYears.length;
 
-    // 5-9) ABC 순차 실행(차트)
-    await runABCSequence({
-        ctx,
-        baseForecast: data,
-        onCComplete: () => {
-            renderKpis(kpi, { gradeNow });
-            renderSummary({ gradeNow, kpi, rules: euiRules, euiNow, ctx });
+		data.years = expectedYears;
+		data.series = data.series || {};
+		data.cost = data.cost || {};
 
-            if ($surface) {
-                try {
-                    $surface.style.opacity = '0';
-                    $surface.style.transform = 'translateY(-12px)';
-                    show($surface);
-                    $requestAnimationFramePoly(() => {
-                        $surface.style.transition = 'opacity 350ms ease, transform 350ms ease';
-                        $surface.style.opacity = '1';
-                        $surface.style.transform = 'translateY(0)';
-                        setTimeout(() => { $surface.style.transition = ''; }, 400);
-                    });
-                } catch { show($surface); }
-            }
-        }
-    });
+		data.series.after = toNumArrFFill(data.series.after, L);
+		data.series.saving = toNumArrFFill(data.series.saving, L);
+		data.cost.saving = toNumArrFFill(data.cost.saving, L);
+	}
 
-    setPreloadState('complete');
-    // [수정] console.groupEnd() 제거
+	// 5-7) 메타패널(기간/모델/특징)
+	updateMetaPanel({
+		years: window.FORECAST_DATA.years,
+		model: 'Linear Regression',
+		features: (function () {
+			const feats = ['연도'];
+			if (Array.isArray(window.FORECAST_DATA?.series?.after)) feats.push('사용량');
+			if (Array.isArray(window.FORECAST_DATA?.cost?.saving)) feats.push('비용 절감');
+			return feats;
+		})()
+	});
+
+	// 5-8) KPI/등급/배너
+	const floorArea = Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
+	const kpi = SaveGreen.Forecast.computeKpis({
+		years: data.years,
+		series: data.series,
+		cost: data.cost,
+		kpiFromApi: kpiFromServer,
+		base: ctx.daeBase || null,
+		floorArea: Number.isFinite(floorArea) ? floorArea : undefined
+	});
+
+	// EUI 룰 기반 등급 산정(룰/면적 없으면 절감률 폴백)
+	const euiRules = ctx.euiRules || window.SaveGreen?.Forecast?._euiRules || null;
+	const euiNow = SaveGreen.Forecast.KPI.computeCurrentEui(data, Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area));
+	let gradeNow = null;
+	if (euiRules && euiNow != null) {
+		gradeNow = SaveGreen.Forecast.KPI.pickGradeByRules(euiNow, euiRules);
+	}
+	if (gradeNow == null) {
+		gradeNow = (kpi.savingPct >= 30) ? 1 : (kpi.savingPct >= 20) ? 2 : (kpi.savingPct >= 10) ? 3 : 4;
+	}
+
+	const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
+	const statusObj = SaveGreen.Forecast.decideStatusByScore(kpi, { builtYear });
+	applyStatus(statusObj.status);
+
+	// 로더 종료 → 결과 표시
+	await ensureMinLoaderTime();
+	await finishLoader();
+	hide($ml);
+	show($result);
+	if ($surface) hide($surface);
+
+	// 5-9) ABC 순차 실행(차트)
+	await runABCSequence({
+		ctx,
+		baseForecast: data,
+		onCComplete: () => {
+			renderKpis(kpi, { gradeNow });
+			renderSummary({ gradeNow, kpi, rules: euiRules, euiNow, ctx });
+
+			if ($surface) {
+				try {
+					$surface.style.opacity = '0';
+					$surface.style.transform = 'translateY(-12px)';
+					show($surface);
+					$requestAnimationFramePoly(() => {
+						$surface.style.transition = 'opacity 350ms ease, transform 350ms ease';
+						$surface.style.opacity = '1';
+						$surface.style.transform = 'translateY(0)';
+						setTimeout(() => { $surface.style.transition = ''; }, 400);
+					});
+				} catch { show($surface); }
+			}
+		}
+	});
+
+	setPreloadState('complete');
 }
+
+
 
 /* ==========================================================
  * 6) KPI/등급/요약/배너/차트
@@ -1738,8 +1838,8 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
     lines.push(`목표 : <strong>${targetGradeText}</strong>`);
     if (boundaryText !== '-') lines.push(`등급 상승 기준(EUI 경계값) : <strong>${boundaryText}</strong>`);
     if (Number.isFinite(euiNow)) lines.push(`추정 현재 EUI : <strong>${currentEuiText}</strong>`);
-    lines.push(`추정 현재 EUI : <strong>${currentEuiText}</strong>`);
     lines.push(`등급 상승 필요 절감률 : <strong>${needSavingPct}%</strong>`);
+
 
     lines.forEach((html) => {
         const li = document.createElement('li');
