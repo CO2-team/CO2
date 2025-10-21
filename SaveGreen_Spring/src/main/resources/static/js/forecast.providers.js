@@ -75,16 +75,16 @@
 			// GreenFinder 가 남기는 키들(스냅샷 기준)
 			const get = (k) => (sessionStorage.getItem(k) || '').toString().trim();
 
-			const ldCodeNm = get('ldCodeNm');				// 예: '대전광역시 서구 둔산동'
-			const mnnmSlno = get('mnnmSlno');				// 예: '1268'
-			const pnu = get('pnu');							// 예: '3017011200112680000'
-			const latStr = get('lat');						// 위도(문자열)
-			const lonRaw = get('lon') || get('lng');		// 경도 키 호환(lon | lng)
+			const ldCodeNm = get('ldCodeNm');            // 예: '대전광역시 서구 둔산동'
+			const mnnmSlno = get('mnnmSlno');            // 예: '1268'
+			const pnu = get('pnu');                      // 예: '3017011200112680000'
+			const latStr = get('lat');                   // 위도(문자열)
+			const lonRaw = get('lon') || get('lng');     // 경도 키 호환(lon | lng)
 			const buildingName = get('buildingName') || get('buldNm') || '';
 
 			// ✨ 추가: 사용승인일/연식 스니핑(세션 읽기 전용)
-			const useConfmDe = get('useConfmDe');			// 예: '1996-12-05'
-			const builtYearRaw = get('builtYear');			// 예: '1996'
+			const useConfmDe = get('useConfmDe');        // 예: '1996-12-05'
+			const builtYearRaw = get('builtYear');       // 예: '1996'
 			const builtYear = (() => {
 				if (/^\d{4}$/.test(builtYearRaw)) return builtYearRaw;
 				if (/^\d{4}/.test(useConfmDe)) return useConfmDe.slice(0, 4);
@@ -191,72 +191,70 @@
 		};
 		const norm = (s) => (s == null ? '' : String(s).trim().toLowerCase().replace(/\s+/g, ''));
 
+		// 이미 표준 타입이면 그대로 통과시키는 헬퍼
+		function isCoreType(t) {
+			if (!t) return false;
+			const s = String(t).trim().toLowerCase();
+			return s === 'office' || s === 'factory' || s === 'school' || s === 'hospital';
+		}
 
-        // 이미 표준 타입이면 그대로 통과시키는 헬퍼
-        function isCoreType(t) {
-            if (!t) return false;
-            const s = String(t).trim().toLowerCase();
-            return s === 'office' || s === 'factory' || s === 'school' || s === 'hospital';
-        }
+		// useName → type 매핑 (미니멀)
+		// 1) useName이 이미 4타입이면 그대로
+		// 2) 아니면 USE_TYPE_MAP에서 최소 동의어만 매핑
+		// 3) 그래도 없으면 부분일치 한 번만 시도
+		function mapUseNameToType(useName) {
+			if (isCoreType(useName)) return String(useName).trim().toLowerCase();
+			const key = norm(useName);
+			if (!key) return null;
+			if (USE_TYPE_MAP[key]) return USE_TYPE_MAP[key];
+			for (const k in USE_TYPE_MAP) {
+				if (key.includes(k)) return USE_TYPE_MAP[k];
+			}
+			return null;
+		}
 
-        // useName → type 매핑 (미니멀)
-        // 1) useName이 이미 4타입이면 그대로
-        // 2) 아니면 USE_TYPE_MAP에서 최소 동의어만 매핑
-        // 3) 그래도 없으면 부분일치 한 번만 시도
-        function mapUseNameToType(useName) {
-            if (isCoreType(useName)) return String(useName).trim().toLowerCase();
-            const key = norm(useName);
-            if (!key) return null;
-            if (USE_TYPE_MAP[key]) return USE_TYPE_MAP[key];
-            for (const k in USE_TYPE_MAP) {
-                if (key.includes(k)) return USE_TYPE_MAP[k];
-            }
-            return null;
-        }
+		// 건물명/주소 기반 보조 휴리스틱(가볍게)
+		// useName이 비었거나 애매할 때만 사용
+		function mapFromTextHeuristics(txt) {
+			const t = norm(txt);
+			if (!t) return null;
 
-        // 건물명/주소 기반 보조 휴리스틱(가볍게)
-        // useName이 비었거나 애매할 때만 사용
-        function mapFromTextHeuristics(txt) {
-            const t = norm(txt);
-            if (!t) return null;
+			// school
+			if (/(초등|중학|고등|학교|대학|캠퍼스)/.test(t)) return 'school';
+			// hospital
+			if (/(병원|의료|의원)/.test(t)) return 'hospital';
+			// factory
+			if (/(공장|제조|산업)/.test(t)) return 'factory';
+			// office
+			if (/(오피스|사무|업무)/.test(t)) return 'office';
 
-            // school
-            if (/(초등|중학|고등|학교|대학|캠퍼스)/.test(t)) return 'school';
-            // hospital
-            if (/(병원|의료|의원)/.test(t)) return 'hospital';
-            // factory
-            if (/(공장|제조|산업)/.test(t)) return 'factory';
-            // office
-            if (/(오피스|사무|업무)/.test(t)) return 'office';
+			return null;
+		}
 
-            return null;
-        }
-
-        // 최종 타입 선택
-        function pickTypeFromContext(ctx) {
-            // ① useName이 표준 4타입이면 그대로
-            if (isCoreType(ctx?.useName)) {
-                return String(ctx.useName).trim().toLowerCase();
-            }
-            // ② 최소 동의어 매핑
-            const byUse = mapUseNameToType(ctx?.useName);
-            if (byUse) return byUse;
-            // ③ 건물명/주소로 가벼운 보조 추론
-            const txt = ctx?.buildingName || ctx?.roadAddr || ctx?.jibunAddr || '';
-            const byText = mapFromTextHeuristics(txt);
-            if (byText) return byText;
-            // ④ 없으면 null (콘솔에서 unmapped 확인용 로그만 남기고 끝)
-            try {
-                SaveGreen.log.kv('provider', 'type mapping miss', {
-                    useName: ctx?.useName ?? '',
-                    buildingName: ctx?.buildingName ?? '',
-                    roadAddr: ctx?.roadAddr ?? '',
-                    jibunAddr: ctx?.jibunAddr ?? ''
-                }, ['useName','buildingName','roadAddr','jibunAddr']);
-            } catch {}
-            return null;
-        }
-
+		// 최종 타입 선택
+		function pickTypeFromContext(ctx) {
+			// ① useName이 표준 4타입이면 그대로
+			if (isCoreType(ctx?.useName)) {
+				return String(ctx.useName).trim().toLowerCase();
+			}
+			// ② 최소 동의어 매핑
+			const byUse = mapUseNameToType(ctx?.useName);
+			if (byUse) return byUse;
+			// ③ 건물명/주소로 가벼운 보조 추론
+			const txt = ctx?.buildingName || ctx?.roadAddr || ctx?.jibunAddr || '';
+			const byText = mapFromTextHeuristics(txt);
+			if (byText) return byText;
+			// ④ 없으면 null (콘솔에서 unmapped 확인용 로그만 남기고 끝)
+			try {
+				SaveGreen.log.kv('provider', 'type mapping miss', {
+					useName: ctx?.useName ?? '',
+					buildingName: ctx?.buildingName ?? '',
+					roadAddr: ctx?.roadAddr ?? '',
+					jibunAddr: ctx?.jibunAddr ?? ''
+				}, ['useName','buildingName','roadAddr','jibunAddr']);
+			} catch {}
+			return null;
+		}
 
 		async function loadDaeConfig() {
 			if (__daeConfigCache) return __daeConfigCache;
@@ -266,37 +264,38 @@
 			return __daeConfigCache;
 		}
 
+		// [수정] dae.types[t].base 우선 → 호환(dae.base[t]) 폴백
 		function getBaseAssumptions(dae, type) {
 			if (!dae || !type) return null;
 			const t = String(type).toLowerCase();
-			return dae?.base?.[t] || null;
+			// 새 스키마(types.*.base) 우선, 구스키마(base.*) 폴백
+			return (dae?.types?.[t]?.base) || (dae?.base?.[t]) || null;
 		}
 
-        /**
-         * EUI/등급 규칙 가져오기
-         * - dae.json에서 'euiRules'가 표준 키이고,
-         *   혹시 구버전(또는 다른 환경)에서 'rules'를 썼다면 폴백으로 지원한다.
-         * - 반환 스키마 예:
-         *   {
-         *     mode: "electricity" | "primary",
-         *     electricityGradeThresholds?: { "1":120, "2":160, "3":200 },
-         *     pef?: { electricity: 2.7 },
-         *     primaryGradeBands?: [{ min, max, grade, label }]
-         *   }
-         */
-       // [교체] 규칙 로더: 'euiRules' 우선, 없으면 'rules'
-       function getEuiRules(dae) {
-       	if (!dae || typeof dae !== 'object') return null;
-       	return dae.euiRules || dae.rules || null;
-       }
+		/**
+		 * EUI/등급 규칙 가져오기
+		 * - dae.json에서 'euiRules'가 표준 키이고,
+		 *   혹시 구버전(또는 다른 환경)에서 'rules'를 썼다면 폴백으로 지원한다.
+		 * - 반환 스키마 예:
+		 *   {
+		 *     mode: "electricity" | "primary",
+		 *     electricityGradeThresholds?: { "1":120, "2":160, "3":200 },
+		 *     pef?: { electricity: 2.7 },
+		 *     primaryGradeBands?: [{ min, max, grade, label }]
+		 *   }
+		 */
+		// [교체] 규칙 로더: 'euiRules' 우선, 없으면 'rules'
+		function getEuiRules(dae) {
+			if (!dae || typeof dae !== 'object') return null;
+			return dae.euiRules || dae.rules || null;
+		}
 
-       // [추가] 타입별 규칙 우선 적용(rulesByType[type] → euiRules → rules)
-       function getEuiRulesForType(dae, type) {
-       	if (!dae || typeof dae !== 'object') return null;
-       	const byType = dae.rulesByType && type ? dae.rulesByType[String(type).toLowerCase()] : null;
-       	return byType || getEuiRules(dae);
-       }
-
+		// [추가] 타입별 규칙 우선 적용(rulesByType[type] → euiRules → rules)
+		function getEuiRulesForType(dae, type) {
+			if (!dae || typeof dae !== 'object') return null;
+			const byType = dae.rulesByType && type ? dae.rulesByType[String(type).toLowerCase()] : null;
+			return byType || getEuiRules(dae);
+		}
 
 		function getDefaults(dae) {
 			return dae?.defaults || null;
@@ -310,13 +309,13 @@
 		// [추가]
 		window.SaveGreen.Forecast.getDefaults = getDefaults;
 		// [추가] 외부 노출
-        window.SaveGreen.Forecast.getEuiRulesForType = getEuiRulesForType;
+		window.SaveGreen.Forecast.getEuiRulesForType = getEuiRulesForType;
 
 		// (선택) 외부에서 타입 추론이 필요할 때 노출
 		window.SaveGreen.Forecast.providers.pickTypeFromContext = pickTypeFromContext;
 
 		// (추가) enrichContext 도 외부 노출
-        window.SaveGreen.Forecast.providers.enrichContext = enrichContext;
+		window.SaveGreen.Forecast.providers.enrichContext = enrichContext;
 	})();
 
 	/* ---------- 소스 우선순위 결정 ---------- */
@@ -399,7 +398,7 @@
 
 		const o = {
 			buildingId: nvPos(root.dataset.bid) ?? parseIdFromForecastPath(),
-			builtYear:  nvPos(root.dataset.builtYear),	// 양수만
+			builtYear:  nvPos(root.dataset.builtYear),   // 양수만
 			useName:    sv(root.dataset.use),
 			floorArea:  nv(root.dataset.floorArea),
 			area:       nv(root.dataset.area),
@@ -424,8 +423,8 @@
 	 * - from/to 비어 있으면 NOW_YEAR ~ NOW_YEAR+10으로 보강.
 	 */
 	function readFromLocal() {
-		const a = readFromLocalStorage() || {};		// 스냅샷(있으면 우선)
-		const b = sniffSessionForBuilding() || {};	// 세션 스니핑
+		const a = readFromLocalStorage() || {};      // 스냅샷(있으면 우선)
+		const b = sniffSessionForBuilding() || {};   // 세션 스니핑
 
 		const merged = { ...b, ...a };
 
@@ -567,6 +566,80 @@
 			lon:        isFiniteNum(v.lon) ? Number(v.lon) : undefined
 		};
 	}
+
+	// forecast.providers.js
+	// -------------------------------------------------------
+	// ml_dataset.json 기반 카달로그 선택 → ML에 필요한 필드 정규화
+	// -------------------------------------------------------
+
+	// === ml_dataset.json 1건을 컨텍스트에 주입 ===
+	(function () {
+		// 한글 용도 → ML 타입 4종 매핑
+		function mapMlType(name = '') {
+			const s = String(name).trim();
+			if (s.includes('공장') || s.includes('제조')) return 'factory';
+			if (s.includes('창고')) return 'warehouse';
+			if (s.includes('사무') || s.includes('오피스')) return 'office';
+			if (s.includes('병원') || s.includes('의료')) return 'hospital';
+			if (s.includes('학교') || s.includes('교육')) return 'school';
+			return 'factory';
+		}
+
+		// "대전광역시 대덕구 ... " → "대전 대덕구"
+		function toRegionRaw(address) {
+			if (!address) return '대전';
+			const parts = String(address).trim().split(/\s+/);
+			const city = (parts[0] || '').replace('광역시','').replace('특별시','');
+			return [city || '대전', parts[1] || ''].filter(Boolean).join(' ');
+		}
+
+		// 핵심: 카달로그 값 → ctx 주입
+		function applyCatalogToContext(item, ctx) {
+			if (!item || !ctx) return ctx;
+
+			// 화면 라벨/주소
+			ctx.buildingName = item.buildingName || ctx.buildingName || '';
+			ctx.roadAddr     = item.address     || ctx.roadAddr     || '';
+			ctx.jibunAddr    = ctx.jibunAddr || '';
+			ctx.pnu          = item.pnu || ctx.pnu;
+
+			// ML 필드
+			const area = Number(item.floorAreaM2);
+			if (Number.isFinite(area) && area > 0) ctx.floorAreaM2 = area;
+
+			const by = Number(item.usageYear);
+			if (Number.isFinite(by) && by > 0) ctx.builtYear = by;
+
+			ctx.yearlyConsumption  = Array.isArray(item.yearlyConsumption)  ? item.yearlyConsumption  : (ctx.yearlyConsumption  || []);
+			ctx.monthlyConsumption = Array.isArray(item.monthlyConsumption) ? item.monthlyConsumption : (ctx.monthlyConsumption || []);
+
+			// 타입(한글 라벨 + ML용)
+			const useName = item.buildingType2 || item.buildingType1 || ctx.useName || '공장';
+			ctx.useName    = useName;                 // 디버그/라벨용
+			ctx.typeRaw    = useName;                 // 서버에 라벨도 전달
+			ctx.mappedType = mapMlType(useName);      // ML용
+
+			// 지역
+			ctx.regionRaw  = toRegionRaw(item.address || ctx.address);
+
+			// 면적 우선순위: floorAreaM2 → floorArea → area
+			const areaFromRec = Number(item?.floorAreaM2 ?? item?.floorArea ?? item?.area);
+			if (!Number.isFinite(Number(ctx.floorAreaM2)) && Number.isFinite(areaFromRec) && areaFromRec > 0) {
+				ctx.floorAreaM2 = areaFromRec;
+			}
+
+			// 보관(툴팁/라벨 용)
+			ctx.catalogItem = item;
+
+			return ctx;
+		}
+
+		// 전역 네임스페이스로 공개 (모듈이 아닌 스크립트 환경)
+		window.SaveGreen = window.SaveGreen || {};
+		window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
+		window.SaveGreen.Forecast.providers = window.SaveGreen.Forecast.providers || {};
+		window.SaveGreen.Forecast.providers.applyCatalogToContext = applyCatalogToContext;
+	})();
 
 	/* ---- 미세 유틸 ---- */
 
