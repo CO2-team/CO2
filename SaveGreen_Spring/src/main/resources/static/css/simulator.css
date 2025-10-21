@@ -391,3 +391,10 @@ body.swal2-shown {
     height : 500px;
     margin: 0 auto; 
 }
+
+#solarEfficiencyChart{
+    width : 1000px;
+    height : 500px;
+    margin: 0 auto; 
+
+}

@@ -132,13 +132,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json();
 
         const box = document.getElementById('resultBox2');
-        if (!box) return;
-        const box3 = document.getElementById("intensityChart1");
-        const box4 = document.getElementById("intensityChart2");
-        const box5 = document.getElementById("intensityChart3");
-        if (!box3) return;
+        if (!box) return;     
         const box2 = document.getElementById('compareText');
-     
+        const box6 = document.getElementById("solarEfficiencyChart");
         const items = box.querySelectorAll('.result-item');
         items.forEach(item => item.classList.remove('show'));
 
@@ -151,10 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         box.style.display = 'block';
         box2.style.display='block'
-        box3.style.display = 'block';
-        box4.style.display = 'block';
-        box5.style.display = 'block';
-        runCompare();
+        box6.style.display = 'block';
+        addNewResultToChart()
         
 
       

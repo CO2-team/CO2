@@ -122,6 +122,11 @@
                 <input type="hidden" id="zipNo" name="zipNo">
                 <input type="hidden" name="avg" id="average2">
                 <input type="hidden" name="eik" id="eik2">
+                <input type="hidden" name="solar" id="solarRadiation">
+                <input type="hidden" name="onePanelGeneration" id="onePanelGeneration">
+                <input type="hidden" name="onePanelCO2" id="onePanelCO2">
+                <input type="hidden" name="onePanelSaveElectric" id="onePanelSaveElectric">
+                <input type="hidden" name="daySolar" id="daySolar">
                
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
@@ -207,13 +212,15 @@
         </button>
     </div>
 
-    <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과</strong>와 <strong>평균</strong> 비교해보기</div>
+    <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과차트</strong> 보기 </div>
     <br>
     <canvas id="intensityChart1" style="display: none;" >비교차트</canvas>
-    <br><br><br>
+    <br><br>
     <canvas id="intensityChart2" style="display: none;" >비교차트</canvas>
-    <br><br><br>
+    <br><br>
     <canvas id="intensityChart3" style="display: none;" >비교차트</canvas>
+    <br><br>
+    <canvas id="solarEfficiencyChart" style="display:none">누적 비교차트</canvas>
 </div>
 
 

@@ -218,3 +218,78 @@ function runCompare() {
 
 
 
+function addNewResultToChart() {
+    const solar = Number(document.getElementById('solarRadiation').value);
+    const generation = Number(document.getElementById('onePanelGeneration').value);
+    const co2 = Number(document.getElementById('onePanelCO2').value);
+    const money = Number(document.getElementById('onePanelSaveElectric').value);
+    const road = document.getElementById('roadAddr').value || '미상 지역';
+    const lat = Number(document.getElementById('lat2').value);
+    const lon = Number(document.getElementById('lon2').value);
+    const daySolar = Number(document.getElementById('daySolar').value);
+
+    const newData = {
+        location: road,
+        solarRadiation: solar,
+        panelGeneration: generation,
+        co2PerPanel: co2,
+        taxPerPanel: money,
+        lat:lat,
+        lon:lon,
+        daySolar:daySolar
+    };
+
+    addChartData(newData); 
+    console.log("차트그리기함수시작");
+}
+
+let chartDataList = [];
+function addChartData(newData) {
+    if (chartDataList.length >= 3) {
+        chartDataList.shift();
+    }
+    chartDataList.push(newData);
+
+    updateSolarEfficiencyChart();
+     console.log(chartDataList);
+}
+
+
+function updateSolarEfficiencyChart() {
+    var canvas4 = document.getElementById('solarEfficiencyChart');
+    
+    console.log('누적차트그리기시작');
+    console.log('Chart 객체:', window.Chart);
+    console.log('canvas', document.getElementById('intensityChart1'));
+
+    if (window.__solarEfficiencyChart) {
+        const chart = window.__solarEfficiencyChart;
+        chart.data.labels = chartDataList.map(d => d.location);
+        chart.data.datasets[0].data = chartDataList.map(d => d.daySolar);
+        chart.data.datasets[1].data = chartDataList.map(d => d.panelGeneration);
+        chart.data.datasets[2].data = chartDataList.map(d => d.co2PerPanel);
+        chart.data.datasets[3].data = chartDataList.map(d => d.taxPerPanel);
+        chart.update();
+    } else {
+        window.__solarEfficiencyChart = new Chart(canvas4, {
+            type: 'bar',
+            data: {
+                labels: chartDataList.map(d => d.location),
+                datasets: [
+                    { label: '일평균 일사량 (kWh/m²/day)', data: chartDataList.map(d => d.daySolar), backgroundColor: '#81C784' },
+                    { label: '패널당 발전량 (kWh)', data: chartDataList.map(d => d.panelGeneration), backgroundColor: '#1976D2' },
+                    { label: '패널당 탄소절감 (ton)', data: chartDataList.map(d => d.co2PerPanel), backgroundColor: '#FFB74D' },
+                    { label: '패널당 절감액 (만원)', data: chartDataList.map(d => d.taxPerPanel), backgroundColor: '#BDBDBD' }
+                ]
+            },
+            options: {
+                responsive: false,
+                plugins: { 
+                    legend: { display: true },
+                    title: { display: true, text: "지역별 패널 효율 비교", font: { size: 20 } }
+                },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+}
