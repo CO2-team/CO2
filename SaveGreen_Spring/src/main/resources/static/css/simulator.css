@@ -398,3 +398,22 @@ body.swal2-shown {
     margin: 0 auto; 
 
 }
+
+.swal-text {
+  text-align: left !important;
+  line-height: 1.6;
+  font-size: 17px;
+}
+
+/* h4만 중앙정렬 */
+.swal-text h4 {
+  text-align: center !important;
+  color: #1976D2;
+  font-weight: 700;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 25px;
+}
+.card-year{
+    font-size:24px;
+}

@@ -52,11 +52,21 @@
                     <label>대</label>
                     <input type="number" name="panelCount" placeholder="태양광 패널 개수(선택)">
                 </div>
-                <div class="form-group">
-                    <img class="icon" src="/img/electric.png" alt="Electric Icon">
-                    <label>W</label>
-                    <input type="number" name="panelPower" placeholder="태양광 패널 정격출력(선택)">
+              
+                <div class="form-row">
+                    <!-- <img class="icon" src="/img/electric.png" alt="Electric Icon"> -->
+                    <!-- <input type="number" name="panelPower" placeholder="태양광 패널 정격출력(선택)"> -->
+                     <select name="panelPower" >
+                        <option value="">패널 정격출력(선택)</option>
+                        <option value="400">400 Wp (Trina Solar Vertex S)</option>
+                        <option value="500">500 Wp (Hanwha Q Cells Q.PEAK DUO ML-G11)</option>               
+                        <option value="550">550 Wp (LONGi Hi-MO 6 Explorer)</option>
+                        <option value="600">600 Wp (JA Solar DeepBlue 3.0)</option>              
+                        <option value="640">640 Wp (Hanwha Q.TRON XL-G2R)</option>
+                        <option value="700">700 Wp (Jinko Solar Tiger Neo N-type)</option>
+                    </select>
                 </div>
+              
                 <button type="submit" class="btn-submit">결과보기</button>
             </form>
         </div>        
@@ -124,9 +134,11 @@
                 <input type="hidden" name="eik" id="eik2">
                 <input type="hidden" name="solar" id="solarRadiation">
                 <input type="hidden" name="onePanelGeneration" id="onePanelGeneration">
+                <input type="hidden" name="onePanelGenerationforchart" id="onePanelGeneForChart">
                 <input type="hidden" name="onePanelCO2" id="onePanelCO2">
                 <input type="hidden" name="onePanelSaveElectric" id="onePanelSaveElectric">
                 <input type="hidden" name="daySolar" id="daySolar">
+             
                
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
@@ -167,10 +179,17 @@
                         <option value="10">7등급</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <img class="icon" src="/img/electric.png" alt="Electric Icon">
-                    <label>W</label>
-                    <input type="number" name="panelPower" placeholder="태양광 패널 정격출력" required title="태양광 정격출력이 입력되지 않았습니다.시중 태양광 패널의 평균 정격출력은 500W입니다.">
+                <div class="form-row">
+                    <!-- <img class="icon" src="/img/electric.png" alt="Electric Icon"> -->              
+                    <select name="panelPower"  required title="태양광 정격출력이 입력되지 않았습니다. 시중 태양광 패널의 평균 정격출력은 500W입니다.">
+                        <option value="">패널 정격출력</option>
+                        <option value="400">400 Wp (Trina Solar Vertex S)</option>
+                        <option value="500">500 Wp (Hanwha Q Cells Q.PEAK DUO ML-G11)</option>               
+                        <option value="550">550 Wp (LONGi Hi-MO 6 Explorer)</option>
+                        <option value="600">600 Wp (JA Solar DeepBlue 3.0)</option>              
+                        <option value="640">640 Wp (Hanwha Q.TRON XL-G2R)</option>
+                        <option value="700">700 Wp (Jinko Solar Tiger Neo N-type)</option>
+                    </select>
                 </div>
                 <button type="submit" class="btn-submit" id="right">결과보기</button>
             </form>
@@ -181,7 +200,7 @@
     <div class="dashboard">
         <div class="card">
         <div class="card-label">연간 에너지<br>절감량</div>
-        <div class="card-value" id="total">-</div>
+        <div class="card-value card-year" id="total">-</div>
         <div class="card-unit">(kWh/년)</div>
         </div>
         <div class="card">
@@ -220,7 +239,9 @@
     <br><br>
     <canvas id="intensityChart3" style="display: none;" >비교차트</canvas>
     <br><br>
+    <hr>
     <canvas id="solarEfficiencyChart" style="display:none">누적 비교차트</canvas>
+    <br><br><br><br>
 </div>
 
 

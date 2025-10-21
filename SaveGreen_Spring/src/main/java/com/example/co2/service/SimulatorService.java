@@ -118,7 +118,7 @@ public class SimulatorService {
         int targetGrade = dto.getTargetGrade();
         BigDecimal currentMid = BigDecimal.ZERO;
         BigDecimal targetMid = BigDecimal.ZERO;
-
+        String roadAddr = dto.getRoadAddr();
         
         if (gradeRange.containsKey(currentGrade)) {
             int[] range = gradeRange.get(currentGrade);
@@ -147,30 +147,36 @@ public class SimulatorService {
                                             .divide(BigDecimal.valueOf(10000),1,RoundingMode.HALF_UP); // kWh
         BigDecimal annualSaveCO2 = total.multiply(BigDecimal.valueOf(0.415))
                                         .divide(BigDecimal.valueOf(1000),1,RoundingMode.HALF_UP); // TonCO2
-        BigDecimal onePanelCO2 = onePanelGeneration.multiply(BigDecimal.valueOf(0.415)).divide(BigDecimal.valueOf(1000),1,RoundingMode.HALF_UP);
-        BigDecimal onePanelSaveElectric = onePanelGeneration.multiply(BigDecimal.valueOf(185.5)).divide(BigDecimal.valueOf(10000),1,RoundingMode.HALF_UP);
-        BigDecimal daySolar = solarRadiation.divide(BigDecimal.valueOf(366),2,RoundingMode.HALF_UP);
+        BigDecimal onePanelCO2 = onePanelGeneration.multiply(BigDecimal.valueOf(0.415)).divide(BigDecimal.valueOf(100),3,RoundingMode.HALF_UP);
+        BigDecimal onePanelSaveElectric = onePanelGeneration.multiply(BigDecimal.valueOf(185.5)).divide(BigDecimal.valueOf(10000),3,RoundingMode.HALF_UP);
+        BigDecimal daySolar = solarRadiation.divide(BigDecimal.valueOf(366),3,RoundingMode.HALF_UP);
+        BigDecimal onePanelGeneForChart = onePanelGeneration.divide(BigDecimal.valueOf(100));
 
         System.out.println("annualSaveElectric = " + annualSaveElectric);
         System.out.println("annualSaveCO2 = " + annualSaveCO2);
         System.out.println("requiredPanels = " + requiredPanels);
         System.out.println("total = " + total);
         System.out.println("onePanelGeneration"+onePanelGeneration);
+        System.out.println("onePanelGeneForChart"+onePanelGeneForChart);
         System.out.println("SolarRadiation"+solarRadiation);
         System.out.println("onepanelco2"+onePanelCO2);
         System.out.println("onepanelsaveelectric"+onePanelSaveElectric);
         System.out.println("daySolar"+daySolar);
+        System.out.println(roadAddr);
 
         res.setDaySolar(daySolar);
-        res.setOnePanelCO2(daySolar);
-        res.setOnePanelSaveElectric(daySolar);
+        res.setOnePanelCO2(onePanelCO2);
+        res.setOnePanelSaveElectric(onePanelSaveElectric);
         res.setOnePanelGeneration(onePanelGeneration);
+        res.setOnePanelGeneForChart(onePanelGeneForChart);
         res.setSolarRadiation(solarRadiation);
         res.setAnnualSaveElectric(annualSaveElectric);
         res.setAnnualSaveCO2(annualSaveCO2);
         res.setTotal(total);
         res.setRequiredPanels(requiredPanels);
+        res.setRoadAddr(roadAddr);
 
+        
 
         return res;
     }
