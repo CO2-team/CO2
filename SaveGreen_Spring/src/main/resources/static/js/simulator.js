@@ -7,11 +7,15 @@ Swal.fire({
          +'<b>2.</b>태양광 패널 갯수,정격출력 입력하기<br>'
          +'<b>3.</b> 결과확인 버튼 누르기<br>'
          +'<h4>태양광 에너지 효율 경제성 시뮬레이터</h4>'
-         +'<b>1.</b>지도 클릭(건물 정보 입력) 혹은 주소검색으로 주소,면적 입력하기<br>'
+         +'<b>1.</b>지도 클릭(건물 정보 입력)<br>   혹은 주소검색으로 주소,면적 입력하기<br>'
          +'<b>2.</b>현재 등급,목표 등급 선택하기<br>'
          +'<b>3.</b>태양광 패널 정격출력 입력하기<br>'
          +'<b>4.</b> 결과확인 버튼 누르기<br>',
     icon: 'info',
+    customClass: {
+      htmlContainer: 'swal-text',
+          
+    },
     confirmButtonText: '확인'
   });
   // 시뮬레이터 결과 가이드
@@ -22,15 +26,18 @@ Swal.fire({
       Swal.fire({
         title: '에너지 등급 시뮬레이터 참고사항',
         html: `
-          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br><br>
-          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br><br>
-          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br><br>
-          <b>4.</b> ZEB등급,녹색건축물등급에 따른 감면율은 공공기관 정보를 바탕으로 작성되었습니다.<br><br>
-          <b>5.</b> 절세율은 중복되지 않으며, 결과의 감면율은 두 인증 등급의 감면율 중 높은 것으로 나타납니다.<br><br>
+          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br>
+          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br>   일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br>
+          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br>
+          <b>4.</b> ZEB등급,녹색건축물등급에 따른 감면율은 공공기관 정보를 바탕으로 작성되었습니다.<br>
+          <b>5.</b> 절세율은 중복되지 않으며, 결과의 감면율은 두 인증 등급의 감면율 중 높은 것으로 나타납니다.<br>
           <b>6.</b> 재산세 감면액은 지자체 조례에 따라 달라질 수 있습니다.
         `,
         icon: 'info',
         confirmButtonText: '닫기',
+        customClass: {
+          htmlContainer: 'swal-text'     
+        },
         focusConfirm: false,
         scrollbarPadding: false,
         heightAuto: false,  
@@ -45,16 +52,19 @@ Swal.fire({
       Swal.fire({
         title: '태양광 에너지 효율 경제성 시뮬레이터 참고사항',
         html: `
-          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br><br>
-          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br><br>
-          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br><br>
-          <b>4.</b> 건축물 에너지 효율 등급 증가에 대한 에너지량은 에너지 등급 구간별 중간값으로 책정되었습니다.<br><br>
-          <b>5.</b> 전기금액은 24년도 한국전력공사 표준 전기세 기준입니다.(kWh당 185.5원)<br><br>
+          <b>1.</b> 해당 결과는 주소, 건물면적, 위도 경도 기준 일사량, 태양광 패널 정격 출력, 에너지 효율 등급 기준을 바탕으로 작성 되었습니다.<br>
+          <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br>
+          <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br>
+          <b>4.</b> 건축물 에너지 효율 등급 증가에 대한 에너지량은 에너지 등급 구간별 중간값으로 책정되었습니다.<br>
+          <b>5.</b> 전기금액은 24년도 한국전력공사 표준 전기세 기준입니다.(kWh당 185.5원)<br>
           <b>6.</b> 탄소배출량은 24년도 국가별 탄소배출계수 기준입니다.(kWh당 0.419)
           
         `,
         icon: 'info',
         confirmButtonText: '닫기',
+         customClass: {
+          htmlContainer: 'swal-text'     
+        },
         focusConfirm: false,
         scrollbarPadding: false,
         heightAuto: false,  
@@ -136,15 +146,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const box2 = document.getElementById('compareText');
         const box6 = document.getElementById("solarEfficiencyChart");
         const items = box.querySelectorAll('.result-item');
+        
         items.forEach(item => item.classList.remove('show'));
 
-      
+        document.getElementById('solarRadiation').value = data.solarRadiation;
+        document.getElementById('onePanelGeneration').value = data.onePanelGeneration;
+        document.getElementById('onePanelGeneForChart').value = data.onePanelGeneForChart;
+        document.getElementById('onePanelCO2').value = data.onePanelCO2;
+        document.getElementById('onePanelSaveElectric').value = data.onePanelSaveElectric;
+        document.getElementById('daySolar').value = data.daySolar;
+        document.getElementById('roadAddr').textContent = data.roadAddr;
         animateValue("total", 0, data.total, 2000, 0);
         animateValue("annualSaveElectric", 0, data.annualSaveElectric, 2000, 0);
         animateValue("annualSaveCO2", 0, data.annualSaveCO2, 2000, 1);
         animateValue("requiredPanels", 0, data.requiredPanels, 2000, 0);
 
-
+        console.log("data",data)
         box.style.display = 'block';
         box2.style.display='block'
         box6.style.display = 'block';
@@ -194,6 +211,17 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("juso1").value = combined;
         document.getElementById("juso2").value = combined; 
     }
+});
+
+
+let lastTriggeredSimulator = null;
+
+document.getElementById('juso1').addEventListener('focus', () => {
+  lastTriggeredSimulator = 'left';
+});
+
+document.getElementById('juso2').addEventListener('focus', () => {
+  lastTriggeredSimulator = 'right';
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -319,14 +347,30 @@ document.addEventListener("DOMContentLoaded", () => {
                         console.error("건물정보 API 오류:", error);
                       }
                     });
+
+
+                    
+
+
                     fetch(`/simulator/${encodeURIComponent(pnu)}`)
                         .then(r => r.ok ? r.json() : null)
                         .then( data => {
                           if (!data) return;
 
-                          const energyInput = document.querySelector('#energy1');
-                          
-                          if (energyInput) energyInput.value = data.electricityUsageKwh;
+                          // const energyInput = document.querySelector('#energy1');
+                          // if (energyInput) energyInput.value = data.electricityUsageKwh;
+
+
+                         
+
+
+                          if (lastTriggeredSimulator === 'left') {
+                            const energyInput = document.querySelector('#energy1');
+                            if (energyInput) energyInput.value = data.electricityUsageKwh;
+                            console.log('왼쪽에서 실행됨 → energy1 값 세팅됨');
+                          } else {
+                            console.log('오른쪽에서 실행됨 → energy1 무시됨');
+                          }
 
                           const cat = data.buildingType2;
                           const category1 = document.querySelector('#category1');
@@ -454,8 +498,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       // png 생성
-      const dataUrl = await h2i.toPng(el, {
-        pixelRatio: 1.5,
+      const dataUrl = await h2i.toJpeg(el, {
+        pixelRatio: 1,
         cacheBust: true,
         backgroundColor: "#ffffff",
         useCORS: true
@@ -475,13 +519,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let hLeft = imgH;
         let pos = 0;
 
-        pdf.addImage(img, "PNG", 0, pos, imgW, imgH);
+        pdf.addImage(img, "JPEG", 0, pos, imgW, imgH);
         hLeft -= pdfH;
 
         while (hLeft > 0) {
           pos = hLeft - imgH;
           pdf.addPage();
-          pdf.addImage(img, "PNG", 0, pos, imgW, imgH);
+          pdf.addImage(img, "JPEG", 0, pos, imgW, imgH);
           hLeft -= pdfH;
         }
         const timestamp=getTimestamp();
@@ -555,8 +599,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
     try {
-      const dataUrl = await h2i.toPng(el, {
-        pixelRatio: 2,
+      const dataUrl = await h2i.toJpeg(el, {
+        pixelRatio: 1,
         cacheBust: true,
         backgroundColor: "#ffffff",
         useCORS: true
@@ -575,7 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const imgW = pdfW;
           const imgH = (img2.height * pdfW) / img2.width;
 
-          pdf2.addImage(img2, "PNG", 0, 0, imgW, imgH);
+          pdf2.addImage(img2, "JPEG", 0, 0, imgW, imgH);
           const blob2 = pdf2.output("blob");
           resolve(blob2);
         };
@@ -667,3 +711,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 
+document.addEventListener('DOMContentLoaded', () => {
+  const currentSelect = document.querySelector('select[name="currentGrade"]');
+  const targetSelect = document.querySelector('select[name="targetGrade"]');
+
+  
+  currentSelect.addEventListener('change', () => {
+    const currentValue = parseInt(currentSelect.value);
+    const targetOptions = targetSelect.querySelectorAll('option');
+
+    targetOptions.forEach(option => {
+      const targetValue = parseInt(option.value);
+
+     
+      if (isNaN(targetValue) || targetValue === 0) {
+        option.disabled = false;
+        option.style.display = '';
+      } else if (targetValue >= currentValue) {
+      
+        option.disabled = true;
+        option.style.display = 'none';
+      } else {
+      
+        option.disabled = false;
+        option.style.display = '';
+      }
+    });
+
+ 
+    if (parseInt(targetSelect.value) <= currentValue) {
+      targetSelect.value = 0;
+    }
+  });
+});
