@@ -520,9 +520,9 @@
 
 
     /* ============================================================
-     * 4) MODEL B — 산점도(점 하나씩 팝업, AC 스타일 원형 마커)
+     * 4) MODEL B — 산점도(AC 스타일: 작은 원형 마커, 속 흰색 + 주황 테두리)
      *    - 좌측 yEnergy 축: yhat 최대값 기준 “처음부터 고정”
-     *    - 범례: AC처럼 ‘점 아이콘’ 사용하지 않음(기본 샘플 유지)
+     *    - 범례: AC처럼 기본 라인/스와치 스타일(점 아이콘 쓰지 않음)
      * ============================================================ */
     async function renderModelBChart(opts) {
         __clearStageTimers();
@@ -549,34 +549,37 @@
         const energyMaxB = Math.max(0, ...yFixed.map(v => Number(v) || 0));
         const yEnergyRangeB = getFixedLinearRangeFromMax(energyMaxB, 0.08, 6);
 
-        // 색상: 전역 팔레트가 있으면 우선 사용, 없으면 기본 주황
+        // 색상: 전역 팔레트 우선, 없으면 기본 주황
         const ORANGE = (window.SG_COLORS && window.SG_COLORS.orange) ? window.SG_COLORS.orange : '#F57C00';
 
-        const POINT_MS = 500;      // 한 점 등장 시간
-        const POINT_GAP_MS = 300;  // 점 사이 간격
+        // AC 느낌: 더 작은 점
+        const BASE_POINT = 4;          // 최종 점 반지름(px) — AC 스타일(작게)
+        const HOVER_POINT = 6;         // 호버 반지름
+        const POINT_MS = 420;          // 한 점 등장 시간
+        const POINT_GAP_MS = 180;      // 점 사이 간격
 
         updateStageBadge('B', '모델 B : 랜덤 포레스트 (Random Forest)');
 
         // 산점도 데이터: x=년도(범주), y=예측값
         const dataPoints = labels.map((x, i) => ({ x, y: Number(yFixed[i]) || 0 }));
 
-        // AC 스타일: 속은 흰색, 주황 테두리의 원형 포인트
+        // AC 스타일: 속 흰색, 주황 테두리의 작은 원형 포인트
         const ds = {
             type: 'scatter',
             order: 1,
             label: '에너지 사용량',
             data: dataPoints,
             yAxisID: 'yEnergy',
-            showLine: false,                         // 선 없음(산점도)
-            pointRadius: new Array(n).fill(0),       // 0 → 순차 팝업으로 키움
-            pointHoverRadius: 8,
+            showLine: false,                          // 선 없음(산점도)
+            pointRadius: new Array(n).fill(0),        // 0 → 순차 팝업으로 BASE_POINT까지
+            pointHoverRadius: HOVER_POINT,
             pointStyle: 'circle',
-            pointBackgroundColor: '#FFFFFF',         // 내부 흰색
-            pointBorderColor: ORANGE,                // 주황 테두리
-            pointBorderWidth: 2,
-            borderWidth: 0,                          // 라인 두께 0
+            pointBackgroundColor: '#FFFFFF',          // 내부 흰색
+            pointBorderColor: ORANGE,                 // 주황 테두리
+            pointBorderWidth: 2,                      // 테두리 두께(AC 느낌)
+            borderWidth: 0,                           // 라인 두께 0
             animations: {
-                y: { from: yEnergyRangeB.min, duration: 500, easing: 'easeOutCubic' }
+                y: { from: yEnergyRangeB.min, duration: 420, easing: 'easeOutCubic' }
             }
         };
 
@@ -588,8 +591,16 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    // ⚠️ AC처럼 범례를 ‘점 모양’으로 바꾸지 않음 (기본 렌더링 유지)
-                    legend: { display: true },
+                    // AC처럼: 범례는 기본 라인/스와치 스타일(점 아이콘 X)
+                    legend: {
+                        display: true,
+                        labels: {
+                            usePointStyle: false,     // 점 아이콘 사용 안 함
+                            boxWidth: 36,
+                            boxHeight: 12,
+                            padding: 16
+                        }
+                    },
                     title: { display: true, text: '에너지 / 비용 예측', padding: { top: 8, bottom: 4 } },
                     subtitle: { display: false },
                     tooltip: {
@@ -599,7 +610,7 @@
                     }
                 },
                 elements: {
-                    point: { hoverRadius: 8 }
+                    point: { hoverRadius: HOVER_POINT }
                 },
                 scales: {
                     // x축: 카테고리(년도)
@@ -627,13 +638,13 @@
                     }
                 },
                 animation: {
-                    duration: 500,
+                    duration: 420,
                     easing: 'easeOutCubic'
                 }
             }
         });
 
-        // 포인트를 순차적으로 "팝업" (radius 0 → 6) 시키는 타이머
+        // 포인트를 순차적으로 "팝업" (radius 0 → BASE_POINT) 시키는 타이머
         const chartRef = energyChart;
         for (let i = 0; i < n; i++) {
             const delay = i * (POINT_MS + POINT_GAP_MS);
@@ -641,8 +652,8 @@
                 if (energyChart !== chartRef) return;
                 const _ds = chartRef.data.datasets[0];
                 if (Array.isArray(_ds.pointRadius) && i < _ds.pointRadius.length) {
-                    _ds.pointRadius[i] = 6;          // 최종 포인트 크기
-                    chartRef.update('none');         // 레이아웃 유지 업데이트
+                    _ds.pointRadius[i] = BASE_POINT;   // 최종 포인트 크기(작게)
+                    chartRef.update('none');           // 레이아웃 유지 업데이트
                 }
             }, delay);
             __pushTimer(id);
@@ -659,6 +670,7 @@
         await new Promise((r) => setTimeout(r, doneMs));
         return doneMs;
     }
+
 
 
 
