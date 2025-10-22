@@ -6,11 +6,11 @@
 # - 데이터 적재 → 전처리/피처링 → train/test(8:2) 분할 → K-Fold(CV)로
 #   후보 모델(ElasticNet=모델A, RandomForest=모델B) 성능 비교 →
 #   최적 하이퍼파라미터 선택 → train 전체 재학습 →
-#   ./data 에 산출물 저장:
+#   ./data 에 산출물 저장(원자적 저장: 임시파일→move):
 #     * model_A.pkl : 해석성(선형계열, ElasticNet)
 #     * model_B.pkl : 비선형 성능(RandomForest)
-#     * model.pkl   : 하위호환 단일(베스트 모델 복사)
-#     * manifest.json : 버전/피처/지표/앙상블 가중치(wA,wB)
+#     * model.pkl   : 하위호환 단일(베스트 복사본)
+#     * manifest.json : 버전/피처/지표/앙상블 가중치(wA,wB), split/kfold 등 메타
 #
 # [설계 핵심]
 # 1) 일반화 성능
@@ -23,10 +23,9 @@
 # 3) 앙상블(C)
 #    - 기본 wA=0.5, wB=0.5 저장
 #    - manifest에 역수비례(1/MAE) 가중치 제안도 저장(참고용)
-# 4) 성능/안정/리소스
-#    - 경고(ConvergenceWarning) 숨김: 콘솔 노이즈 제거
-#    - RF 내부 병렬 OFF(n_jobs=1), CV만 제한된 병렬 사용(코어 절반, 최대 4)
-#    - BLAS/OpenBLAS/MKL 스레드 1로 제한(threadpoolctl 사용 시)
+# 4) 저장 안정성
+#    - .pkl/.json 모두 임시파일에 먼저 기록 후 shutil.move()로 원자적 교체
+#    - manifest["version"]은 매 실행 ISO-8601(KST)로 자동 갱신
 #
 # [입력 칼럼 기대]
 #   - type(str), region(str), energy_kwh(float), eui_kwh_m2y(float),
@@ -44,6 +43,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import tempfile
+import contextlib
+import datetime as dt
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
@@ -94,8 +97,16 @@ def _ensure_data_dir() -> str:
 	return target
 
 def _timestamp_kst() -> str:
-	"""한국시간(서버 로컬 기준) 타임스탬프 문자열."""
+	"""한국시간(서버 로컬 기준) 타임스탬프 문자열(레거시 헬퍼: 사용처 일부 유지)."""
 	return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+def _now_kst_iso() -> str:
+	"""
+	KST 기준 ISO-8601 타임스탬프(초 단위).
+	예: 2025-10-21T16:20:15+09:00
+	"""
+	kst = dt.timezone(dt.timedelta(hours=9))
+	return dt.datetime.now(tz=kst).isoformat(timespec="seconds")
 
 def _clip_pct(x: np.ndarray | float, lo: float = 0.0, hi: float = 100.0) -> np.ndarray | float:
 	"""절감률을 안전하게 0~100으로 클리핑."""
@@ -307,31 +318,89 @@ def final_test_score(pipe: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) ->
 
 # ----------------------------- 저장/매니페스트 -----------------------------
 
+def _dump_pickle_atomic(obj: Any, final_path: str) -> None:
+	"""
+	임시 파일에 먼저 저장한 뒤 원자적으로 교체.
+	.pkl 저장 시 부분쓰기(부분적으로 깨진 파일 노출) 방지.
+	"""
+	os.makedirs(os.path.dirname(final_path), exist_ok=True)
+	dirname = os.path.dirname(final_path) or "."
+	fd, tmp_path = tempfile.mkstemp(prefix=".tmp_", dir=dirname)
+	try:
+		os.close(fd)  # 경로만 확보하고 닫은 뒤 joblib이 다시 염
+		_DUMP(obj, tmp_path)  # joblib.dump 등
+		shutil.move(tmp_path, final_path)  # Windows/Unix 공통 안전 교체
+	except Exception:
+		with contextlib.suppress(Exception):
+			os.remove(tmp_path)
+		raise
+
+def _write_json_atomic(payload: Dict[str, Any], final_path: str) -> None:
+	"""
+	JSON을 임시 파일에 기록 후 fsync → 원자적 교체.
+	"""
+	os.makedirs(os.path.dirname(final_path), exist_ok=True)
+	dirname = os.path.dirname(final_path) or "."
+	with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=dirname, prefix=".tmp_") as tmp:
+		json.dump(payload, tmp, ensure_ascii=False, indent=2)
+		tmp.flush()
+		os.fsync(tmp.fileno())
+	tmp_path = tmp.name
+	shutil.move(tmp_path, final_path)
+
 def save_artifacts(pipes: Dict[str, Pipeline], manifest: Dict[str, Any], outdir: str) -> None:
 	"""
-	파이프라인과 manifest를 ./data 에 저장
+	파이프라인과 manifest를 ./data 에 저장(원자적 저장)
 	- model_A.pkl  : ElasticNet 파이프라인
 	- model_B.pkl  : RandomForest 파이프라인
-	- model.pkl    : 베스트 모델(하위호환용 단일)
-	- manifest.json: 메타/지표/가중치
+	- model.pkl    : 베스트 모델(하위호환용 단일 복사본)
+	- manifest.json: 메타/지표/가중치 + 최신 버전(ISO KST)
+
+	안전장치:
+	- 모든 저장은 임시파일 → move 로 원자적 교체
+	- outdir 자동 생성
+	- manifest.version은 매 실행 ISO-8601(KST)로 자동 갱신
 	"""
+	os.makedirs(outdir, exist_ok=True)
+
 	a_path = os.path.join(outdir, "model_A.pkl")
 	b_path = os.path.join(outdir, "model_B.pkl")
 	s_path = os.path.join(outdir, "model.pkl")
 	mf_path = os.path.join(outdir, "manifest.json")
 
-	if "A" in pipes and pipes["A"] is not None:
-		_DUMP(pipes["A"], a_path)
-	if "B" in pipes and pipes["B"] is not None:
-		_DUMP(pipes["B"], b_path)
+	# A 저장
+	if pipes.get("A") is not None:
+		print(f"[TRAIN] saving A → {a_path}")
+		_dump_pickle_atomic(pipes["A"], a_path)
+	else:
+		print("[TRAIN] skip A (None)")
+
+	# B 저장
+	if pipes.get("B") is not None:
+		print(f"[TRAIN] saving B → {b_path}")
+		_dump_pickle_atomic(pipes["B"], b_path)
+	else:
+		print("[TRAIN] skip B (None)")
 
 	# 단일 베스트 복사 저장
-	best_key = manifest.get("best", {}).get("key")
-	if best_key and best_key in pipes and pipes[best_key] is not None:
-		_DUMP(pipes[best_key], s_path)
+	best_key = (manifest.get("best") or {}).get("key")
+	if best_key and pipes.get(best_key) is not None:
+		print(f"[TRAIN] saving BEST ({best_key}) → {s_path}")
+		_dump_pickle_atomic(pipes[best_key], s_path)
+	else:
+		print("[TRAIN] skip BEST (invalid key or missing pipe)")
 
-	with open(mf_path, "w", encoding="utf-8") as f:
-		json.dump(manifest, f, ensure_ascii=False, indent=2)
+	# manifest 버전 갱신(항상 최신 타임스탬프로)
+	man_copy = dict(manifest)  # 원본 오염 방지
+	man_copy["version"] = _now_kst_iso()
+	if not man_copy.get("modelVersion"):
+		# 모델 버전이 비어있으면 version과 동일하게라도 채움
+		man_copy["modelVersion"] = man_copy["version"]
+
+	print(f"[TRAIN] writing manifest → {mf_path} (version={man_copy['version']})")
+	_write_json_atomic(man_copy, mf_path)
+
+	print("[TRAIN] artifacts saved successfully.")
 
 
 # ----------------------------- 메인 파이프라인 -----------------------------
@@ -430,7 +499,7 @@ def main(k: int = 5, test_size: float = 0.2) -> None:
 			best_key = "A" if key.startswith("A_") else "B"
 			best_pipe = best_model
 
-	# 산출물 저장
+	# 산출물 저장(원자적)
 	outdir = _ensure_data_dir()
 	pipes_to_save: Dict[str, Pipeline] = {}
 
@@ -473,7 +542,7 @@ def main(k: int = 5, test_size: float = 0.2) -> None:
 		inv_wA, inv_wB = float(invA / s), float(invB / s)
 
 	manifest = {
-		"version": _timestamp_kst(),
+		"version": _timestamp_kst(),  # save_artifacts에서 ISO KST로 덮어써 최신화됨
 		"features": NUM_COLS + CAT_COLS,
 		"split": {"test_size": test_size, "random_state": 42},
 		"kfold": {"k": k, "random_state": 42, "shuffle": True},
@@ -486,13 +555,15 @@ def main(k: int = 5, test_size: float = 0.2) -> None:
 		}
 	}
 
+	# >>> 원자적 저장(최종): pkl(A/B/BEST), manifest.json 모두 안전 저장
 	save_artifacts(pipes_to_save, manifest, outdir)
-	print(f"[save] model_A.pkl={'ok' if 'A' in pipes_to_save else '-'}, "
-	      f"model_B.pkl={'ok' if 'B' in pipes_to_save else '-'}")
-	if best_pipe is not None:
-		_DUMP(best_pipe, os.path.join(outdir, "model.pkl"))
-		print("[save] model.pkl (compat) saved")
 
+	# 상태 로그(요약)
+	print(f"[save] model_A.pkl={'ok' if 'A' in pipes_to_save else '-'}, "
+	      f"model_B.pkl={'ok' if 'B' in pipes_to_save else '-'}, "
+	      f"best={manifest.get('best', {}).get('key')}")
+
+	# manifest 내용 확인용 출력
 	with open(os.path.join(outdir, "manifest.json"), "r", encoding="utf-8") as f:
 		print("[manifest]\n" + f.read())
 

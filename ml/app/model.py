@@ -1,50 +1,93 @@
 # ============================================================
-# SaveGreen / app/model.py — 예측 매니저(A/B/C) with auto-ensemble weights
+# SaveGreen / app/model.py — ML 예측 매니저(A/B/C) 전체 코드
 # ------------------------------------------------------------
 # [역할]
-# - ./data 의 model_A.pkl, model_B.pkl, manifest.json 을 로드해서 /predict 응답.
-# - C(앙상블)의 가중치:
-#   1) manifest.ensemble.suggested_by_inverse_mae.{wA,wB}  ← 매 학습마다 자동 갱신
-#   2) manifest.ensemble.{wA,wB}
-#   3) 폴백 0.5 / 0.5
-# - 가중치는 항상 합=1.0으로 정규화.
+# 1) ./data 폴더의 model_A.pkl, model_B.pkl(선택), manifest.json(선택)을 로드.
+# 2) /predict(variant=A|B|C) 요청을 받아 절감률(%)(savingPct)을 예측.
+#    - A/B: 개별 모델 출력
+#    - C  : A/B 가중 앙상블(둘 중 하나 없으면 생존 모델로 폴백)
+# 3) 예측 실패 시 규칙기반 폴백(RULE_FALLBACK)으로 응답 스키마 유지.
 #
-# [폴더 정책]
-# - 표준 저장소는 프로젝트 루트의 "./data".
-# - 과거 혼선을 막기 위해 "./app/data"가 보이면 경고 로그만 찍고 필요 시 참조.
-#   (권장: app/data는 삭제하고 ./data로 통일)
+# [이번 패치 핵심 — A안 확정]
+# - "훈련 스키마 == 예측 스키마" 를 보장한다.
+#   * 모델 입력 특성(순서 고정): ["type","floorAreaM2","builtYear","energy_kwh","eui_kwh_m2y"]
+#   * 예측 시, payload에서 energy_kwh/eui_kwh_m2y를 파생 계산한다.
+#     - energy_kwh: payload.energy_kwh > payload.baselineKwh > floorAreaM2×DEFAULT_EUI
+#     - eui_kwh_m2y: energy_kwh / floorAreaM2 (floor=0이면 DEFAULT_EUI)
+#   → ColumnTransformer가 학습 때 기대한 5개 컬럼과 정확히 일치.
+#
+# [스키마(요약)]
+# - 입력(payload): type, region(선택), floorAreaM2, builtYear, yearsFrom, yearsTo,
+#                  (선택)energy_kwh, (선택)baselineKwh,
+#                  (KPI용) tariffKrwPerKwh, capexPerM2, electricityEscalationPctPerYear, discountRate, pef
+# - 출력: modelVersion, years[], series.after[], series.savingKwhYr[],
+#        cost.savingKrwYr[], kpi{ savingCostYr, savingKwhYr, savingPct, paybackYears, label },
+#        debug.warnings[], source(ML|RULE_FALLBACK|DUMMY), uiHints.costAxisMax 등
+#
+# [디폴트 정책(데모)]
+# - baselineKwh 미제공 시: baselineKwh = floorAreaM2 × DEFAULT_EUI (kWh/㎡·년)
+# - 비용 절감: savingKwh × (tariff * (1+escalation)^t) 형태로 연도별 계산
+# - payback: capex / savingCostYr(마지막 연도)
+# - label: savingPct ≥ 15% & payback ≤ 5 → RECOMMEND
+#          payback ≤ 8 → CONDITIONAL
+#          else → NOT_RECOMMEND
+#
+# [경로 정책]
+# - 기본 경로: ./data
+# - 과거 호환: ./app/data (있으면 경고만 찍고 참조)
 # ============================================================
 
 from __future__ import annotations
 
-import json
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+import json
+from typing import Any, Dict, Optional, Tuple, List
 
+# joblib 우선, 없으면 pickle 폴백
 try:
 	import joblib
 	_LOAD = joblib.load
 except Exception:
 	import pickle
-	_LOAD = lambda path: pickle.load(open(path, "rb"))  # noqa: E731
+	def _LOAD(path: str):
+		with open(path, "rb") as f:
+			return pickle.load(f)
 
-# ---------------------------- 경로 설정 ----------------------------
+# pandas는 예측 시 컬럼 정렬을 위해 필요
+import pandas as pd
 
-# 표준 데이터 디렉터리(1순위)
+
+# ---------------------------- 상수/설정 ----------------------------
+
 DATA_PRIMARY = "./data"
-
-# 하위호환(가능하면 삭제 권장): app/data 가 남아있을 때만 보조로 조회
 DATA_DEPRECATED = "./app/data"
 
 MODEL_A = "model_A.pkl"
 MODEL_B = "model_B.pkl"
-MODEL_SINGLE = "model.pkl"
 MANIFEST = "manifest.json"
 
+# [핵심] 훈련 때 사용한 "기대 컬럼 집합/순서"
+#  - A/B 모두 동일한 훈련 스키마를 사용 (train.py 기준)
+#  - region/tariff/capex 는 모델 입력이 아닌 KPI 후처리 파라미터임
+EXPECTED_FEATURES_A: List[str] = [
+	"type", "floorAreaM2", "builtYear", "energy_kwh", "eui_kwh_m2y"
+]
+EXPECTED_FEATURES_B: List[str] = [
+	"type", "floorAreaM2", "builtYear", "energy_kwh", "eui_kwh_m2y"
+]
+
+# 데모용 기본값(프런트/dae.json 정책으로 대체 가능)
+DEFAULT_EUI = 250.0                 # kWh/㎡·년 (baseline/EUI 계산용)
+DEFAULT_TARIFF = 130.0              # KRW/kWh
+DEFAULT_CAPEX_PER_M2 = 200_000.0    # KRW/㎡
+DEFAULT_ESCALATION = 0.03           # 전력단가 연 상승률
+UI_COST_AXIS_MAX = 60_000_000       # 우측 축 고정(요구사항)
+
+
+# ---------------------------- 유틸 함수 ----------------------------
 
 def _first_existing_path(*candidates: str) -> Optional[str]:
-	"""여러 경로 후보 중 가장 먼저 존재하는 파일 경로 반환."""
+	"""여러 경로 후보 중 먼저 존재하는 파일을 반환."""
 	for p in candidates:
 		if p and os.path.isfile(p):
 			return p
@@ -54,7 +97,7 @@ def _first_existing_path(*candidates: str) -> Optional[str]:
 def _resolve(pathname: str) -> Optional[str]:
 	"""
 	동일 파일명을 표준 위치(./data)에서 먼저 찾고,
-	없을 경우에만 (비권장) ./app/data 에서 찾는다.
+	없으면 (비권장) ./app/data 에서 찾는다.
 	"""
 	p1 = os.path.join(DATA_PRIMARY, pathname)
 	p2 = os.path.join(DATA_DEPRECATED, pathname)
@@ -64,153 +107,217 @@ def _resolve(pathname: str) -> Optional[str]:
 	return found
 
 
-# ---------------------------- 데이터 구조 ----------------------------
+def _safe_float(v: Any, default: float = 0.0) -> float:
+	"""숫자 변환 헬퍼(예외 시 기본값으로)."""
+	try:
+		return float(v)
+	except Exception:
+		return float(default)
 
-@dataclass
-class Loaded:
-	path: str
-	pipe: Any
+
+def _year_range(frm: Optional[int], to: Optional[int]) -> List[int]:
+	"""연도 배열 생성(비어 있으면 2024~2030)."""
+	start = int(frm) if isinstance(frm, int) else 2024
+	end = int(to) if isinstance(to, int) else 2030
+	if end < start:
+		end = start
+	return list(range(start, end + 1))
 
 
-# ---------------------------- ModelManager ----------------------------
+# ---------------------------- DataFrame 빌더 ----------------------------
+
+def _derive_energy_eui(payload: Dict[str, Any]) -> Tuple[float, float]:
+	"""
+	payload에서 energy_kwh/eui_kwh_m2y 를 파생 계산한다.
+	우선순위:
+	1) payload.energy_kwh
+	2) payload.baselineKwh
+	3) floorAreaM2 × DEFAULT_EUI
+	"""
+	floor = _safe_float(payload.get("floorAreaM2"), 0.0)
+	energy = payload.get("energy_kwh")
+	if energy is None:
+		energy = payload.get("baselineKwh")
+	if energy is None:
+		energy = (floor * DEFAULT_EUI) if floor > 0 else 300_000.0
+	energy = _safe_float(energy, 0.0)
+
+	if floor > 0:
+		eui = energy / floor
+	else:
+		eui = DEFAULT_EUI
+	return energy, eui
+
+def _make_feature_frame(payload: Dict[str, Any], expected_cols: List[str]) -> pd.DataFrame:
+	"""
+	예측 입력(payload) → 훈련 시 기대하는 컬럼만 뽑아 순서를 고정한 DataFrame 생성.
+	(이번 패치) 모델 입력은 훈련 스키마와 동일한 5개:
+	  ["type","floorAreaM2","builtYear","energy_kwh","eui_kwh_m2y"]
+	- 여분 컬럼(region/tariff/capex 등)은 무시.
+	- 누락 컬럼은 파생 계산 또는 None 보정.
+	"""
+	# 필수/기본
+	type_ = payload.get("type")
+	floor = payload.get("floorAreaM2")
+	built = payload.get("builtYear")
+
+	# 파생: energy_kwh / eui_kwh_m2y
+	energy_kwh, eui = _derive_energy_eui(payload)
+
+	row = {
+		"type": type_,
+		"floorAreaM2": floor,
+		"builtYear": built,
+		"energy_kwh": energy_kwh,
+		"eui_kwh_m2y": eui,
+	}
+	df = pd.DataFrame([row])
+	for c in expected_cols:
+		if c not in df.columns:
+			df[c] = None
+	return df[expected_cols]
+
+
+# ---------------------------- 모델 로더 ----------------------------
+
+class _Loaded:
+	def __init__(self, path: str, pipe: Any):
+		self.path = path
+		self.pipe = pipe
+
 
 class ModelManager:
+	"""
+	모델 파일 로드/상태 관리 및 예측(variant A/B/C).
+	- A/B: 각각의 파이프라인에 맞춘 DataFrame으로 예측
+	- C  : A/B를 가중 결합(둘 중 하나만 있으면 생존 모델로 폴백)
+	"""
 	def __init__(self) -> None:
-		self.A: Optional[Loaded] = None
-		self.B: Optional[Loaded] = None
-		self.S: Optional[Loaded] = None  # single
+		self.A: Optional[_Loaded] = None
+		self.B: Optional[_Loaded] = None
 		self.manifest: Optional[dict] = None
-		self.manifest_path: Optional[str] = None
 		self._load_all()
 
 	def _load_all(self) -> None:
 		# manifest
 		mf = _resolve(MANIFEST)
 		if mf:
-			self.manifest_path = mf
 			try:
 				with open(mf, "r", encoding="utf-8") as f:
 					self.manifest = json.load(f)
 			except Exception as e:
 				print(f"[ML][WARN] failed to load manifest: {e!r}")
 
-		# models A/B/SINGLE
-		a = _resolve(MODEL_A)
-		b = _resolve(MODEL_B)
-		s = _resolve(MODEL_SINGLE)
-
-		if a:
+		# models
+		pA = _resolve(MODEL_A)
+		pB = _resolve(MODEL_B)
+		if pA:
 			try:
-				self.A = Loaded(a, _LOAD(a))
+				self.A = _Loaded(pA, _LOAD(pA))
 			except Exception as e:
-				print(f"[ML][WARN] failed to load A: {a} err={e!r}")
-		if b:
+				print(f"[ML][WARN] failed to load A: {e!r}")
+		if pB:
 			try:
-				self.B = Loaded(b, _LOAD(b))
+				self.B = _Loaded(pB, _LOAD(pB))
 			except Exception as e:
-				print(f"[ML][WARN] failed to load B: {b} err={e!r}")
-		if s:
-			try:
-				self.S = Loaded(s, _LOAD(s))
-			except Exception as e:
-				print(f"[ML][WARN] failed to load SINGLE: {s} err={e!r}")
+				print(f"[ML][WARN] failed to load B: {e!r}")
 
-		if self.A or self.B:
-			print(f"[ML] model loaded: A={'ok' if self.A else '-'} B={'ok' if self.B else '-'} manifest={self.manifest_path or '-'}")
-		elif self.S:
-			print(f"[ML] model loaded: SINGLE={self.S.path}")
-		else:
-			print("[ML][WARN] no model files found → rule-based fallback")
+		print(f"[ML] model loaded: A={'ok' if self.A else '-'} B={'ok' if self.B else '-'} manifest={'ok' if self.manifest else '-'}")
 
-	def status(self) -> dict:
-		return {
-			"has_A": bool(self.A),
-			"has_B": bool(self.B),
-			"SINGLE": self.S.path if self.S else None,
-			"manifest": self.manifest_path,
-			"ensemble_weights_effective": self._ensemble_weights()
-		}
-
-	# ---------------------- public inference ----------------------
+	# ---------------------- 예측 엔트리 ----------------------
 
 	def predict_variant(self, payload: Dict[str, Any], variant: str = "C") -> Dict[str, Any]:
-		pct = self._predict_pct(payload, variant=(variant or "C").upper())
-		return self._finalize(payload, pct, variant)
+		"""
+		variant=A|B|C 에 따라 절감률(%)을 산출하고, 표준 응답 스키마로 변환.
+		예측 실패/모델 부재 시 RULE_FALLBACK로 대체.
+		"""
+		var = (variant or "C").upper()
+		source = "ML"
+		warnings: List[str] = []
 
-	def predict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-		# backward-compat: C로 동작
-		return self.predict_variant(payload, "C")
+		try:
+			saving_pct = self._predict_pct(payload, var, warnings)
+		except Exception as e:
+			# 예측 파이프라인 전체 실패 → 규칙 폴백
+			source = "RULE_FALLBACK"
+			warnings.append(f"PREDICT_FAIL:{repr(e)}")
+			saving_pct = self._rule_fallback_pct(payload)
 
-	# ---------------------- core logic ----------------------
+		# 응답 생성
+		years = _year_range(payload.get("yearsFrom"), payload.get("yearsTo"))
+		resp = self._finalize_response(payload, years, saving_pct)
+		resp.setdefault("debug", {})["warnings"] = warnings
+		resp["source"] = source
+		resp["variant"] = var
+		resp["uiHints"] = {"costAxisMax": UI_COST_AXIS_MAX, "animation": {"order": "bar->point->line"}}
+		return resp
 
-	def _predict_pct(self, payload: Dict[str, Any], variant: str) -> float:
-		# A/B 단일
-		if variant == "A" and self.A:
-			return self._predict_with(self.A, payload)
-		if variant == "B" and self.B:
-			return self._predict_with(self.B, payload)
+	# ---------------------- 핵심 로직 ----------------------
 
-		# 앙상블(C) 또는 단일 폴백
-		a = self._predict_with(self.A, payload) if self.A else None
-		b = self._predict_with(self.B, payload) if self.B else None
+	def _predict_pct(self, payload: Dict[str, Any], variant: str, warnings: List[str]) -> float:
+		"""
+		A/B/C 절감률(%) 예측. A/B는 동일한 훈련 스키마(5컬럼)를 사용.
+		C는 A/B 가중 평균(둘 중 하나만 있으면 생존 모델 채택).
+		"""
+		if variant == "A":
+			if not self.A:
+				warnings.append("A_MISSING")
+				return self._rule_fallback_pct(payload)
+			return self._predict_with(self.A, payload, EXPECTED_FEATURES_A, "A", warnings)
 
-		# 단일만 있을 때
-		if a is None and b is None and self.S:
-			return self._predict_with(self.S, payload)
+		if variant == "B":
+			if not self.B:
+				warnings.append("B_MISSING")
+				return self._rule_fallback_pct(payload)
+			return self._predict_with(self.B, payload, EXPECTED_FEATURES_B, "B", warnings)
 
-		# 둘 중 하나만 있을 때
-		if a is None and b is not None:
-			return b
-		if b is None and a is not None:
+		# C: 앙상블
+		a = self._predict_with(self.A, payload, EXPECTED_FEATURES_A, "A", warnings) if self.A else None
+		b = self._predict_with(self.B, payload, EXPECTED_FEATURES_B, "B", warnings) if self.B else None
+
+		if a is None and b is None:
+			warnings.append("AB_MISSING")
+			return self._rule_fallback_pct(payload)
+		if a is None:
+			return b if b is not None else self._rule_fallback_pct(payload)
+		if b is None:
 			return a
 
-		# 둘 다 있을 때 → 가중 평균
 		wA, wB = self._ensemble_weights()
-		return wA * a + wB * b  # type: ignore
+		return max(0.0, min(wA * a + wB * b, 100.0))
 
-	def _predict_with(self, loaded: Optional[Loaded], payload: Dict[str, Any]) -> float:
+	def _predict_with(
+		self,
+		loaded: Optional[_Loaded],
+		payload: Dict[str, Any],
+		expected_cols: List[str],
+		tag: str,
+		warnings: List[str]
+	) -> Optional[float]:
+		"""
+		단일 파이프라인 예측.
+		- expected_cols로 DataFrame을 만들어 ColumnTransformer에 정확히 맞춤.
+		- 실패 시 None을 반환하고 warnings에 기록.
+		"""
 		if not loaded:
-			return 0.0
-		row = self._to_row(payload)
+			return None
 		try:
-			y = loaded.pipe.predict([row])
-			val = float(y[0] if isinstance(y, (list, tuple)) else y)
+			X = _make_feature_frame(payload, expected_cols)
+			y = loaded.pipe.predict(X)
+			val = float(y[0] if hasattr(y, "__len__") else y)
+			return max(0.0, min(val, 100.0))
 		except Exception as e:
 			print(f"[ML][WARN] predict failed via {loaded.path}: {e!r}")
-			return 0.0
-		return max(0.0, min(val, 100.0))
-
-	def _to_row(self, js: Dict[str, Any]) -> list:
-		# 학습 파이프라인의 피처 순서와 맞춰야 함.
-		def f(v, d=0.0):
-			try:
-				return float(v)
-			except Exception:
-				return float(d)
-
-		typ = (js.get("type") or "office").strip().lower()
-		t_factory = 1.0 if "factory" in typ else 0.0
-		t_hospital = 1.0 if "hospital" in typ else 0.0
-		t_school = 1.0 if "school" in typ else 0.0
-		t_office = 1.0 if "office" in typ else 0.0
-
-		return [
-			f(js.get("floorAreaM2")),   # NUM
-			f(js.get("energy_kwh")),
-			f(js.get("eui_kwh_m2y")),
-			f(js.get("builtYear")),
-			t_factory, t_hospital, t_school, t_office  # CAT (간단 원핫)
-		]
-
-	# ---------------------- ensemble weights ----------------------
+			warnings.append(f"{tag}_FAIL:{repr(e)}")
+			return None
 
 	def _ensemble_weights(self) -> Tuple[float, float]:
 		"""
 		가중치 우선순위:
-		 1) manifest.ensemble.suggested_by_inverse_mae.{wA,wB}
-		 2) manifest.ensemble.{wA,wB}
-		 3) (0.5, 0.5)
-		반드시 합=1.0로 정규화해서 반환.
+		1) manifest.ensemble.suggested_by_inverse_mae.{wA,wB}
+		2) manifest.ensemble.{wA,wB}
+		3) (0.5, 0.5)
+		합=1.0 정규화.
 		"""
 		wA, wB = 0.5, 0.5
 		if isinstance(self.manifest, dict):
@@ -229,34 +336,100 @@ class ModelManager:
 			return 0.5, 0.5
 		return wA / total, wB / total
 
-	# ---------------------- 결과 마무리 ----------------------
+	# ---------------------- 폴백/최종 응답 ----------------------
 
-	def _finalize(self, payload: Dict[str, Any], saving_pct: float, variant: str) -> Dict[str, Any]:
-		# 간단 KPI 계산(데모): 실제 운영은 정책 모듈로 분리 권장
-		def f(v, d=0.0):
-			try:
-				return float(v)
-			except Exception:
-				return float(d)
+	def _rule_fallback_pct(self, payload: Dict[str, Any]) -> float:
+		"""
+		간단한 규칙 기반 절감률(예시): 건물 연식/면적에 따른 대략치.
+		실운영에서는 dae.json/정책 모듈을 참조해 계산하세요.
+		"""
+		built = int(payload.get("builtYear") or 2000)
+		floor = _safe_float(payload.get("floorAreaM2"), 1000.0)
+		age_bonus = max(0, 2025 - built) * 0.15  # 연식 1년당 0.15%p
+		size_term = 5.0 if floor > 1000 else 3.0
+		pct = 10.0 + size_term + age_bonus
+		return max(5.0, min(pct, 30.0))
 
-		energy = f(payload.get("energy_kwh"))
-		floor = f(payload.get("floorAreaM2"))
+	def _finalize_response(self, payload: Dict[str, Any], years: List[int], saving_pct: float) -> Dict[str, Any]:
+		"""
+		years/series/cost/kpi를 포함하는 표준 응답을 생성.
+		- baselineKwh이 없으면 floorAreaM2×DEFAULT_EUI를 사용.
+		- cost.savingKrwYr은 연도별 전력단가 상승률을 반영.
+		"""
+		floor = _safe_float(payload.get("floorAreaM2"), 0.0)
+		baseline_kwh = _safe_float(payload.get("baselineKwh"),
+		                           floor * DEFAULT_EUI if floor > 0 else 300_000.0)
 
-		# 임시 단가/투자(서버 정책으로 대체 가능)
-		COST_PER_KWH = 130.0
-		CAPEX_PER_SQM = 200_000.0
+		tariff0 = _safe_float(payload.get("tariffKrwPerKwh"), DEFAULT_TARIFF)
+		escal = _safe_float(payload.get("electricityEscalationPctPerYear"), DEFAULT_ESCALATION)
+		capex_per_m2 = _safe_float(payload.get("capexPerM2"), DEFAULT_CAPEX_PER_M2)
 
-		saving_kwh = energy * (saving_pct / 100.0)
-		saving_cost = saving_kwh * COST_PER_KWH
-		capex = floor * CAPEX_PER_SQM
-		payback = (capex / saving_cost) if saving_cost > 0 else 99.0
+		# after = baseline × (1 - pct)
+		after = baseline_kwh * (1.0 - saving_pct / 100.0)
+		series_after = [round(after, 4) for _ in years]
+
+		# savingKwh는 단순 동일(연차별 변화 필요시 정책 반영)
+		saving_kwh = baseline_kwh - after
+		series_saving_kwh = [round(saving_kwh, 4) for _ in years]
+
+		# 비용 절감(연도별 전력단가 상승)
+		cost_saving_krw = []
+		for i, _y in enumerate(years):
+			tariff_year_i = tariff0 * ((1.0 + escal) ** i)
+			cost_saving_krw.append(round(saving_kwh * tariff_year_i, 2))
+
+		# KPI(마지막 연도 기준)
+		capex = floor * capex_per_m2 if floor > 0 else 0.0
+		last_saving_cost = cost_saving_krw[-1] if cost_saving_krw else 0.0
+		payback = (capex / last_saving_cost) if last_saving_cost > 0 else 99.0
 
 		label = "RECOMMEND" if (saving_pct >= 15.0 and payback <= 5.0) else ("CONDITIONAL" if payback <= 8.0 else "NOT_RECOMMEND")
 
 		return {
-			"savingKwhYr": round(saving_kwh, 4),
-			"savingCostYr": round(saving_cost, 2),
-			"savingPct": round(saving_pct, 4),
-			"paybackYears": round(payback, 3),
-			"label": label
+			"schemaVersion": "1.0",
+			"modelVersion": self._model_version_hint(),
+			"years": years,
+			"series": {
+				"after": series_after,
+				"savingKwhYr": series_saving_kwh
+			},
+			"cost": {
+				"savingKrwYr": cost_saving_krw
+			},
+			"kpi": {
+				"savingCostYr": last_saving_cost,
+				"savingKwhYr": round(saving_kwh, 4),
+				"savingPct": round(saving_pct, 4),
+				"paybackYears": round(payback, 3),
+				"label": label
+			},
+			"contextEcho": {
+				"buildingName": payload.get("buildingName"),
+				"pnu": payload.get("pnu")
+			}
 		}
+
+	def _model_version_hint(self) -> str:
+		"""manifest에서 버전 힌트를 가져오거나 기본값 제공."""
+		try:
+			if self.manifest and isinstance(self.manifest, dict):
+				ver = self.manifest.get("modelVersion") or self.manifest.get("version")
+				if isinstance(ver, str) and ver.strip():
+					return ver.strip()
+		except Exception:
+			pass
+		return "2025.10.C"
+
+# ---------------------------- 모듈 외부 사용 헬퍼 ----------------------------
+
+# 전역 싱글톤처럼 사용할 수 있게 매니저 인스턴스 생성(서버 시작 시 로드)
+MODEL = ModelManager()
+
+
+def predict(payload: Dict[str, Any], variant: str = "C") -> Dict[str, Any]:
+	"""
+	외부(서버 핸들러)에서 직접 호출하는 진입점.
+	- payload(dict): 프런트/스프링에서 전달한 예측 입력
+	- variant(str): "A"|"B"|"C"(기본 C)
+	"""
+	return MODEL.predict_variant(payload, variant)
