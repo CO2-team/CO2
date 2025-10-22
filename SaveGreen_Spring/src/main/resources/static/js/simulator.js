@@ -213,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-
+// 아이디로 왼쪽 오른쪽 분기하기
 let lastTriggeredSimulator = null;
 
 document.getElementById('juso1').addEventListener('focus', () => {
@@ -245,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
       list.forEach(addr => {
         const item = document.createElement("div");
         item.classList.add("dropdown-item");
-        // item.textContent = addr.roadAddr;
+       
         
         const left = document.createElement("div");
         left.className = "addr-left";
@@ -357,19 +357,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         .then( data => {
                           if (!data) return;
 
-                          // const energyInput = document.querySelector('#energy1');
-                          // if (energyInput) energyInput.value = data.electricityUsageKwh;
-
-
-                         
-
-
                           if (lastTriggeredSimulator === 'left') {
                             const energyInput = document.querySelector('#energy1');
                             if (energyInput) energyInput.value = data.electricityUsageKwh;
-                            console.log('왼쪽에서 실행됨 → energy1 값 세팅됨');
+                            console.log('왼쪽에서 실행됨  energy1 값 세팅됨');
                           } else {
-                            console.log('오른쪽에서 실행됨 → energy1 무시됨');
+                            console.log('오른쪽에서 실행됨  energy1 무시됨');
                           }
 
                           const cat = data.buildingType2;

@@ -300,18 +300,18 @@ function updateSolarEfficiencyChart() {
   const canvas4 = document.getElementById('solarEfficiencyChart');
   if (!canvas4) return;
 
-  // 요소 이름 고정
+
   const labels = ['일평균 일사량 (kWh/m²/day)', '패널당 발전량 (100kWh)', '패널당 탄소절감 (0.1ton)', '패널당 절감액 (만원)'];
 
   // 지역별 데이터셋 생성
   const datasets = chartDataList.map((d, i) => ({
     label: d.location || `지역${i + 1}`,
     data: [d.daySolar, d.panelGeneration, d.co2PerPanel, d.taxPerPanel],
-    backgroundColor: getColor(i), // 지역별 색상
+    backgroundColor: getColor(i), 
     borderWidth: 1
   }));
 
-  // 기존 차트 업데이트 or 새로 생성
+  
   if (window.__solarEfficiencyChart) {
     const chart = window.__solarEfficiencyChart;
     chart.data.labels = labels;
@@ -327,7 +327,7 @@ function updateSolarEfficiencyChart() {
           legend: { position: 'top' },
           title: {
             display: true,
-            text: '요소별 지역 비교 차트',
+            text: '요소별 건물 누적 비교 차트',
             font: { size: 20 }
           }
         },
@@ -345,14 +345,14 @@ function updateSolarEfficiencyChart() {
   }
 }
 
-// 색상 자동 생성 (지역마다 다른 색)
+
 function getColor(index) {
   const colors = [
-    'rgba(25, 118, 210, 0.8)',   // 파랑
-    'rgba(255, 99, 132, 0.8)',   // 빨강
-    'rgba(76, 175, 80, 0.8)',    // 초록
-    'rgba(255, 193, 7, 0.8)',    // 노랑
-    'rgba(156, 39, 176, 0.8)'    // 보라
+    'rgba(25, 118, 210, 0.8)',   
+    'rgba(255, 99, 132, 0.8)',  
+    'rgba(76, 175, 80, 0.8)',  
+    'rgba(255, 193, 7, 0.8)',   
+    'rgba(156, 39, 176, 0.8)'   
   ];
   return colors[index % colors.length];
 }

@@ -54,8 +54,6 @@
                 </div>
               
                 <div class="form-row">
-                    <!-- <img class="icon" src="/img/electric.png" alt="Electric Icon"> -->
-                    <!-- <input type="number" name="panelPower" placeholder="태양광 패널 정격출력(선택)"> -->
                      <select name="panelPower" >
                         <option value="">패널 정격출력(선택)</option>
                         <option value="400">400 Wp (Trina Solar Vertex S)</option>
@@ -63,7 +61,7 @@
                         <option value="550">550 Wp (LONGi Hi-MO 6 Explorer)</option>
                         <option value="600">600 Wp (JA Solar DeepBlue 3.0)</option>              
                         <option value="640">640 Wp (Hanwha Q.TRON XL-G2R)</option>
-                        <option value="700">700 Wp (Jinko Solar Tiger Neo N-type)</option>
+                        <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
               
@@ -74,7 +72,7 @@
     
     <section id="resultBox1" class="result-box1" style="display: none;">
         <h3 style="text-align:center !important;">시뮬레이션 결과<button type="button" id="guideBtn1" class="info-btn"><i class="fas fa-info-circle"></i></h3>
-        <!-- <div id="spinner1" class="loading-spinner"></div> -->
+   
         <div class="result-item">
             <span class="label">에너지 효율 등급</span>
             <span class="value" id="grade">-</span>
@@ -180,7 +178,7 @@
                     </select>
                 </div>
                 <div class="form-row">
-                    <!-- <img class="icon" src="/img/electric.png" alt="Electric Icon"> -->              
+                      
                     <select name="panelPower"  required title="태양광 정격출력이 입력되지 않았습니다. 시중 태양광 패널의 평균 정격출력은 500W입니다.">
                         <option value="">패널 정격출력</option>
                         <option value="400">400 Wp (Trina Solar Vertex S)</option>
@@ -188,7 +186,7 @@
                         <option value="550">550 Wp (LONGi Hi-MO 6 Explorer)</option>
                         <option value="600">600 Wp (JA Solar DeepBlue 3.0)</option>              
                         <option value="640">640 Wp (Hanwha Q.TRON XL-G2R)</option>
-                        <option value="700">700 Wp (Jinko Solar Tiger Neo N-type)</option>
+                        <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
                 <button type="submit" class="btn-submit" id="right">결과보기</button>
@@ -223,6 +221,13 @@
     </div> 
 </div>
     <div class="floating-btns">
+        <input type="file" id="csvFile" name="file" accept=".csv" style="display:none;">
+        <button id="downloadAll" title="정책 CSV 다운로드">
+        <i class="fa-solid fa-download"></i>
+        </button>
+        <button id="uploadAll" title="정책 CSV 업로드">
+        <i class="fa-solid fa-upload"></i>
+        </button>
         <button id="downloadBtn" title="PDF로 저장">
         <i class="fa-solid fa-file-pdf"></i>
         </button>
@@ -257,6 +262,7 @@
 
 <script th:src="@{/js/compare.js}" defer></script>
 <script th:src="@{/js/simulator.js}"></script>
+<script th:src="@{/js/policy.js}"></script>
 
 
 </body>
