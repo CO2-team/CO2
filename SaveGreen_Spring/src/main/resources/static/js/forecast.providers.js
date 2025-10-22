@@ -366,7 +366,7 @@
 					// [추가] 시도 기록: 성공
 					__tried.push({ source: s, ok: true });
 					SaveGreen.log.info('provider', `hit = ${s}`);
-					SaveGreen.log.ctx('provider.ctx', ctx);
+//					SaveGreen.log.ctx('provider.ctx', ctx);
 					// [추가] 폴백 히트: vworld가 성공하면 이전 소스가 비어/무효/실패였음을 명시
 					if (s === 'vworld') {
 						const prev = __tried.filter(t => t.source !== 'vworld').map(t => t.source).join(', ');

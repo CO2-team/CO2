@@ -49,6 +49,10 @@ class PredictRequest(BaseModel):
 	floorAreaM2: Optional[float] = Field(None, description="연면적(㎡)")
 	monthlyConsumption: Optional[List[MonthPoint]] = Field(None, description="월간 kWh 배열(1~12)")
 	yearlyConsumption: Optional[List[YearPoint]] = Field(None, description="연간 kWh 배열(년도 순)")
+	buildingName: Optional[str] = Field(None, description="표시/추적용 건물명")
+	pnu: Optional[str] = Field(None, description="표시/추적용 PNU")
+	address: Optional[str] = Field(None, description="표시/추적용 주소(도로명/지번 중 하나)")
+
 	# 선택적으로 들어올 수 있는 KPI 계산용 파라미터(없으면 서버/ML에서 기본값 사용)
 	tariffKrwPerKwh: Optional[float] = Field(None, description="전력 단가(KRW/kWh)")
 	capexPerM2: Optional[float] = Field(None, description="CAPEX (KRW/㎡)")
