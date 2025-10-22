@@ -63,9 +63,16 @@ public class PolicyController {
                .append(z.getAreaBonus()).append("\n");
         }
 
-        
 
-        byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
+        //엑셀 깨짐방지
+        byte[] bom = {(byte)0xEF, (byte)0xBB, (byte)0xBF};
+        byte[] body = csv.toString().getBytes(StandardCharsets.UTF_8);
+  
+        byte[] bytes = new byte[bom.length + body.length];
+        System.arraycopy(bom, 0, bytes, 0, bom.length);
+        System.arraycopy(body, 0, bytes, bom.length, body.length);
+
+        // byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=policy_all.csv");
         headers.setContentType(new MediaType("text", "csv", StandardCharsets.UTF_8));
