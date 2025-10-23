@@ -21,7 +21,7 @@ public class OpenAiService {
 
     @Value("${openai.api.key}")
     private String apiKey;
-
+    
     public String callAi(String prompt) {
     String url = "https://api.openai.com/v1/chat/completions";
 
@@ -60,7 +60,7 @@ public class OpenAiService {
             result.append(line);
         }
 
-        System.out.println("📨 GPT Raw Response:\n" + result.toString());
+        System.out.println("Response:\n" + result.toString());
 
         JsonNode root = mapper.readTree(result.toString());
 

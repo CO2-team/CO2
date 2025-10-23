@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         box4.style.display='block';
         box5.style.display='block';
         runCompare();
-        
+        document.getElementById('aiSummaryBtn').style.display = 'block';
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         box2.style.display='block'
         box6.style.display = 'block';
         addNewResultToChart()
-        
+        document.getElementById('aiSummaryBtn').style.display = 'block';
 
       
         items.forEach((item, index) => {
@@ -183,24 +183,68 @@ document.addEventListener('DOMContentLoaded', () => {
 const aiBtn = document.getElementById("aiSummaryBtn");
 
   aiBtn.addEventListener("click", async () => {
-    // 1️⃣ 왼쪽과 오른쪽 결과 박스의 데이터 확인
-    const leftResult = window.simulatorData1 || null;  // 왼쪽 시뮬레이터 JSON
-    const rightResult = window.simulatorData2 || null; // 오른쪽 시뮬레이터 JSON
 
-    // 2️⃣ 전송할 JSON 구성
+    const leftResult = window.simulatorData1 || null;  
+    const rightResult = window.simulatorData2 || null; 
+
+  
     let prompt = "";
 
     if (leftResult && rightResult) {
       prompt = `
-        다음은 왼쪽과 오른쪽 시뮬레이터의 결과 데이터입니다.
-    
-        solarradiation, onePanelGeneration, onePanelCO2, onePanelSaveElectric, daySolar, total, annualSaveElectric, annualSaveCO2, requiredPanels은
-        각각 태양광 일사량, 패널 1개당 발전량, 패널 1개당 CO2 절감량, 패널 1개당 절감 전기량, 일일 태양광 발전량, 총 발전량, 연간 절감 전기량, 연간 절감 CO2량, 필요한 패널 수를 의미합니다.  
-        propertyTax, acquireTax, areaBonus, grade, category, energySelf, certificationDiscount, renewableSupport, zebGrade은  
-        각각 재산세 감면율, 취득세 감면율, 면적 보너스 비율, 에너지 등급, 건물 유형, 에너지 자립률, 인증 감면율, 신재생에너지 지원금, ZEB 등급을 의미합니다.
-        비율은 퍼센트단위입니다. 
-        이에대한 15줄~20줄 내외의 종합적인 평가 리포트를 작성해주세요.
-        이미 각각의 계산에대한 차트는 나와있으니 데이터 분석과 평가는 조금 얕게, 심층 평가는 깊게 작성해주세요.
+        이 시뮬레이터는 건물의 에너지 효율 등급을 평가하고, 
+        태양광 패널을 설치했을 때 목표 등급에 도달하기 위해 필요한 패널 수와 
+        그에 따른 경제적·환경적 효과를 분석하기 위한 시스템입니다.
+
+        시뮬레이션의 기본 흐름은 다음과 같습니다:
+        1. [에너지 효율 시뮬레이터]는 건물의 주소, 면적, 위도·경도, 에너지 사용량, 태양광 패널 정격 출력, 
+          에너지 효율 등급 기준 등을 바탕으로 현재 건물의 등급과 세제 감면율을 산출합니다.
+        2. [태양광 경제성 시뮬레이터]는 사용자가 임의로 설정한 "현재 등급 → 목표 등급" 구간을 바탕으로,
+          목표 등급을 달성하기 위해 필요한 태양광 패널 수를 계산하고, 
+          예상 발전량, 절약 전기량, 탄소 절감량, 절세 효과 등을 분석합니다.
+        3. 이 두 결과를 종합하여, 태양광 설치 전후의 에너지 자립률 변화, 
+          세제 인센티브, 환경적 개선 효과를 비교·평가합니다.
+
+        시뮬레이션은 다음의 계산 기준에 따라 수행됩니다:
+        - 태양광 패널 발전 효율 상수는 0.8로 적용되었습니다. (일반 범위 0.75~0.85)
+        - 위도·경도 기준 일사량은 NASA 위성 POWER 데이터 기반으로 산출되었습니다.
+        - 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31)를 기준으로 합니다.
+        - 건축물 에너지 효율 등급 상승 시, 에너지 사용량은 구간별 중간값으로 산정됩니다.
+        - 전력요금 단가는 2024년도 한국전력공사 기준 185.5원/kWh를 적용합니다.
+        - 탄소배출량 환산은 2024년도 국가 전력 배출계수 0.415~0.419 kgCO₂/kWh를 적용합니다.
+        - 세제 감면율(ZEB·녹색건축물)은 공공기관 정책 기준을 따르며, 
+          중복 감면은 불가하며 높은 감면율만 적용됩니다.
+        - 재산세 감면액은 지자체 조례에 따라 차이가 있을 수 있습니다.
+
+        데이터 항목 설명:
+        - solarradiation: 태양광 일사량  
+        - onePanelGeneration: 패널 1개당 연간 발전량  
+        - onePanelCO2: 패널 1개당 연간 CO₂ 절감량  
+        - annualSaveElectric: 연간 절감 전기세(만원)  
+        - annualSaveCO2: 연간 절감 CO₂량(ton)  
+        - total: 연간 절감 전기에너지량(kWh)
+        - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
+        - propertyTax / acquireTax / areaBonus / certificationDiscount: 재산세/소득세/용적률증가/인증비용감면율
+        - grade / zebGrade: 에너지 효율 등급 및 ZEB 등급  
+        - energySelf: 에너지 자립률(%)  
+        - category: 건물 유형 (예: 공장, 병원, 창고 등)
+
+        ---
+
+        결과는 반드시 다음의 3단 구조로 서술해주세요:
+        ① 현재 상태 분석 — 건물의 에너지 효율, 자립률, 등급, 절세 현황  
+        ② 목표 등급 달성을 위한 태양광 시나리오 — 필요한 패널 수, 절감량, CO₂ 저감 효과, 경제성  
+        ③ 종합 평가 — 환경적·경제적 개선 효과, 등급 상승 가능성, 지속 가능성 관점 요약
+
+        추가 지침:
+        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 15~25줄 내외로 서술해주세요.
+        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 그 점을 고려하여 작성해주세요.
+        - 에너지 효율등급은 1+++,1++,1+,1,2,3,4,5,6,7등급까지 존재합니다.예를들어 1등급은 사실상 10개중 4번째 등급이므로 중간에위치한 등급임을 인지하고 설명해주세요
+        - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
+        - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
+        - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
+        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 비교 중심으로,  
+          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요.  
 
         [왼쪽 결과]
         ${JSON.stringify(leftResult)}
@@ -211,22 +255,66 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     } 
     else if (leftResult) {
       prompt = `
-        다음은 왼쪽 시뮬레이터의 결과 데이터입니다.
-        이 데이터를 분석하여 10~15줄 내외의 평가 리포트를 작성해주세요.
-        propertyTax, acquireTax, areaBonus, grade, category, energySelf, certificationDiscount, renewableSupport, zebGrade은  
-        각각 재산세 감면율, 취득세 감면율, 면적 보너스 비율, 에너지 등급, 건물 유형, 에너지 자립률, 인증 감면율, 신재생에너지 지원금, ZEB 등급을 의미합니다.
-        비율은 퍼센트단위입니다.
+        이 시뮬레이터는 건물의 에너지 효율 등급을 평가하기 위한 시스템으로,
+        입력된 주소, 면적, 위도·경도, 에너지 사용량, 태양광 패널 정격 출력, 
+        에너지 효율 기준을 바탕으로 현재 상태의 등급 및 절세 가능성을 분석합니다.
+
+        계산 기준:
+        - 발전 효율 상수 0.8 (범위 0.75~0.85)
+        - 위도·경도 일사량: NASA POWER 데이터 기반
+        - 에너지 등급: 국토교통부 고시 제2021-1405호(2021.12.31)
+        - 세제 감면율은 ZEB/녹색건축물 정책 기준 (중복 감면 불가)
+        - 재산세 감면액은 지자체 조례에 따라 달라질 수 있음
+
+        결과는 다음 3단 구조로 작성하세요:
+        ① 현재 상태 분석 — 건물의 등급, 자립률, 절세 현황  
+        ② 개선 필요성 — 태양광 설치 또는 효율 개선을 통한 잠재 효과  
+        ③ 종합 평가 — 향후 절감, 환경 개선, 정책 연계 가능성  
+
+        추가 지침:
+        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 10~15줄 내외로 서술해주세요.
+        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 몰라서 입력을 안했거나, 0개일수도있다는 두가지 가정을 고려하여 작성해주세요.
+        - 에너지 효율등급은 1+++,1++,1+,1,2,3,4,5,6,7등급까지 존재합니다.예를들어 1등급은 사실상 10개중 4번째 등급이므로 중간에위치한 등급임을 인지하고 설명해주세요
+        - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
+        - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
+        - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
+        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 비교 중심으로,  
+          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요.  
+
+        [왼쪽 결과]
 
         ${JSON.stringify(leftResult)}
               `;
             } 
             else if (rightResult) {
               prompt = `
-        다음은 오른쪽 시뮬레이터의 결과 데이터입니다.
-        이 데이터를 분석하여 10~15줄 내외의 평가 리포트를 작성해주세요.
-        solarradiation, onePanelGeneration, onePanelCO2, onePanelSaveElectric, daySolar, total, annualSaveElectric, annualSaveCO2, requiredPanels은
-        각각 태양광 일사량, 패널 1개당 발전량, 패널 1개당 CO2 절감량, 패널 1개당 절감 전기량, 일일 태양광 발전량, 총 발전량, 연간 절감 전기량, 연간 절감 CO2량, 필요한 패널 수를 의미합니다.  
+        이 시뮬레이터는 사용자가 지정한 "현재 등급 → 목표 등급" 구간에 따라, 
+        해당 목표를 달성하기 위해 필요한 태양광 패널 수, 
+        에너지 절감 효과, 탄소 절감량, 경제적 효과를 분석하는 시스템입니다.
 
+        계산 기준:
+        - 발전 효율 상수 0.8 (범위 0.75~0.85)
+        - 위도·경도 일사량: NASA POWER 데이터 기반
+        - 에너지 등급: 국토교통부 고시 제2021-1405호(2021.12.31)
+        - 전력단가: 2024년 한국전력공사 기준 185.5원/kWh
+        - CO₂ 배출계수: 0.415~0.419 kgCO₂/kWh
+        - 세제 감면율은 공공기관 정책 기준을 따름
+
+        결과는 다음 3단 구조로 작성하세요:
+        ① 목표 등급 분석 — 설정된 목표의 의미와 달성 기준  
+        ② 필요한 태양광 규모 — 패널 수, 발전량, 절감량, CO₂ 저감 효과  
+        ③ 종합 평가 — 경제성, 환경 기여, 설치 타당성 및 정책적 시사점  
+
+        추가 지침:
+        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 10~15줄 내외로 서술해주세요.
+        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 몰라서 입력을 안했거나, 0개일수도있다는 두가지 가정을 고려하여 작성해주세요.
+        - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
+        - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
+        - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
+        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 비교 중심으로,  
+          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요.  
+
+        [오른쪽 결과]
         ${JSON.stringify(rightResult)}
               `;
     } 
@@ -235,20 +323,24 @@ const aiBtn = document.getElementById("aiSummaryBtn");
       return;
     }
 
-    // 3️⃣ 로딩 표시
     const aiResult = document.getElementById("aiResult");
     aiResult.textContent = " AI 분석 중입니다... 잠시만 기다려주세요.";
 
-    // 4️⃣ 서버에 전송
+
     const resp = await fetch("/ai/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: prompt })
     });
 
-    // 5️⃣ 응답 표시
     const data = await resp.json();
     aiResult.textContent = data.reply;
+    aiResult.classList.add("show");
+    aiResult.textContent = data.reply.trim();
+
+    setTimeout(() => {
+      aiResult.classList.add("show");
+    }, 100);
   });
 });
 
@@ -776,9 +868,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       const avgEl2 = document.querySelector('#average2');
       if (avgEl2) avgEl2.value = average;
       console.log("average : ",average);
-      // runCompare();
-      
     });
+
+    const eik = data.energyIntensityKwhPerM2;
+    const eik1 = document.querySelector('#eik1');
+    if(eik1) eik1.value = eik;
+    const eik2 = document.querySelector('#eik2');
+    if(eik2) eik2.value = eik;
+    console.log("eik : ",eik)
+    fetch(`/energy/percentile?category=${encodeURIComponent(cat)}&value=${eik}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(percentile => {
+        if (percentile == null) return;
+        
+        const percent = document.querySelector('#percent');
+        percent.value = percentile;
+        console.log("상위"+percent.value+"%");
+      });
+  // 선택 건물 퍼센트 가져오기
+  fetch(`/energy/monthly-percent/pnu?pnu=${encodeURIComponent(pnu)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        const BM = document.querySelector('#buildingMonthly')
+        BM.value = JSON.stringify(data);
+        console.log("선택건물 월별비중:", data);
+      });
+
+  // 카테고리 평균 퍼센트 가져오기
+  fetch(`/energy/monthly-percent/category?category=${encodeURIComponent(cat)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        const CM = document.querySelector('#categoryMonthly');
+        CM.value = JSON.stringify(data);
+        console.log("비교군 월별비중:", data);
+      });
 });
 
 
@@ -814,5 +939,8 @@ document.addEventListener('DOMContentLoaded', () => {
       targetSelect.value = 0;
     }
   });
+
+  
 });
+
 
