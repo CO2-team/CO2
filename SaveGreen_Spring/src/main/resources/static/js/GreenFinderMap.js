@@ -360,6 +360,18 @@ document.addEventListener("DOMContentLoaded", () => {
 	});
 });
 
+function showPopup(html, windowPosition) {
+    const popup = document.getElementById("popup");
+    const posX = windowPosition?.x ?? window.innerWidth / 2;
+    const posY = windowPosition?.y ?? window.innerHeight / 2;
+
+    popup.style.left = (posX + 10) + "px";
+    popup.style.top = (posY - 10) + "px";
+    popup.innerHTML = html;
+    popup.style.display = "block";
+}
+
+
 
 
 // 검색 요청 함수
@@ -435,3 +447,6 @@ function vwmoveTo(x, y, z) {
     map.moveTo(mPosi);
 }
 
+function checkE(){
+    location.href="/GreenFinder/energyCheck";
+}

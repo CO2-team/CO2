@@ -24,13 +24,11 @@ public class GreenFinderController {
     @GetMapping("/GreenFinder")
     public String getServicePage() {
         return "html/GreenFinderMap";
-
     }
 
     @GetMapping("/GreenFinder/text")
     public String getTextPage() {
         return "html/serviceText";
-
     }
 
     @GetMapping("/GreenFinder/search")
@@ -40,4 +38,11 @@ public class GreenFinderController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/GreenFinder/energyCheck")
+    public String getGreenCheck() {
+        return "html/energyUseCheck";
+    }
+
+
+    
 }
