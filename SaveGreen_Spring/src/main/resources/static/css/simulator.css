@@ -483,11 +483,11 @@ body.swal2-shown {
 }
 #intensityChart1{
     width : 450px !important;
-    height : 300px !important;
+    height : 260px !important;
     margin: 0 auto; 
 }
 #intensityChart2{
-    width : 450px;
+    width : 450px ;
     height : 300px !important; 
     margin: 0 auto; 
 }

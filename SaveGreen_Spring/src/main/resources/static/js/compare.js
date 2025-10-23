@@ -61,6 +61,7 @@ function runCompare() {
 
     //차트js
     var canvas1 = document.getElementById('intensityChart1');
+  
     if (window.__intensityChart1) {
         const chart = window.__intensityChart1;
         chart.data.datasets[0].data = [eik];
@@ -82,7 +83,7 @@ function runCompare() {
                     legend: { display: true },
                     title: { display: true,
                             text: "단위면적당 에너지 사용량 비교" ,
-                            font:{size:24},
+                            font:{size:22},
                             color:'#333'}
                 },
                 scales: { y: { beginAtZero: true } }
@@ -90,6 +91,7 @@ function runCompare() {
         });
     }
     var canvas2 = document.getElementById('intensityChart2');
+
     if (canvas2 && window.Chart) {
         if (window.__intensityChart2) {
             const chart = window.__intensityChart2;
@@ -109,6 +111,7 @@ function runCompare() {
                 }]
             },
             options: {
+                
                 cutout: '70%',
                 plugins: {
                     legend: { display: false },
@@ -134,9 +137,11 @@ function runCompare() {
                 }
             }]
             });
+            
         }
     }
     var canvas3 = document.getElementById('intensityChart3');
+    
     if (canvas3 && window.Chart) {
          if (window.__intensityChart3) {
             const chart = window.__intensityChart3;
@@ -178,7 +183,7 @@ function runCompare() {
                 title: {
                 display: true,
                 text: '월별 전력 사용 비중 비교(%)',
-                font: { size: 24 },
+                font: { size: 22 },
                 color: '#333'
                 },
                 legend: {
