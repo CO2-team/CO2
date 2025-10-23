@@ -202,7 +202,7 @@ function runCompare() {
                 x: {
                 title: {
                     display: true,
-                    text: '월'
+                    text: '시기(월)'
                 }
                 }
             },
