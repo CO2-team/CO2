@@ -1,216 +1,234 @@
+// [수정] 패키지 선언 확인/정정
 package com.example.co2.service;
 
-import org.springframework.beans.factory.annotation.Qualifier;
+// [수정] DTO 임포트 경로 일치
+import com.example.co2.dto.PredictDtos;
+
+import com.example.co2.util.TypeRegionNormalizer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
-import java.util.List;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+/* =========================================================
+ * MlBridgeService.java
+ * ---------------------------------------------------------
+ * 역할(Service):
+ * 	- FastAPI(파이썬)와의 HTTP 브리지
+ * 	- 학습: 시작 트리거/상태 저장(메모리 맵), 필요 최소 코드만
+ * 	- 예측: 기존 RestTemplate 프록시를 유지
+ *
+ * FastAPI 계약(기본값 가정 — 필요시 URL만 설정 변경):
+ * 	- POST {base}/train              → 학습 시작
+ * 	- GET  {base}/train/status?jobId → 학습 상태(선택 구현)
+ * 	- POST {base}/predict?variant=C  → 예측
+ *
+ * 상태 저장:
+ * 	- trainJobs(jobId → TrainStatus) 메모리 보관
+ * 	- 서버 재기동 시 초기화(의도된 동작, FE 폴백 로직 존재)
+ *
+ * 예외:
+ * 	- 하위 서버 실패/응답 이상: DownstreamException 으로 래핑
+ * ========================================================= */
 @Service
 public class MlBridgeService {
 
-	// =========================================================================
-	// 필드 / 생성자
-	// - FastAPI(ML) 호출용 RestTemplate 과 베이스 URL
-	// - 오케스트레이션(시작하기)용 폴링 간격 / 최대 대기시간
-	// =========================================================================
-	private final RestTemplate mlRestTemplate;	// FastAPI 호출용
-	private final String mlBaseUrl;				// 예) http://127.0.0.1:8000
+	/* ------------------------------
+	 * 구성 값(환경 설정 주입)
+	 * ------------------------------ */
+	@Value("${ml.fastapi.base-url:http://localhost:8000}")
+	private String fastapiBaseUrl;
 
-	@Value("${ml.orchestrate.poll-interval-ms:800}")     // 프로퍼티 없으면 기본 800ms
-	private long pollIntervalMs;
+	private final RestTemplate restTemplate;
 
-	@Value("${ml.orchestrate.wait-timeout-ms:180000}")   // 프로퍼티 없으면 기본 180,000ms(3분)
-	private long waitTimeoutMs;
-
-	public MlBridgeService(
-			@Qualifier("mlRestTemplate") RestTemplate mlRestTemplate,
-			@Value("${ml.base-url}") String mlBaseUrl
-	) {
-		this.mlRestTemplate = mlRestTemplate;
-		// baseUrl 끝의 슬래시 제거(URI 조합 시 // 방지)
-		this.mlBaseUrl = (mlBaseUrl != null && mlBaseUrl.endsWith("/"))
-				? mlBaseUrl.substring(0, mlBaseUrl.length() - 1)
-				: mlBaseUrl;
+	public MlBridgeService(RestTemplate restTemplate) {
+		this.restTemplate = restTemplate;
 	}
 
-	// =========================================================================
-	// 공용 유틸
-	// =========================================================================
-	private RuntimeException asRuntime(String msg, RestClientException e) {
-		if (e instanceof HttpStatusCodeException ex) {
-			String detail = ex.getResponseBodyAsString();
-			return new RuntimeException(msg + " — status=" + ex.getStatusCode() + ", body=" + detail, e);
-		}
-		return new RuntimeException(msg + " — " + e.getMessage(), e);
+	/* ------------------------------
+	 * 학습 상태 저장(메모리)
+	 * ------------------------------ */
+	// [추가] jobId → 상태
+	private final ConcurrentHashMap<String, TrainStatus> trainJobs = new ConcurrentHashMap<>();
+
+	/* =========================================================
+	 * 학습(Training)
+	 * ========================================================= */
+
+	// [추가]
+	// 목적:
+	// 	- 학습 잡 생성 및 비동기 실행 트리거
+	// 동작:
+	// 	1) UUID 기반 jobId 생성
+	// 	2) 상태를 RUNNING(0%)로 맵에 저장
+	// 	3) runTrainJob(jobId)을 비동기로 호출
+	// 반환:
+	// 	- 생성된 jobId
+	// 실패 시:
+	// 	- 런타임 예외 전파 → 컨트롤러에서 500 처리
+	public String startTrainAsync() {
+		final String jobId = UUID.randomUUID().toString();
+		TrainStatus init = new TrainStatus();
+		init.setJobId(jobId);
+		init.setStatus("RUNNING");
+		init.setProgress(0);
+		init.setStartedAt(Instant.now().toString());
+		trainJobs.put(jobId, init);
+
+		// 비동기 처리(스레드 풀에서 실행)
+		runTrainJob(jobId);
+		return jobId;
 	}
 
-	// =========================================================================
-	// 0) Health — GET /health
-	// - ML 서버의 헬스 상태를 그대로 반환(Map)
-	// =========================================================================
-	public Map<String, Object> health() {
+	// [추가]
+	// 목적:
+	// 	- FastAPI /train 호출을 비동기로 수행
+	// 주의:
+	// 	- 여기서는 "간단 모드": /train 호출이 성공하면 DONE 으로 기록
+	// 	- 필요시 FastAPI의 /train/status 폴링을 이 메서드에서 추가 구현 가능
+	// 입력:
+	// 	- jobId: 상태 저장용 키
+	// 부작용:
+	// 	- trainJobs 맵의 해당 job 상태가 DONE/ERROR 로 갱신됨
+	@Async
+	public void runTrainJob(String jobId) {
 		try {
-			return mlRestTemplate.getForObject(mlBaseUrl + "/health", Map.class);
-		} catch (RestClientException e) {
-			throw asRuntime("GET /health failed", e);
-		}
-	}
+			String url = fastapiBaseUrl + "/train";
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(java.util.Collections.singletonList(MediaType.APPLICATION_JSON));
 
-	// =========================================================================
-	// 1) 학습 시작 — POST /train?mode=...&k=...
-	// - 컨트롤러/기존 코드 호환을 위해 startTraining 별칭도 제공
-	// - 반환값: jobId (학습 작업 식별자)
-	// =========================================================================
-	public String startTrain(String mode, Integer k) {
-		try {
-			URI uri = UriComponentsBuilder.fromHttpUrl(mlBaseUrl + "/train")
-					.queryParam("mode", mode != null ? mode : "quick")
-					.queryParam("k",    k    != null ? k    : 5)
-					.build(true).toUri();
+			// 보통 학습 시작에는 별도 바디가 필요 없으나, 필요 시 간단 파라미터를 넘길 수 있음
+			HttpEntity<?> req = new HttpEntity<>(headers);
 
-			Map<?, ?> resp = mlRestTemplate.postForObject(uri, null, Map.class);
-			if (resp == null || !resp.containsKey("jobId")) {
-				throw new IllegalStateException("train response has no jobId");
-			}
-			return String.valueOf(resp.get("jobId"));
-		} catch (RestClientException e) {
-			throw asRuntime("POST /train failed", e);
-		}
-	}
-
-	// ---- 기존 컨트롤러 호환용 별칭: 내부적으로 startTrain 위임
-	public String startTraining(String mode, int k) {
-		return startTrain(mode, k);
-	}
-
-	// =========================================================================
-	// 2) 학습 상태 — GET /train/status/{jobId}
-	// - 응답 예시: { detail:{ state:"READY"|"FAILED"|..., progress:.., log:[...] }, ... }
-	// =========================================================================
-	public Map<String, Object> trainStatus(String jobId) {
-		try {
-			return mlRestTemplate.getForObject(mlBaseUrl + "/train/status/{id}", Map.class, jobId);
-		} catch (RestClientException e) {
-			throw asRuntime("GET /train/status failed (jobId=" + jobId + ")", e);
-		}
-	}
-
-	// =========================================================================
-	// 3) 모델 재로딩 — POST /admin/reload-model
-	// - 학습 완료 후 C(앙상블) 추천 가중치가 즉시 반영되도록 트리거
-	// =========================================================================
-	public Map<String, Object> reloadModel() {
-		try {
-			return mlRestTemplate.postForObject(mlBaseUrl + "/admin/reload-model", null, Map.class);
-		} catch (RestClientException e) {
-			throw asRuntime("POST /admin/reload-model failed", e);
-		}
-	}
-
-	// =========================================================================
-	// 4) 단건 예측 — POST /predict?variant=A|B|C
-	// - body: ML 서버의 PredictRequest JSON과 동일한 맵
-	// - 응답: { savingKwhYr, savingCostYr, savingPct, paybackYears, label }
-	// =========================================================================
-	public Map<String, Object> predict(String variant, Map<String, Object> body) {
-		try {
-			URI uri = UriComponentsBuilder.fromHttpUrl(mlBaseUrl + "/predict")
-					.queryParam("variant", variant != null ? variant : "C")
-					.build(true).toUri();
-			return mlRestTemplate.postForObject(uri, body, Map.class);
-		} catch (RestClientException e) {
-			throw asRuntime("POST /predict failed (variant=" + variant + ")", e);
-		}
-	}
-
-	// ---- 편의 메서드: variant 고정
-	public Map<String, Object> predictA(Map<String, Object> body) { return predict("A", body); }
-	public Map<String, Object> predictB(Map<String, Object> body) { return predict("B", body); }
-	public Map<String, Object> predictC(Map<String, Object> body) { return predict("C", body); }
-
-	// =========================================================================
-	// 5) (원클릭) 오케스트레이션 — 학습→상태폴링→재로딩
-	// - POST /api/forecast/ml/start?mode=quick&k=5 에서 사용
-	// - READY면 reloadModel() 호출 후 즉시 성공 응답
-	// - FAILED면 실패 응답, 타임아웃 시 TIMEOUT 응답
-	// - 시연/단순용 동기 버전(운영에서는 @Async 비동기 확장 가능)
-	// =========================================================================
-	public Map<String, Object> startAndReload(String mode, int k) {
-		final String jobId = startTraining(mode, k);
-		final long deadline = System.currentTimeMillis() + waitTimeoutMs;
-
-		while (System.currentTimeMillis() < deadline) {
-			Map<String, Object> status = trainStatus(jobId);
-
-			// status 예: { jobId:"...", detail:{ state:"TRAINING"|"READY"|"FAILED", ... }, ... }
-			String state = null;
-			Object detail = status.get("detail");
-			if (detail instanceof Map<?, ?> d) {
-				Object s = d.get("state");
-				if (s != null) state = String.valueOf(s);
+			ResponseEntity<Map> rsp = restTemplate.exchange(url, HttpMethod.POST, req, Map.class);
+			if (!rsp.getStatusCode().is2xxSuccessful()) {
+				failTrain(jobId, "TRAIN_HTTP_" + rsp.getStatusCodeValue());
+				return;
 			}
 
-			if ("READY".equalsIgnoreCase(state)) {
-				reloadModel(); // C 가중치 최신 반영
-				return Map.of(
-						"jobId", jobId,
-						"state", "READY",
-						"message", "Training completed and model reloaded."
-				);
-			}
-			if ("FAILED".equalsIgnoreCase(state)) {
-				return Map.of(
-						"jobId", jobId,
-						"state", "FAILED",
-						"detail", status,
-						"message", "Training failed. See detail.log."
-				);
-			}
-
-			try { Thread.sleep(pollIntervalMs); } catch (InterruptedException ignored) {}
-		}
-
-		return Map.of(
-				"jobId", jobId,
-				"state", "TIMEOUT",
-				"message", "Training did not finish within timeout."
-		);
-	}
-
-	// =========================================================================
-	// 6) 배치 예측 — POST /predict/batch
-	// - FastAPI가 리스트 바디를 직접 받도록 구현된 경우, {"items":[...]}가 아닌
-	//   리스트 자체(List<Map>)를 전송해야 한다.
-	// =========================================================================
-	@SuppressWarnings("unchecked")
-	public Map<String, Object> predictBatch(String variant, List<Map<String, Object>> items) {
-		try {
-			URI uri = UriComponentsBuilder.fromHttpUrl(mlBaseUrl + "/predict/batch")
-					.queryParam("variant", variant != null ? variant : "C")
-					.build(true).toUri();
-
-			return mlRestTemplate.postForObject(uri, items, Map.class);
-		} catch (RestClientException e) {
-			throw asRuntime("POST /predict/batch failed (variant=" + variant + ")", e);
+			// 간단 모드: 시작 성공 = DONE. (확장 시 status 폴링으로 대체)
+			successTrain(jobId, "TRAIN_STARTED");
+		} catch (Exception e) {
+			failTrain(jobId, "TRAIN_CALL_FAILED: " + e.getMessage());
 		}
 	}
 
-	// =========================================================================
-	// 7) 모델/가중치 상태 — GET /model/status
-	// - 예: { has_A:true, has_B:true, ensemble_weights_effective:{wA:..., wB:...}, ... }
-	// =========================================================================
-	public Map<String, Object> modelStatus() {
+	// [추가]
+	// 목적:
+	// 	- 현재 메모리에 기록된 학습 상태 조회
+	// 입력:
+	// 	- jobId
+	// 반환:
+	// 	- TrainStatus 또는 null(미존재)
+	public TrainStatus getTrainStatus(String jobId) {
+		return trainJobs.get(jobId);
+	}
+
+	// [추가] 내부 헬퍼: 학습 성공 기록
+	private void successTrain(String jobId, String message) {
+		TrainStatus st = trainJobs.get(jobId);
+		if (st == null) return;
+		st.setStatus("DONE");
+		st.setProgress(100);
+		st.setMessage(message);
+		st.setFinishedAt(Instant.now().toString());
+	}
+
+	// [추가] 내부 헬퍼: 학습 실패 기록
+	private void failTrain(String jobId, String message) {
+		TrainStatus st = trainJobs.get(jobId);
+		if (st == null) {
+			st = new TrainStatus();
+			st.setJobId(jobId);
+			trainJobs.put(jobId, st);
+		}
+		st.setStatus("ERROR");
+		st.setMessage(message);
+		st.setFinishedAt(Instant.now().toString());
+	}
+
+	/* =========================================================
+	 * 예측(Predict)
+	 * ========================================================= */
+
+	// [추가]
+	// 목적:
+	// 	- FastAPI /predict 를 호출하여 FE가 요구하는 응답 포맷으로 반환
+	// 입력:
+	// 	- variant: A|B|C (기본 C) — 하위 서버에 그대로 전달
+	// 	- request: PredictRequest (DTO)
+	// 동작:
+	// 	1) Type/Region 안전 정규화(중복 적용되어도 무해)
+	// 	2) POST {base}/predict?variant=... 로 프록시
+	// 출력:
+	// 	- PredictResponse(JSON) 그대로 반환
+	// 예외:
+	// 	- HTTP 비정상/바디 null → DownstreamException
+	// 	- 기타 예외 → DownstreamException로 래핑
+	public PredictDtos.PredictResponse predict(String variant, PredictDtos.PredictRequest request) {
 		try {
-			return mlRestTemplate.getForObject(mlBaseUrl + "/model/status", Map.class);
-		} catch (RestClientException e) {
-			throw asRuntime("GET /model/status failed", e);
+			TypeRegionNormalizer.normalizeInPlace(request);
+
+			String url = fastapiBaseUrl + "/predict?variant=" + (variant == null ? "C" : variant);
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			headers.setAccept(java.util.Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<PredictDtos.PredictRequest> httpEntity = new HttpEntity<>(request, headers);
+
+			ResponseEntity<PredictDtos.PredictResponse> rsp =
+					restTemplate.exchange(url, HttpMethod.POST, httpEntity, PredictDtos.PredictResponse.class);
+
+			if (!rsp.getStatusCode().is2xxSuccessful() || rsp.getBody() == null) {
+				throw new DownstreamException("PREDICT_HTTP_" + rsp.getStatusCodeValue());
+			}
+			return rsp.getBody();
+		} catch (DownstreamException de) {
+			throw de;
+		} catch (Exception e) {
+			throw new DownstreamException("PREDICT_CALL_FAILED: " + e.getMessage());
+		}
+	}
+
+	/* =========================================================
+	 * 내부 타입/예외
+	 * ========================================================= */
+
+	// [추가]
+	// 메모리 상태 객체(간단 POJO)
+	public static class TrainStatus {
+		private String jobId;		// 식별자
+		private String status;		// RUNNING | DONE | ERROR
+		private Integer progress;	// 0~100(선택)
+		private String message;		// 상태/오류 메시지(선택)
+		private String startedAt;	// ISO-8601 문자열(선택)
+		private String finishedAt;	// ISO-8601 문자열(선택)
+
+		public String getJobId() { return jobId; }
+		public void setJobId(String jobId) { this.jobId = jobId; }
+		public String getStatus() { return status; }
+		public void setStatus(String status) { this.status = status; }
+		public Integer getProgress() { return progress; }
+		public void setProgress(Integer progress) { this.progress = progress; }
+		public String getMessage() { return message; }
+		public void setMessage(String message) { this.message = message; }
+		public String getStartedAt() { return startedAt; }
+		public void setStartedAt(String startedAt) { this.startedAt = startedAt; }
+		public String getFinishedAt() { return finishedAt; }
+		public void setFinishedAt(String finishedAt) { this.finishedAt = finishedAt; }
+	}
+
+	// [추가]
+	// 하위 서버 오류 전달용 런타임 예외
+	public static class DownstreamException extends RuntimeException {
+		public DownstreamException(String message) {
+			super(Objects.requireNonNullElse(message, "Downstream error"));
 		}
 	}
 }

@@ -378,144 +378,306 @@
 		return doneMs;
 	}
 
-	/* ============================================================
-	 * 4) MODEL B — 꺾은선 (점 → 선)
-	 *    - 좌측 yEnergy 축: yhat 최대값 기준 “처음부터 고정”
-	 * ============================================================ */
-	async function renderModelBChart(opts) {
-		__clearStageTimers();
+//	/* ============================================================
+//	 * 4) MODEL B — 꺾은선 (점 → 선)
+//	 *    - 좌측 yEnergy 축: yhat 최대값 기준 “처음부터 고정”
+//	 * ============================================================ */
+//	async function renderModelBChart(opts) {
+//		__clearStageTimers();
+//
+//		const { years, yhat } = opts || {};
+//		const cr = (opts && opts.costRange) ? opts.costRange : null;
+//
+//		if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+//		const canvas = document.getElementById('chart-energy-combo');
+//		if (!canvas) { console.warn('#chart-energy-combo not found'); return; }
+//
+//		// 기존 차트 제거
+//		if (Chart.getChart) {
+//			const existed = Chart.getChart(canvas);
+//			if (existed) existed.destroy();
+//		}
+//		if (energyChart) energyChart.destroy();
+//
+//		const ctx = canvas.getContext('2d');
+//		const labels = (years || []).map(String);
+//		const n = labels.length;
+//
+//		const yFixed = fixSeriesToLength(yhat, n);
+//		const energyMaxB = Math.max(0, ...yFixed.map(v => Number(v) || 0));
+//		const yEnergyRangeB = getFixedLinearRangeFromMax(energyMaxB, 0.08, 6);
+//
+//		const LINE_COLOR = '#F57C00';
+//		const POINT_MS = 500, POINT_GAP_MS = 300;
+//
+//		updateStageBadge('B', '모델 B : 랜덤 포레스트 (Random Forest)');
+//
+//		const ds = {
+//			type: 'line',
+//			order: 1,
+//			label: '에너지 사용량',
+//			data: yFixed,
+//			yAxisID: 'yEnergy',
+//			fill: false,
+//			tension: 0.3,
+//			cubicInterpolationMode: 'monotone',
+//			borderWidth: 3,
+//			borderColor: LINE_COLOR,
+//			showLine: false,
+//			pointRadius: new Array(n).fill(0),
+//			pointBackgroundColor: LINE_COLOR,
+//			pointBorderWidth: 0,
+//			animations: {
+//				y: {
+//					from: fromBaseline,
+//					duration: POINT_MS,
+//					delay: (c) => (c.type !== 'data') ? 0 : c.dataIndex * (POINT_MS + POINT_GAP_MS),
+//					easing: 'easeOutCubic'
+//				}
+//			}
+//		};
+//
+//		energyChart = new Chart(ctx, {
+//			type: 'line',
+//			data: { labels, datasets: [ds] },
+//			options: {
+//				normalized: true,
+//				responsive: true,
+//				maintainAspectRatio: false,
+//				plugins: {
+//					legend: { display: true },
+//					title: { display: true, text: '에너지 / 비용 예측', padding: { top: 8, bottom: 4 } },
+//					subtitle: { display: false },
+//					tooltip: {
+//						callbacks: {
+//							label: (c) => `에너지 사용량: ${nfLocal(c.parsed?.y ?? 0)} kWh/년`
+//						}
+//					}
+//				},
+//				elements: {
+//					bar: { borderWidth: 0, borderSkipped: 'bottom' },
+//					point: { hoverRadius: 5 }
+//				},
+//				scales: {
+//					yEnergy: {
+//						type: 'linear', position: 'left',
+//						min: yEnergyRangeB.min,
+//						max: yEnergyRangeB.max,
+//						ticks: { stepSize: yEnergyRangeB.step, callback: (v) => nfLocal(v) },
+//						title: { display: true, text: '에너지 사용량 (kWh/년)' }
+//					},
+//					yCost: {
+//						type: 'linear', position: 'right',
+//						grid: { drawOnChartArea: false },
+//						title: { display: true, text: '비용 절감 (원/년)' },
+//						ticks: {
+//							callback: (v) => fmtCostTick(v),
+//							stepSize: cr ? (cr.step || getNiceStep(cr.min, cr.max)) : undefined
+//						},
+//						min: 0, max: cr ? cr.max : undefined
+//					},
+//					x: { title: { display: false } }
+//				}
+//			}
+//		});
+//
+//		// 포인트 순차 등장
+//		const chartRef = energyChart;
+//		for (let i = 0; i < n; i++) {
+//			const delay = i * (POINT_MS + POINT_GAP_MS);
+//			const id = setTimeout(() => {
+//				if (energyChart !== chartRef) return;
+//				const _ds = chartRef.data.datasets[0];
+//				if (Array.isArray(_ds.pointRadius) && i < _ds.pointRadius.length) {
+//					_ds.pointRadius[i] = 3;
+//					chartRef.update('none');
+//				}
+//			}, delay);
+//			__pushTimer(id);
+//		}
+//
+//		// 포인트 후 선 ON
+//		const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
+//		const idReveal = setTimeout(() => {
+//			if (energyChart !== chartRef) return;
+//			const _ds = chartRef.data.datasets[0];
+//			_ds.showLine = true;
+//			chartRef.update('none');
+//		}, totalPointDuration + 80);
+//		__pushTimer(idReveal);
+//
+//		window.energyChart = energyChart;
+//
+//		if (window.SaveGreen?.Forecast?.injectChartContextLine) {
+//			window.SaveGreen.Forecast.injectChartContextLine('chartB');
+//		}
+//
+//		const doneMs = totalPointDuration + 80 + 120;
+//		await new Promise((r) => setTimeout(r, doneMs));
+//		return doneMs;
+//	}
 
-		const { years, yhat } = opts || {};
-		const cr = (opts && opts.costRange) ? opts.costRange : null;
 
-		if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
-		const canvas = document.getElementById('chart-energy-combo');
-		if (!canvas) { console.warn('#chart-energy-combo not found'); return; }
 
-		// 기존 차트 제거
-		if (Chart.getChart) {
-			const existed = Chart.getChart(canvas);
-			if (existed) existed.destroy();
-		}
-		if (energyChart) energyChart.destroy();
+    /* ============================================================
+     * 4) MODEL B — 산점도(AC 스타일: 작은 원형 마커, 속 흰색 + 주황 테두리)
+     *    - 좌측 yEnergy 축: yhat 최대값 기준 “처음부터 고정”
+     *    - 범례: AC처럼 기본 라인/스와치 스타일(점 아이콘 쓰지 않음)
+     * ============================================================ */
+    async function renderModelBChart(opts) {
+        __clearStageTimers();
 
-		const ctx = canvas.getContext('2d');
-		const labels = (years || []).map(String);
-		const n = labels.length;
+        const { years, yhat } = opts || {};
+        const cr = (opts && opts.costRange) ? opts.costRange : null;
 
-		const yFixed = fixSeriesToLength(yhat, n);
-		const energyMaxB = Math.max(0, ...yFixed.map(v => Number(v) || 0));
-		const yEnergyRangeB = getFixedLinearRangeFromMax(energyMaxB, 0.08, 6);
+        if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+        const canvas = document.getElementById('chart-energy-combo');
+        if (!canvas) { console.warn('#chart-energy-combo not found'); return; }
 
-		const LINE_COLOR = '#F57C00';
-		const POINT_MS = 500, POINT_GAP_MS = 300;
+        // 기존 차트 제거
+        if (Chart.getChart) {
+            const existed = Chart.getChart(canvas);
+            if (existed) existed.destroy();
+        }
+        if (energyChart) energyChart.destroy();
 
-		updateStageBadge('B', '모델 B : 랜덤 포레스트 (Random Forest)');
+        const ctx = canvas.getContext('2d');
+        const labels = (years || []).map(String);
+        const n = labels.length;
 
-		const ds = {
-			type: 'line',
-			order: 1,
-			label: '에너지 사용량',
-			data: yFixed,
-			yAxisID: 'yEnergy',
-			fill: false,
-			tension: 0.3,
-			cubicInterpolationMode: 'monotone',
-			borderWidth: 3,
-			borderColor: LINE_COLOR,
-			showLine: false,
-			pointRadius: new Array(n).fill(0),
-			pointBackgroundColor: LINE_COLOR,
-			pointBorderWidth: 0,
-			animations: {
-				y: {
-					from: fromBaseline,
-					duration: POINT_MS,
-					delay: (c) => (c.type !== 'data') ? 0 : c.dataIndex * (POINT_MS + POINT_GAP_MS),
-					easing: 'easeOutCubic'
-				}
-			}
-		};
+        const yFixed = fixSeriesToLength(yhat, n);
+        const energyMaxB = Math.max(0, ...yFixed.map(v => Number(v) || 0));
+        const yEnergyRangeB = getFixedLinearRangeFromMax(energyMaxB, 0.08, 6);
 
-		energyChart = new Chart(ctx, {
-			type: 'line',
-			data: { labels, datasets: [ds] },
-			options: {
-				normalized: true,
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: true },
-					title: { display: true, text: '에너지 / 비용 예측', padding: { top: 8, bottom: 4 } },
-					subtitle: { display: false },
-					tooltip: {
-						callbacks: {
-							label: (c) => `에너지 사용량: ${nfLocal(c.parsed?.y ?? 0)} kWh/년`
-						}
-					}
-				},
-				elements: {
-					bar: { borderWidth: 0, borderSkipped: 'bottom' },
-					point: { hoverRadius: 5 }
-				},
-				scales: {
-					yEnergy: {
-						type: 'linear', position: 'left',
-						min: yEnergyRangeB.min,
-						max: yEnergyRangeB.max,
-						ticks: { stepSize: yEnergyRangeB.step, callback: (v) => nfLocal(v) },
-						title: { display: true, text: '에너지 사용량 (kWh/년)' }
-					},
-					yCost: {
-						type: 'linear', position: 'right',
-						grid: { drawOnChartArea: false },
-						title: { display: true, text: '비용 절감 (원/년)' },
-						ticks: {
-							callback: (v) => fmtCostTick(v),
-							stepSize: cr ? (cr.step || getNiceStep(cr.min, cr.max)) : undefined
-						},
-						min: 0, max: cr ? cr.max : undefined
-					},
-					x: { title: { display: false } }
-				}
-			}
-		});
+        // 색상: 전역 팔레트 우선, 없으면 기본 주황
+        const ORANGE = (window.SG_COLORS && window.SG_COLORS.orange) ? window.SG_COLORS.orange : '#F57C00';
 
-		// 포인트 순차 등장
-		const chartRef = energyChart;
-		for (let i = 0; i < n; i++) {
-			const delay = i * (POINT_MS + POINT_GAP_MS);
-			const id = setTimeout(() => {
-				if (energyChart !== chartRef) return;
-				const _ds = chartRef.data.datasets[0];
-				if (Array.isArray(_ds.pointRadius) && i < _ds.pointRadius.length) {
-					_ds.pointRadius[i] = 3;
-					chartRef.update('none');
-				}
-			}, delay);
-			__pushTimer(id);
-		}
+        // AC 느낌: 더 작은 점
+        const BASE_POINT = 4;          // 최종 점 반지름(px) — AC 스타일(작게)
+        const HOVER_POINT = 6;         // 호버 반지름
+        const POINT_MS = 420;          // 한 점 등장 시간
+        const POINT_GAP_MS = 180;      // 점 사이 간격
 
-		// 포인트 후 선 ON
-		const totalPointDuration = n * (POINT_MS + POINT_GAP_MS);
-		const idReveal = setTimeout(() => {
-			if (energyChart !== chartRef) return;
-			const _ds = chartRef.data.datasets[0];
-			_ds.showLine = true;
-			chartRef.update('none');
-		}, totalPointDuration + 80);
-		__pushTimer(idReveal);
+        updateStageBadge('B', '모델 B : 랜덤 포레스트 (Random Forest)');
 
-		window.energyChart = energyChart;
+        // 산점도 데이터: x=년도(범주), y=예측값
+        const dataPoints = labels.map((x, i) => ({ x, y: Number(yFixed[i]) || 0 }));
 
-		if (window.SaveGreen?.Forecast?.injectChartContextLine) {
-			window.SaveGreen.Forecast.injectChartContextLine('chartB');
-		}
+        // AC 스타일: 속 흰색, 주황 테두리의 작은 원형 포인트
+        const ds = {
+            type: 'scatter',
+            order: 1,
+            label: '에너지 사용량',
+            data: dataPoints,
+            yAxisID: 'yEnergy',
+            showLine: false,                          // 선 없음(산점도)
+            pointRadius: new Array(n).fill(0),        // 0 → 순차 팝업으로 BASE_POINT까지
+            pointHoverRadius: HOVER_POINT,
+            pointStyle: 'circle',
+            pointBackgroundColor: '#FFFFFF',          // 내부 흰색
+            pointBorderColor: ORANGE,                 // 주황 테두리
+            pointBorderWidth: 2,                      // 테두리 두께(AC 느낌)
+            borderWidth: 0,                           // 라인 두께 0
+            animations: {
+                y: { from: yEnergyRangeB.min, duration: 420, easing: 'easeOutCubic' }
+            }
+        };
 
-		const doneMs = totalPointDuration + 80 + 120;
-		await new Promise((r) => setTimeout(r, doneMs));
-		return doneMs;
-	}
+        energyChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { labels, datasets: [ds] },
+            options: {
+                normalized: true,
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    // AC처럼: 범례는 기본 라인/스와치 스타일(점 아이콘 X)
+                    legend: {
+                        display: true,
+                        labels: {
+                            usePointStyle: false,     // 점 아이콘 사용 안 함
+                            boxWidth: 36,
+                            boxHeight: 12,
+                            padding: 16
+                        }
+                    },
+                    title: { display: true, text: '에너지 / 비용 예측', padding: { top: 8, bottom: 4 } },
+                    subtitle: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => `에너지 사용량: ${nfLocal(c.parsed?.y ?? c.raw?.y ?? 0)} kWh/년`
+                        }
+                    }
+                },
+                elements: {
+                    point: { hoverRadius: HOVER_POINT }
+                },
+                scales: {
+                    // x축: 카테고리(년도)
+                    x: {
+                        type: 'category',
+                        labels,
+                        title: { display: false }
+                    },
+                    yEnergy: {
+                        type: 'linear', position: 'left',
+                        min: yEnergyRangeB.min,
+                        max: yEnergyRangeB.max,
+                        ticks: { stepSize: yEnergyRangeB.step, callback: (v) => nfLocal(v) },
+                        title: { display: true, text: '에너지 사용량 (kWh/년)' }
+                    },
+                    yCost: {
+                        type: 'linear', position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: '비용 절감 (원/년)' },
+                        ticks: {
+                            callback: (v) => fmtCostTick(v),
+                            stepSize: cr ? (cr.step || getNiceStep(cr.min, cr.max)) : undefined
+                        },
+                        min: 0, max: cr ? cr.max : undefined
+                    }
+                },
+                animation: {
+                    duration: 420,
+                    easing: 'easeOutCubic'
+                }
+            }
+        });
+
+        // 포인트를 순차적으로 "팝업" (radius 0 → BASE_POINT) 시키는 타이머
+        const chartRef = energyChart;
+        for (let i = 0; i < n; i++) {
+            const delay = i * (POINT_MS + POINT_GAP_MS);
+            const id = setTimeout(() => {
+                if (energyChart !== chartRef) return;
+                const _ds = chartRef.data.datasets[0];
+                if (Array.isArray(_ds.pointRadius) && i < _ds.pointRadius.length) {
+                    _ds.pointRadius[i] = BASE_POINT;   // 최종 포인트 크기(작게)
+                    chartRef.update('none');           // 레이아웃 유지 업데이트
+                }
+            }, delay);
+            __pushTimer(id);
+        }
+
+        window.energyChart = energyChart;
+
+        // (선택) B 단계 컨텍스트 라인/가이드 주입
+        if (window.SaveGreen?.Forecast?.injectChartContextLine) {
+            window.SaveGreen.Forecast.injectChartContextLine('chartB');
+        }
+
+        const doneMs = n * (POINT_MS + POINT_GAP_MS) + 100;
+        await new Promise((r) => setTimeout(r, doneMs));
+        return doneMs;
+    }
+
+
+
+
+
+
+
+
 
 	/* ============================================================
      * 5) MODEL C — 에너지 막대 + 비용 선 콤보 (막대 → 포인트 → 선)

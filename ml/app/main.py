@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 from .schema import PredictRequest, PredictResponse
 from .model import ModelManager
 from .trainer import start_training, get_status, TrainJob
+from . import ml_logging
 
 
 # ------------------------ 앱/모델 싱글톤 ------------------------
@@ -45,8 +46,7 @@ def get_model() -> ModelManager:
 	- model.pkl이 없으면 ModelManager가 내부에서 DUMMY(룰 기반)로 폴백 처리.
 	"""
 	global _model
-	if _model is None:
-		_model = ModelManager()
+	_model = _model or ModelManager()
 	return _model
 
 
@@ -134,6 +134,37 @@ def predict(
 	# 다음 스텝에서 model.py에 predict_variant(or 내부 분기) 구현 예정
 	out = m.predict_variant(req.model_dump(), variant=variant)
 
+	# [ML-LOG] 예측 이벤트 + KPI 메트릭 기록 (실패해도 예측 흐름은 지속)
+	try:
+		# 이벤트 컨텍스트
+		ml_logging.log_event(
+			"predict",
+			payload={
+				"variant": variant,
+				"type": req.type,
+				"region": req.region,
+				"builtYear": req.builtYear,
+				"floorAreaM2": req.floorAreaM2,
+				"energy_kwh": req.energy_kwh,
+				"eui_kwh_m2y": req.eui_kwh_m2y,
+			},
+			tags={"endpoint": "/predict"}
+		)
+		# 응답 KPI 메트릭
+		ml_logging.log_metrics(
+			"predict",
+			metrics={
+				"savingPct": float(out.get("savingPct", 0.0)),
+				"savingKwhYr": float(out.get("savingKwhYr", 0.0)),
+				"savingCostYr": float(out.get("savingCostYr", 0.0)),
+				"paybackYears": float(out.get("paybackYears", 0.0)),
+			},
+			tags={"variant": variant}
+		)
+	except Exception as _e:
+		# 로깅 실패는 예측 흐름에 영향 주지 않음
+		print(f"[ML-LOG][predict] skip logging: {_e}")
+
 	# 필요 시, 디버그를 위해 응답에 헤더를 추가하는 방법도 있으나
 	# 여기서는 스키마를 유지하기 위해 로그만 남기고 본문은 기존 스키마로 반환
 	return PredictResponse(**out)
@@ -153,6 +184,13 @@ def train_start(
 	"""
 	job_id = start_training(mode=mode, k=k)
 	now_iso = datetime.now().isoformat(timespec="seconds")
+
+	# (옵션) 학습 트리거 자체도 이벤트로 남겨 다음 단계에서 시간축 분석 가능
+	try:
+		ml_logging.log_event("train_trigger", payload={"mode": mode, "k": k, "jobId": job_id})
+	except Exception as _e:
+		print(f"[ML-LOG][train_trigger] skip logging: {_e}")
+
 	return TrainStartResponse(jobId=job_id, startedAt=now_iso, mode=mode, k=k)
 
 

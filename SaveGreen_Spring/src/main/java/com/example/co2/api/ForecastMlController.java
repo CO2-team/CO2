@@ -1,144 +1,168 @@
-// src/main/java/com/example/co2/api/ForecastMlController.java
-// ============================================================================
-// SaveGreen / ForecastMlController
-// ----------------------------------------------------------------------------
-// [역할]
-// - FE(그린 리모델링 페이지)에서 호출하는 ML 브리지 API를 제공한다.
-// - 실제 ML 호출은 MlBridgeService가 담당하고, 컨트롤러는 HTTP 계약(엔드포인트/파라미터/상태코드)만 책임진다.
-//   1) POST /api/forecast/ml/train           → 학습 시작(jobId 반환)
-//   2) GET  /api/forecast/ml/train/status    → 학습 상태 조회(폴링)
-//   3) POST /api/forecast/ml/predict         → 예측(variant=A|B|C)
-//   4) POST /api/forecast/ml/start           → (원클릭) 학습→폴링→재로딩까지 자동
-//
-// [FE 플로우 예시]
-// - '시작하기' 클릭
-//    → POST /api/forecast/ml/train?mode=quick&k=5
-//      ↳ { "jobId": "..." } 응답
-// - 폴링(0.8~1s 간격)
-//    → GET  /api/forecast/ml/train/status?jobId=...   (READY 100%가 되면)
-// - 차트 요청
-//    → POST /api/forecast/ml/predict?variant=A
-//    → POST /api/forecast/ml/predict?variant=B
-//    → POST /api/forecast/ml/predict?variant=C
-// - (대안) 원클릭
-//    → POST /api/forecast/ml/start?mode=quick&k=5
-//      ↳ 내부적으로 학습 시작→상태 폴링→모델 재로딩까지 완료 후 상태 반환(READY/FAILED/TIMEOUT)
-//
-// [설계 포인트]
-// - 반환은 모두 ResponseEntity로 감싼다(상태/헤더 확장 용이).
-// - 요청 바디는 Map<String,Object>로 받아 서비스에 그대로 위임(직렬화/역직렬화 안정).
-// - 서비스 메서드 명/시그니처와 정확히 맞춘다(startTraining / trainStatus / predict / startAndReload).
-// - 예외 처리는 전역(@ControllerAdvice)으로 일원화하는 것을 권장(여기서는 단순 위임).
-// - 필요 시 @CrossOrigin을 활성화해 FE 도메인을 한정(CORS 보안)할 수 있다.
-// ============================================================================
+// package com.example.forecast.api;
 
+// [수정] 패키지 선언 확인/정정
 package com.example.co2.api;
 
+// [수정] DTO/서비스/유틸 패키지 임포트 정렬
+import com.example.co2.dto.PredictDtos;
 import com.example.co2.service.MlBridgeService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
+import com.example.co2.util.TypeRegionNormalizer;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+/* =========================================================
+ * ForecastMlController.java
+ * ---------------------------------------------------------
+ * 역할(Controller):
+ * 	- FE가 요구하는 "학습 → 상태 폴링 → 예측" 3단계를 단일 컨트롤러에서 제공
+ * 	- 기존 predict 엔드포인트는 그대로 유지, 학습(train)과 상태(status)만 추가
+ *
+ * 라우팅(모두 /api/forecast/ml 하위):
+ * 	- POST   /train
+ * 		· 목적: FastAPI 학습 시작 트리거
+ * 		· 출력: { jobId }  (서버가 생성하는 학습 식별자)
+ * 	- GET    /train/status?jobId=...
+ * 		· 목적: 학습 진행 상태 조회
+ * 		· 출력: { jobId, status, progress?, message? }
+ * 	- POST   /predict?variant=C
+ * 		· 목적: 예측 요청을 FastAPI로 프록시
+ * 		· 입력: PredictRequest(JSON body), variant(A|B|C) 쿼리
+ * 		· 출력: PredictResponse(JSON) — KPI/series/cost
+ *
+ * 사전조건:
+ * 	- @EnableAsync 필요(비동기 학습)
+ * 	- CORS 허용 필요(프론트 도메인)
+ * 	- FastAPI URL은 MlBridgeService에서 설정값으로 주입
+ * ========================================================= */
+
+
 
 @RestController
-@RequestMapping(
-		path = "/api/forecast/ml",
-		produces = MediaType.APPLICATION_JSON_VALUE
-)
-@RequiredArgsConstructor
-// @CrossOrigin(origins = "http://localhost:3000") // FE 도메인만 허용하고 싶을 때 활성화
+@RequestMapping("/api/forecast/ml")
 public class ForecastMlController {
 
-	private final MlBridgeService ml;
+	private final MlBridgeService mlBridgeService;
 
-	// --------------------------------------------------------------------
-	// 1) 학습 시작 — POST /api/forecast/ml/train
-	//    - 쿼리: mode(기본 "quick"), k(기본 5)
-	//    - 응답: { "jobId": "..." }
-	//    - 주의: 서비스는 startTraining 별칭을 제공(내부적으로 startTrain 호출)
-	// --------------------------------------------------------------------
-	@PostMapping(value = "/train")
-	public ResponseEntity<Map<String, Object>> train(
-			@RequestParam(name = "mode", defaultValue = "quick") String mode,
-			@RequestParam(name = "k",    defaultValue = "5")     int k
+	public ForecastMlController(MlBridgeService mlBridgeService) {
+		this.mlBridgeService = mlBridgeService;
+	}
+
+	// [추가]
+	// --------------------------------------------------------
+	// API: 학습 시작
+	// Method/Path:
+	// 	POST /api/forecast/ml/train
+	// 입력:
+	// 	- 바디/쿼리 없음(현재 설계). 필요 시 서비스에서 공통 설정으로 학습.
+	// 전제:
+	// 	- FastAPI /train 엔드포인트 접근 가능
+	// 동작:
+	// 	1) 서비스에 비동기 학습 태스크를 위임(메모리 맵에 jobId 등록)
+	// 	2) 즉시 jobId만 반환(학습은 백그라운드)
+	// 출력:
+	// 	- 200 OK + { jobId }
+	// 	- 500 INTERNAL_SERVER_ERROR + { error } (시작 자체 실패 시)
+	// 부작용:
+	// 	- 서버 메모리에 jobId 상태가 생성됨
+	// 예외:
+	// 	- 서비스 내부 예외는 500으로 래핑
+	@PostMapping("/train")
+	public ResponseEntity<PredictDtos.TrainStartResponse> startTrain() {
+		try {
+			final String jobId = mlBridgeService.startTrainAsync();
+			PredictDtos.TrainStartResponse rsp = new PredictDtos.TrainStartResponse();
+			rsp.setJobId(jobId);
+			return ResponseEntity.ok(rsp);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(PredictDtos.TrainStartResponse.error("TRAIN_START_FAILED: " + e.getMessage()));
+		}
+	}
+
+	// [추가]
+	// --------------------------------------------------------
+	// API: 학습 상태 조회
+	// Method/Path:
+	// 	GET /api/forecast/ml/train/status?jobId=...
+	// 입력:
+	// 	- jobId (필수, 학습 시작 시 받은 값)
+	// 전제:
+	// 	- 서버 메모리 맵에 해당 jobId가 존재해야 함
+	// 동작:
+	// 	1) 서비스에서 jobId 상태 조회
+	// 	2) 상태 없으면 404, 있으면 200
+	// 출력:
+	// 	- 200 OK + { jobId, status(RUNNING|DONE|ERROR), progress?, message? }
+	// 	- 404 NOT_FOUND + { jobId, status: NOT_FOUND, message }
+	// 	- 500 INTERNAL_SERVER_ERROR + { status: ERROR, message }
+	// 부작용:
+	// 	- 없음(읽기)
+	@GetMapping("/train/status")
+	public ResponseEntity<PredictDtos.TrainStatusResponse> getTrainStatus(@RequestParam("jobId") String jobId) {
+		try {
+			MlBridgeService.TrainStatus status = mlBridgeService.getTrainStatus(jobId);
+			if (status == null) {
+				PredictDtos.TrainStatusResponse notFound = new PredictDtos.TrainStatusResponse();
+				notFound.setJobId(jobId);
+				notFound.setStatus("NOT_FOUND");
+				notFound.setMessage("No such jobId");
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFound);
+			}
+			PredictDtos.TrainStatusResponse rsp = new PredictDtos.TrainStatusResponse();
+			rsp.setJobId(jobId);
+			rsp.setStatus(status.getStatus());
+			rsp.setProgress(status.getProgress());
+			rsp.setMessage(status.getMessage());
+			return ResponseEntity.ok(rsp);
+		} catch (Exception e) {
+			PredictDtos.TrainStatusResponse err = new PredictDtos.TrainStatusResponse();
+			err.setJobId(jobId);
+			err.setStatus("ERROR");
+			err.setMessage("STATUS_FAILED: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+		}
+	}
+
+	// [추가]
+	// --------------------------------------------------------
+	// API: 예측
+	// Method/Path:
+	// 	POST /api/forecast/ml/predict?variant=C
+	// 입력:
+	// 	- 쿼리: variant (선택, 기본 C; A|B|C 중 하나)
+	// 	- 바디: PredictRequest(JSON)
+	// 		· type, region/regionRaw, builtYear, floorAreaM2
+	// 		· energy_kwh/eui_kwh_m2y (옵션)
+	// 		· yearsFrom/yearsTo, yearlyConsumption[], monthlyConsumption[] (옵션)
+	// 전제:
+	// 	- FastAPI /predict 사용 가능
+	// 	- DTO 스키마가 FastAPI와 호환
+	// 동작:
+	// 	1) (안전) Type/Region 정규화
+	// 	2) Service.predict() 호출 → FastAPI로 프록시
+	// 출력:
+	// 	- 200 OK + PredictResponse(JSON)
+	// 	- 502 BAD_GATEWAY + { error } (하위 서버 오류)
+	// 	- 500 INTERNAL_SERVER_ERROR + { error } (기타 실패)
+	// 부작용:
+	// 	- 없음(하위 서버 호출 외)
+	@PostMapping("/predict")
+	public ResponseEntity<PredictDtos.PredictResponse> predict(
+			@RequestParam(name = "variant", required = false, defaultValue = "C") String variant,
+			@RequestBody PredictDtos.PredictRequest request
 	) {
-		String jobId = ml.startTraining(mode, k);
-		return ResponseEntity.ok(Map.of("jobId", jobId));
+		try {
+			TypeRegionNormalizer.normalizeInPlace(request); // 방어적 전처리
+			PredictDtos.PredictResponse rsp = mlBridgeService.predict(variant, request);
+			return ResponseEntity.ok(rsp);
+		} catch (MlBridgeService.DownstreamException de) {
+			return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+					.body(PredictDtos.PredictResponse.error("PREDICT_DOWNSTREAM: " + de.getMessage()));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(PredictDtos.PredictResponse.error("PREDICT_FAILED: " + e.getMessage()));
+		}
 	}
-
-	// --------------------------------------------------------------------
-	// 2) 학습 상태 — GET /api/forecast/ml/train/status?jobId=...
-	//    - 응답 예: { state:"READY", progress:100, log:[...], ... }
-	//    - 주의: 서비스 메서드명은 trainStatus (getTrainStatus 아님)
-	// --------------------------------------------------------------------
-	@GetMapping(value = "/train/status")
-	public ResponseEntity<Map<String, Object>> trainStatus(@RequestParam("jobId") String jobId) {
-		Map<String, Object> body = ml.trainStatus(jobId);
-		return ResponseEntity.ok(body);
-	}
-
-	// --------------------------------------------------------------------
-	// 2-1) 학습 상태(경로형) — GET /api/forecast/ml/train/status/{jobId}
-	//     - FE가 /.../status/{jobId} 형태로 호출해도 동작하도록 호환용 추가
-	// --------------------------------------------------------------------
-	@GetMapping("/train/status/{jobId}")
-	public ResponseEntity<Map<String, Object>> trainStatusPath(@PathVariable String jobId) {
-		return ResponseEntity.ok(ml.trainStatus(jobId));
-	}
-
-
-	// --------------------------------------------------------------------
-	// 3) 예측 — POST /api/forecast/ml/predict?variant=A|B|C
-	//    - consumes: application/json (PredictRequest JSON과 동일한 구조)
-	//    - 바디: Map<String,Object> (DTO를 쓰고 싶다면 컨버팅해서 서비스를 호출)
-	//    - 응답: { savingKwhYr, savingCostYr, savingPct, paybackYears, label }
-	// --------------------------------------------------------------------
-	@PostMapping(value = "/predict", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<Map<String, Object>> predict(
-			@RequestParam(name = "variant", defaultValue = "C") String variant,
-			@RequestBody Map<String, Object> body
-	) {
-		Map<String, Object> resp = ml.predict(variant, body);
-		return ResponseEntity.ok(resp);
-	}
-
-	// --------------------------------------------------------------------
-	// 4) (원클릭) 학습→폴링→재로딩 — POST /api/forecast/ml/start?mode=quick&k=5
-	//    - 내부적으로 MlBridgeService.startAndReload()를 호출
-	//    - 응답 예:
-	//      { "jobId":"...", "state":"READY",  "message":"..." } 또는
-	//      { "jobId":"...", "state":"FAILED", "detail":{...} } 또는
-	//      { "jobId":"...", "state":"TIMEOUT","message":"..." }
-	//    - 참고: 동기 처리(요청 대기). 운영에서 즉시 응답 원하면 비동기 버전(@Async) 엔드포인트 추가 가능.
-	// --------------------------------------------------------------------
-	@PostMapping(value = "/start")
-	public ResponseEntity<Map<String, Object>> start(
-			@RequestParam(name = "mode", defaultValue = "quick") String mode,
-			@RequestParam(name = "k",    defaultValue = "5")     int k
-	) {
-		Map<String, Object> result = ml.startAndReload(mode, k);
-		return ResponseEntity.ok(result);
-	}
-
-	// --------------------------------------------------------------------
-	// 5) 모델 상태 — GET /api/forecast/ml/status
-	//    - FastAPI의 /model/status 프록시
-	//    - 예: { has_A:true, has_B:true, ensemble_weights_effective:{wA:..., wB:...}, ... }
-	// --------------------------------------------------------------------
-	@GetMapping("/status")
-	public ResponseEntity<Map<String, Object>> status() {
-		return ResponseEntity.ok(ml.modelStatus());
-	}
-
-	// --------------------------------------------------------------------
-	// 6) 수동 재로딩 — POST /api/forecast/ml/reload
-	//    - 필요 시 화면에서 수동 리로드 버튼을 두고 호출
-	// --------------------------------------------------------------------
-	@PostMapping("/reload")
-	public ResponseEntity<Map<String, Object>> reload() {
-		return ResponseEntity.ok(ml.reloadModel());
-	}
-
 }

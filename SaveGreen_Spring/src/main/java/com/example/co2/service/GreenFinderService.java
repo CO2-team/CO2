@@ -48,7 +48,7 @@ public class GreenFinderService {
                 results.add(dto);
             }
 
-           // System.out.println("Juso API Response: " + response);
+            System.out.println("Juso API Response: " + response);
 
         } catch (Exception e) {
             e.printStackTrace();
