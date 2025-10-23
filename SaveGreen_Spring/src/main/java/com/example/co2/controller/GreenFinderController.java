@@ -14,7 +14,7 @@ import java.util.List;
 @CrossOrigin
 @Controller
 public class GreenFinderController {
-
+/**dddddgit */
     private final GreenFinderService greenFinderService;
 
     public GreenFinderController(GreenFinderService greenFinderService) {
@@ -44,5 +44,5 @@ public class GreenFinderController {
     }
 
 
-    
+
 }
