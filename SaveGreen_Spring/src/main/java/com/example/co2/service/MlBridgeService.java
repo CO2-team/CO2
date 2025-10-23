@@ -1,234 +1,322 @@
-// [수정] 패키지 선언 확인/정정
 package com.example.co2.service;
 
-// [수정] DTO 임포트 경로 일치
-import com.example.co2.dto.PredictDtos;
-
-import com.example.co2.util.TypeRegionNormalizer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriUtils;
 
-import java.time.Instant;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.time.Duration;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.*;
+import java.util.stream.Stream;
 
-/* =========================================================
- * MlBridgeService.java
- * ---------------------------------------------------------
- * 역할(Service):
- * 	- FastAPI(파이썬)와의 HTTP 브리지
- * 	- 학습: 시작 트리거/상태 저장(메모리 맵), 필요 최소 코드만
- * 	- 예측: 기존 RestTemplate 프록시를 유지
+/* ============================================================
+ * MlBridgeService
+ * ------------------------------------------------------------
+ * [역할/설계]
+ * - Spring → FastAPI 간 HTTP 호출을 캡슐화(프록시).
+ * - FastAPI가 파일(JSONL)로 남긴 런타임 로그를 서버에서 직접 tail하여
+ *   프론트로 JSON(Map) 배열을 반환(브라우저 대용량 파일 파싱 부담 제거).
  *
- * FastAPI 계약(기본값 가정 — 필요시 URL만 설정 변경):
- * 	- POST {base}/train              → 학습 시작
- * 	- GET  {base}/train/status?jobId → 학습 상태(선택 구현)
- * 	- POST {base}/predict?variant=C  → 예측
+ * [설정 키(application.properties)]
+ * - savegreen.ml.baseUrl      : FastAPI 베이스 URL (예: http://127.0.0.1:8000)
+ * - savegreen.ml.logs.root    : JSONL 로그 루트(예: logs/app 또는 D:/co2/ml/logs/app)
+ * - savegreen.ml.timeout.ms   : 연결/읽기 타임아웃(ms)
  *
- * 상태 저장:
- * 	- trainJobs(jobId → TrainStatus) 메모리 보관
- * 	- 서버 재기동 시 초기화(의도된 동작, FE 폴백 로직 존재)
+ * [공개 메서드]
+ * - predict(payload, variant) : POST /predict?variant=...
+ * - startTrain()              : POST /train
+ * - getTrainStatus(jobId)     : GET  /train/status?jobId=...
+ * - tailLatestLogs(lastN)     : 최근 JSONL 파일 tail → { ok, path, count, lastEntry, lastN[] }
  *
- * 예외:
- * 	- 하위 서버 실패/응답 이상: DownstreamException 으로 래핑
- * ========================================================= */
+ * [검색 앵커]
+ * - [SG-ANCHOR:MLBRIDGE-SERVICE]
+ * - [SG-ANCHOR:MLBRIDGE-PREDICT]
+ * - [SG-ANCHOR:MLBRIDGE-TRAIN]
+ * - [SG-ANCHOR:MLBRIDGE-STATUS]
+ * - [SG-ANCHOR:MLBRIDGE-LOGS]
+ *
+ * [주의]
+ * - 파일 인코딩은 UTF-8 가정. 깨진 라인은 스킵.
+ * - 파일 경합(쓰기 중 읽기) 발생 시 예외를 억제하고 가능한 라인만 반환.
+ * ============================================================ */
 @Service
-public class MlBridgeService {
+public class MlBridgeService { // [SG-ANCHOR:MLBRIDGE-SERVICE]
 
-	/* ------------------------------
-	 * 구성 값(환경 설정 주입)
-	 * ------------------------------ */
-	@Value("${ml.fastapi.base-url:http://localhost:8000}")
-	private String fastapiBaseUrl;
+    private final RestTemplate rest;
+    private final String baseUrl;
+    private final Path logsRoot;
 
-	private final RestTemplate restTemplate;
+    // [SG-ANCHOR:MLBRIDGE-SERVICE] — 생성자(타임아웃 최신 방식 적용)
+    public MlBridgeService(
+            @Value("${savegreen.ml.baseUrl}") String baseUrl,
+            @Value("${savegreen.ml.logs.root}") String logsRoot,
+            @Value("${savegreen.ml.timeout.ms:5000}") long timeoutMs
+    ) {
+        // RestTemplateBuilder의 setConnectTimeout/setReadTimeout은 제거 예정 → requestFactory로 대체
+        this.rest = new RestTemplateBuilder()
+                .requestFactory(() -> {
+                    // 간단/표준 방식: JDK 기본 팩토리 사용
+                    org.springframework.http.client.SimpleClientHttpRequestFactory f =
+                            new org.springframework.http.client.SimpleClientHttpRequestFactory();
 
-	public MlBridgeService(RestTemplate restTemplate) {
-		this.restTemplate = restTemplate;
-	}
+                    // Spring 6.x에서는 Duration 지원. (환경에 따라 int ms 오버로드도 있습니다.)
+                    f.setConnectTimeout(java.time.Duration.ofMillis(timeoutMs));
+                    f.setReadTimeout(java.time.Duration.ofMillis(timeoutMs));
+                    return f;
+                })
+                .build();
 
-	/* ------------------------------
-	 * 학습 상태 저장(메모리)
-	 * ------------------------------ */
-	// [추가] jobId → 상태
-	private final ConcurrentHashMap<String, TrainStatus> trainJobs = new ConcurrentHashMap<>();
+        this.baseUrl = java.util.Objects.requireNonNull(baseUrl, "savegreen.ml.baseUrl must not be null");
+        this.logsRoot = java.nio.file.Paths.get(
+                java.util.Objects.requireNonNull(logsRoot, "savegreen.ml.logs.root must not be null")
+        );
+    }
 
-	/* =========================================================
-	 * 학습(Training)
-	 * ========================================================= */
 
-	// [추가]
-	// 목적:
-	// 	- 학습 잡 생성 및 비동기 실행 트리거
-	// 동작:
-	// 	1) UUID 기반 jobId 생성
-	// 	2) 상태를 RUNNING(0%)로 맵에 저장
-	// 	3) runTrainJob(jobId)을 비동기로 호출
-	// 반환:
-	// 	- 생성된 jobId
-	// 실패 시:
-	// 	- 런타임 예외 전파 → 컨트롤러에서 500 처리
-	public String startTrainAsync() {
-		final String jobId = UUID.randomUUID().toString();
-		TrainStatus init = new TrainStatus();
-		init.setJobId(jobId);
-		init.setStatus("RUNNING");
-		init.setProgress(0);
-		init.setStartedAt(Instant.now().toString());
-		trainJobs.put(jobId, init);
+    /* ------------------------------------------------------------
+     * 예측 호출 (POST /predict?variant=...)
+     * - 입력 payload(Map)를 FastAPI로 그대로 전달
+     * - 예외 발생 시 { ok:false, error } 반환
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLBRIDGE-PREDICT]
+    public Map<String, Object> predict(Map<String, Object> payload, String variant) {
+        final String v = (variant == null || variant.isBlank()) ? "C" : variant;
+        final String url = String.format("%s/predict?variant=%s", baseUrl,
+                org.springframework.web.util.UriUtils.encodeQueryParam(v, java.nio.charset.StandardCharsets.UTF_8));
 
-		// 비동기 처리(스레드 풀에서 실행)
-		runTrainJob(jobId);
-		return jobId;
-	}
+        try {
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set(org.springframework.http.HttpHeaders.CONTENT_TYPE, org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+            org.springframework.http.HttpEntity<Map<String, Object>> entity = new org.springframework.http.HttpEntity<>(payload, headers);
 
-	// [추가]
-	// 목적:
-	// 	- FastAPI /train 호출을 비동기로 수행
-	// 주의:
-	// 	- 여기서는 "간단 모드": /train 호출이 성공하면 DONE 으로 기록
-	// 	- 필요시 FastAPI의 /train/status 폴링을 이 메서드에서 추가 구현 가능
-	// 입력:
-	// 	- jobId: 상태 저장용 키
-	// 부작용:
-	// 	- trainJobs 맵의 해당 job 상태가 DONE/ERROR 로 갱신됨
-	@Async
-	public void runTrainJob(String jobId) {
-		try {
-			String url = fastapiBaseUrl + "/train";
-			HttpHeaders headers = new HttpHeaders();
-			headers.setAccept(java.util.Collections.singletonList(MediaType.APPLICATION_JSON));
+            org.springframework.http.ResponseEntity<Map<String, Object>> rsp =
+                    rest.exchange(
+                            url,
+                            org.springframework.http.HttpMethod.POST,
+                            entity,
+                            new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+                    );
 
-			// 보통 학습 시작에는 별도 바디가 필요 없으나, 필요 시 간단 파라미터를 넘길 수 있음
-			HttpEntity<?> req = new HttpEntity<>(headers);
+            Map<String, Object> body = rsp.getBody();
+            return (body != null) ? body : java.util.Map.of("ok", false, "error", "empty body");
 
-			ResponseEntity<Map> rsp = restTemplate.exchange(url, HttpMethod.POST, req, Map.class);
-			if (!rsp.getStatusCode().is2xxSuccessful()) {
-				failTrain(jobId, "TRAIN_HTTP_" + rsp.getStatusCodeValue());
-				return;
-			}
+        } catch (org.springframework.web.client.RestClientException ex) {
+            return java.util.Map.of("ok", false, "error", ex.getMessage());
+        }
+    }
 
-			// 간단 모드: 시작 성공 = DONE. (확장 시 status 폴링으로 대체)
-			successTrain(jobId, "TRAIN_STARTED");
-		} catch (Exception e) {
-			failTrain(jobId, "TRAIN_CALL_FAILED: " + e.getMessage());
-		}
-	}
+    /* ------------------------------------------------------------
+     * 학습 시작 (POST /train)
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLBRIDGE-TRAIN]
+    // FastAPI /train 트리거. 서버가 background/async 파라미터를 모르면 무시됨(문제 없음).
+    public Map<String, Object> startTrain() {
+        final String url = baseUrl + "/train?background=1&mode=async";
+        try {
+            org.springframework.http.ResponseEntity<Map<String, Object>> rsp =
+                    rest.exchange(
+                            url,
+                            org.springframework.http.HttpMethod.POST,
+                            new org.springframework.http.HttpEntity<>(null),
+                            new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+                    );
+            Map<String, Object> body = rsp.getBody();
+            return (body != null) ? body : java.util.Map.of("ok", true, "note", "empty body from train");
+        } catch (org.springframework.web.client.RestClientException ex) {
+            return java.util.Map.of("ok", false, "error", ex.getMessage());
+        }
+    }
 
-	// [추가]
-	// 목적:
-	// 	- 현재 메모리에 기록된 학습 상태 조회
-	// 입력:
-	// 	- jobId
-	// 반환:
-	// 	- TrainStatus 또는 null(미존재)
-	public TrainStatus getTrainStatus(String jobId) {
-		return trainJobs.get(jobId);
-	}
 
-	// [추가] 내부 헬퍼: 학습 성공 기록
-	private void successTrain(String jobId, String message) {
-		TrainStatus st = trainJobs.get(jobId);
-		if (st == null) return;
-		st.setStatus("DONE");
-		st.setProgress(100);
-		st.setMessage(message);
-		st.setFinishedAt(Instant.now().toString());
-	}
 
-	// [추가] 내부 헬퍼: 학습 실패 기록
-	private void failTrain(String jobId, String message) {
-		TrainStatus st = trainJobs.get(jobId);
-		if (st == null) {
-			st = new TrainStatus();
-			st.setJobId(jobId);
-			trainJobs.put(jobId, st);
-		}
-		st.setStatus("ERROR");
-		st.setMessage(message);
-		st.setFinishedAt(Instant.now().toString());
-	}
+    /* ------------------------------------------------------------
+     * 학습 상태 (GET /train/status?jobId=...)
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLBRIDGE-STATUS]
+    // [SG-ANCHOR:MLBRIDGE-STATUS]
+    public Map<String, Object> getTrainStatus(String jobId) {
+        final String url = String.format("%s/train/status?jobId=%s", baseUrl,
+                org.springframework.web.util.UriUtils.encodeQueryParam(jobId, java.nio.charset.StandardCharsets.UTF_8));
 
-	/* =========================================================
-	 * 예측(Predict)
-	 * ========================================================= */
+        try {
+            org.springframework.http.ResponseEntity<Map<String, Object>> rsp =
+                    rest.exchange(
+                            url,
+                            org.springframework.http.HttpMethod.GET,
+                            org.springframework.http.HttpEntity.EMPTY,
+                            new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
+                    );
 
-	// [추가]
-	// 목적:
-	// 	- FastAPI /predict 를 호출하여 FE가 요구하는 응답 포맷으로 반환
-	// 입력:
-	// 	- variant: A|B|C (기본 C) — 하위 서버에 그대로 전달
-	// 	- request: PredictRequest (DTO)
-	// 동작:
-	// 	1) Type/Region 안전 정규화(중복 적용되어도 무해)
-	// 	2) POST {base}/predict?variant=... 로 프록시
-	// 출력:
-	// 	- PredictResponse(JSON) 그대로 반환
-	// 예외:
-	// 	- HTTP 비정상/바디 null → DownstreamException
-	// 	- 기타 예외 → DownstreamException로 래핑
-	public PredictDtos.PredictResponse predict(String variant, PredictDtos.PredictRequest request) {
-		try {
-			TypeRegionNormalizer.normalizeInPlace(request);
+            Map<String, Object> body = rsp.getBody();
+            return (body != null) ? body : java.util.Map.of("ok", false, "error", "empty body");
 
-			String url = fastapiBaseUrl + "/predict?variant=" + (variant == null ? "C" : variant);
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.APPLICATION_JSON);
-			headers.setAccept(java.util.Collections.singletonList(MediaType.APPLICATION_JSON));
-			HttpEntity<PredictDtos.PredictRequest> httpEntity = new HttpEntity<>(request, headers);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            return java.util.Map.of("ok", false, "error", ex.getMessage());
+        }
+    }
 
-			ResponseEntity<PredictDtos.PredictResponse> rsp =
-					restTemplate.exchange(url, HttpMethod.POST, httpEntity, PredictDtos.PredictResponse.class);
 
-			if (!rsp.getStatusCode().is2xxSuccessful() || rsp.getBody() == null) {
-				throw new DownstreamException("PREDICT_HTTP_" + rsp.getStatusCodeValue());
-			}
-			return rsp.getBody();
-		} catch (DownstreamException de) {
-			throw de;
-		} catch (Exception e) {
-			throw new DownstreamException("PREDICT_CALL_FAILED: " + e.getMessage());
-		}
-	}
+    /* ------------------------------------------------------------
+     * 최근 JSONL 로그 tail(lastN)
+     * - 오늘(KST) 파일(YYYY-MM-DD.jsonl) 우선, 없으면 디렉토리 최신 *.jsonl
+     * - 깨진 라인은 스킵(내구성 우선)
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLBRIDGE-LOGS]
+    public Map<String, Object> tailLatestLogs(int lastN) {
+        try {
+            Path target = pickLatestJsonlKstAware();
+            if (target == null || !Files.exists(target)) {
+                return Map.of("ok", false,
+                        "error", "No JSONL logs found under " + logsRoot.toAbsolutePath());
+            }
+            List<Map<String, Object>> rows = tailJsonl(target, Math.max(1, Math.min(lastN, 500)));
+            Map<String, Object> last = rows.isEmpty() ? Map.of() : rows.get(rows.size() - 1);
+            return Map.of(
+                    "ok", true,
+                    "path", target.toAbsolutePath().toString(),
+                    "count", rows.size(),
+                    "lastEntry", last,
+                    "lastN", rows
+            );
+        } catch (Exception ex) {
+            return Map.of("ok", false, "error", ex.getMessage());
+        }
+    }
 
-	/* =========================================================
-	 * 내부 타입/예외
-	 * ========================================================= */
+    /* ============================================================
+     * 내부 유틸: 로그 파일 선택/읽기
+     * ============================================================ */
 
-	// [추가]
-	// 메모리 상태 객체(간단 POJO)
-	public static class TrainStatus {
-		private String jobId;		// 식별자
-		private String status;		// RUNNING | DONE | ERROR
-		private Integer progress;	// 0~100(선택)
-		private String message;		// 상태/오류 메시지(선택)
-		private String startedAt;	// ISO-8601 문자열(선택)
-		private String finishedAt;	// ISO-8601 문자열(선택)
+    // 오늘(KST) 파일(YYYY-MM-DD.jsonl) 우선 → 없으면 최신 *.jsonl
+    private Path pickLatestJsonlKstAware() throws IOException {
+        ZoneId KST = ZoneId.of("Asia/Seoul");
+        String today = ZonedDateTime.now(KST).toLocalDate().toString(); // YYYY-MM-DD
+        Path todayPath = logsRoot.resolve(today + ".jsonl");
+        if (Files.exists(todayPath)) return todayPath;
 
-		public String getJobId() { return jobId; }
-		public void setJobId(String jobId) { this.jobId = jobId; }
-		public String getStatus() { return status; }
-		public void setStatus(String status) { this.status = status; }
-		public Integer getProgress() { return progress; }
-		public void setProgress(Integer progress) { this.progress = progress; }
-		public String getMessage() { return message; }
-		public void setMessage(String message) { this.message = message; }
-		public String getStartedAt() { return startedAt; }
-		public void setStartedAt(String startedAt) { this.startedAt = startedAt; }
-		public String getFinishedAt() { return finishedAt; }
-		public void setFinishedAt(String finishedAt) { this.finishedAt = finishedAt; }
-	}
+        if (!Files.exists(logsRoot) || !Files.isDirectory(logsRoot)) return null;
+        try (Stream<Path> s = Files.list(logsRoot)) {
+            return s.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".jsonl"))
+                    .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
+                    .orElse(null);
+        }
+    }
 
-	// [추가]
-	// 하위 서버 오류 전달용 런타임 예외
-	public static class DownstreamException extends RuntimeException {
-		public DownstreamException(String message) {
-			super(Objects.requireNonNullElse(message, "Downstream error"));
-		}
-	}
+    // [SG-ANCHOR:MLBRIDGE-JSONL-PARSE]
+    // 파일 끝에서부터 lastN 라인을 효율적으로 읽고(JSONL) Map으로 파싱
+    // - 제네릭 타입 명시(TypeReference)로 unchecked 경고 제거
+    // - BOM/주석 라인 무시, 깨진 라인은 스킵(내구성)
+    // - 파싱 직후 숫자 스칼라 타입을 Double로 정규화(타입 매핑 미스 방지)
+    private List<Map<String, Object>> tailJsonl(Path path, int lastN) throws IOException {
+        // 오래된→최신 순으로 tail 라인 확보
+        List<String> lines = readLastLines(path, lastN);
+
+        final com.fasterxml.jackson.databind.ObjectMapper om =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+        final com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>> T =
+                new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {};
+
+        List<Map<String, Object>> out = new ArrayList<>(lines.size());
+
+        for (String raw : lines) {
+            if (raw == null) continue;
+            String s = raw.trim();
+            if (s.isEmpty()) continue;
+
+            // BOM 방어
+            if (!s.isEmpty() && s.charAt(0) == '\uFEFF') {
+                s = s.substring(1);
+                if (s.isEmpty()) continue;
+            }
+            // 주석 라인 방어
+            if (s.startsWith("#") || s.startsWith("//")) continue;
+
+            try {
+                Map<String, Object> obj = om.readValue(s, T);	// 안전 파싱
+                if (obj != null && !obj.isEmpty()) {
+                    // [핵심] 숫자 타입 정규화: Integer/Long/BigDecimal → Double
+                    //       (DTO/FE 쪽이 List<Double> 가정할 때 타입 미스 방지)
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> normalized = (Map<String, Object>) normalizeNumberTypes(obj);
+                    out.add(normalized);
+                }
+            } catch (Exception ignore) {
+                // 부분 기록 등 깨진 라인은 스킵
+            }
+        }
+        return out;
+    }
+
+
+
+    // RandomAccessFile로 tail 구현(오래된→최신 순서로 반환)
+    private List<String> readLastLines(Path path, int lastN) throws IOException {
+        List<String> lines = new ArrayList<>(lastN);
+        try (RandomAccessFile raf = new RandomAccessFile(path.toFile(), "r")) {
+            long pos = raf.length() - 1;
+            int count = 0;
+            StringBuilder sb = new StringBuilder();
+
+            while (pos >= 0 && count < lastN) {
+                raf.seek(pos);
+                int c = raf.read();
+                if (c == '\n') {
+                    if (sb.length() > 0) {
+                        lines.add(sb.reverse().toString());
+                        sb.setLength(0);
+                        count++;
+                    }
+                } else if (c != '\r') {
+                    sb.append((char) c);
+                }
+                pos--;
+            }
+            if (sb.length() > 0 && count < lastN) {
+                lines.add(sb.reverse().toString());
+            }
+        }
+        Collections.reverse(lines);
+        return lines;
+    }
+
+    // [SG-ANCHOR:MLBRIDGE-NUM-NORMALIZE]
+// JSON(Map/List) 트리를 순회하면서 숫자 스칼라를 Double로 정규화한다.
+// - 이유: JSON 파서가 상황에 따라 Integer/Long/BigDecimal/Double을 섞어 줄 수 있음
+//         → DTO(List<Double>) 또는 FE(차트 데이터)에서 타입 미스(ClassCastException/NaN) 유발
+// - 동작: Number면 doubleValue()로 박싱(Double), Map/List는 재귀 처리, 그 외는 그대로 반환
+    private Object normalizeNumberTypes(Object v) {
+        if (v == null) return null;
+
+        if (v instanceof Number num) {
+            return Double.valueOf(num.doubleValue());
+        }
+        if (v instanceof Map<?, ?> map) {
+            Map<String, Object> m2 = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                String key = String.valueOf(e.getKey());
+                m2.put(key, normalizeNumberTypes(e.getValue()));
+            }
+            return m2;
+        }
+        if (v instanceof List<?> list) {
+            List<Object> l2 = new ArrayList<>(list.size());
+            for (Object o : list) {
+                l2.add(normalizeNumberTypes(o));
+            }
+            return l2;
+        }
+        // String/Boolean 등은 그대로
+        return v;
+    }
+
 }

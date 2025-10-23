@@ -1,168 +1,291 @@
-// package com.example.forecast.api;
-
-// [수정] 패키지 선언 확인/정정
 package com.example.co2.api;
 
-// [수정] DTO/서비스/유틸 패키지 임포트 정렬
-import com.example.co2.dto.PredictDtos;
 import com.example.co2.service.MlBridgeService;
-import com.example.co2.util.TypeRegionNormalizer;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/* =========================================================
- * ForecastMlController.java
- * ---------------------------------------------------------
- * 역할(Controller):
- * 	- FE가 요구하는 "학습 → 상태 폴링 → 예측" 3단계를 단일 컨트롤러에서 제공
- * 	- 기존 predict 엔드포인트는 그대로 유지, 학습(train)과 상태(status)만 추가
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.Objects;
+import java.util.Comparator;
+
+/* ============================================================
+ * ForecastMlController
+ * ------------------------------------------------------------
+ * [역할/설계]
+ * - 프론트엔드가 직접 FastAPI에 접근하지 않고 Spring을 통해
+ *   예측/학습/상태/로그를 조회할 수 있도록 "프록시 + 로그 서빙" API 제공.
  *
- * 라우팅(모두 /api/forecast/ml 하위):
- * 	- POST   /train
- * 		· 목적: FastAPI 학습 시작 트리거
- * 		· 출력: { jobId }  (서버가 생성하는 학습 식별자)
- * 	- GET    /train/status?jobId=...
- * 		· 목적: 학습 진행 상태 조회
- * 		· 출력: { jobId, status, progress?, message? }
- * 	- POST   /predict?variant=C
- * 		· 목적: 예측 요청을 FastAPI로 프록시
- * 		· 입력: PredictRequest(JSON body), variant(A|B|C) 쿼리
- * 		· 출력: PredictResponse(JSON) — KPI/series/cost
+ * [경로 정책]
+ * - 클래스 레벨 prefix: /api/forecast/ml  (중복 매핑 금지)
+ * - 하위 엔드포인트:
+ *   1) POST /predict?variant=C    → 예측
+ *   2) POST /train                → 학습 시작(비동기)
+ *   3) GET  /train/status?jobId=… → 학습 상태 폴링
+ *   4) GET  /logs/latest?lastN=50 → 최근 JSONL 로그 tail
  *
- * 사전조건:
- * 	- @EnableAsync 필요(비동기 학습)
- * 	- CORS 허용 필요(프론트 도메인)
- * 	- FastAPI URL은 MlBridgeService에서 설정값으로 주입
- * ========================================================= */
-
-
-
+ * [응답 포맷]
+ * - 모든 핸들러는 ResponseEntity<Map<String,Object>> 로 통일
+ *   (제네릭 추론 에러 회피 및 FE 단순화)
+ *
+ * [숫자 유효성]
+ * - Double.isFinite(double) "정적 메서드"만 사용(인스턴스 호출 금지)
+ *
+ * [검색 앵커]
+ * - [SG-ANCHOR:MLCTRL-CLASS]
+ * - [SG-ANCHOR:MLCTRL-PREDICT]
+ * - [SG-ANCHOR:MLCTRL-TRAIN]
+ * - [SG-ANCHOR:MLCTRL-STATUS]
+ * - [SG-ANCHOR:MLCTRL-LOGS]
+ * ============================================================ */
 @RestController
-@RequestMapping("/api/forecast/ml")
+@RequestMapping("/api/forecast/ml")	// [SG-ANCHOR:MLCTRL-CLASS]
 public class ForecastMlController {
 
-	private final MlBridgeService mlBridgeService;
+    private final MlBridgeService ml;
 
-	public ForecastMlController(MlBridgeService mlBridgeService) {
-		this.mlBridgeService = mlBridgeService;
-	}
+    // [ADD][SG-MLCTRL] 가장 최근 run_id(jobId) 보관 (프로세스 단위)
+    private final AtomicReference<String> lastRunId = new AtomicReference<>(null);
 
-	// [추가]
-	// --------------------------------------------------------
-	// API: 학습 시작
-	// Method/Path:
-	// 	POST /api/forecast/ml/train
-	// 입력:
-	// 	- 바디/쿼리 없음(현재 설계). 필요 시 서비스에서 공통 설정으로 학습.
-	// 전제:
-	// 	- FastAPI /train 엔드포인트 접근 가능
-	// 동작:
-	// 	1) 서비스에 비동기 학습 태스크를 위임(메모리 맵에 jobId 등록)
-	// 	2) 즉시 jobId만 반환(학습은 백그라운드)
-	// 출력:
-	// 	- 200 OK + { jobId }
-	// 	- 500 INTERNAL_SERVER_ERROR + { error } (시작 자체 실패 시)
-	// 부작용:
-	// 	- 서버 메모리에 jobId 상태가 생성됨
-	// 예외:
-	// 	- 서비스 내부 예외는 500으로 래핑
-	@PostMapping("/train")
-	public ResponseEntity<PredictDtos.TrainStartResponse> startTrain() {
-		try {
-			final String jobId = mlBridgeService.startTrainAsync();
-			PredictDtos.TrainStartResponse rsp = new PredictDtos.TrainStartResponse();
-			rsp.setJobId(jobId);
-			return ResponseEntity.ok(rsp);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(PredictDtos.TrainStartResponse.error("TRAIN_START_FAILED: " + e.getMessage()));
-		}
-	}
+    public ForecastMlController(MlBridgeService ml) {
+        this.ml = ml;
+    }
 
-	// [추가]
-	// --------------------------------------------------------
-	// API: 학습 상태 조회
-	// Method/Path:
-	// 	GET /api/forecast/ml/train/status?jobId=...
-	// 입력:
-	// 	- jobId (필수, 학습 시작 시 받은 값)
-	// 전제:
-	// 	- 서버 메모리 맵에 해당 jobId가 존재해야 함
-	// 동작:
-	// 	1) 서비스에서 jobId 상태 조회
-	// 	2) 상태 없으면 404, 있으면 200
-	// 출력:
-	// 	- 200 OK + { jobId, status(RUNNING|DONE|ERROR), progress?, message? }
-	// 	- 404 NOT_FOUND + { jobId, status: NOT_FOUND, message }
-	// 	- 500 INTERNAL_SERVER_ERROR + { status: ERROR, message }
-	// 부작용:
-	// 	- 없음(읽기)
-	@GetMapping("/train/status")
-	public ResponseEntity<PredictDtos.TrainStatusResponse> getTrainStatus(@RequestParam("jobId") String jobId) {
-		try {
-			MlBridgeService.TrainStatus status = mlBridgeService.getTrainStatus(jobId);
-			if (status == null) {
-				PredictDtos.TrainStatusResponse notFound = new PredictDtos.TrainStatusResponse();
-				notFound.setJobId(jobId);
-				notFound.setStatus("NOT_FOUND");
-				notFound.setMessage("No such jobId");
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body(notFound);
-			}
-			PredictDtos.TrainStatusResponse rsp = new PredictDtos.TrainStatusResponse();
-			rsp.setJobId(jobId);
-			rsp.setStatus(status.getStatus());
-			rsp.setProgress(status.getProgress());
-			rsp.setMessage(status.getMessage());
-			return ResponseEntity.ok(rsp);
-		} catch (Exception e) {
-			PredictDtos.TrainStatusResponse err = new PredictDtos.TrainStatusResponse();
-			err.setJobId(jobId);
-			err.setStatus("ERROR");
-			err.setMessage("STATUS_FAILED: " + e.getMessage());
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
-		}
-	}
+    /* ------------------------------------------------------------
+     * 1) 예측 호출
+     *    POST /api/forecast/ml/predict?variant=C
+     *  - 프론트 JSON을 그대로 FastAPI로 전달(패스스루).
+     *  - 숫자 유효성은 최소한으로 점검(예: builtYear 등).
+     *  - 반환: FastAPI 응답 Map 그대로.
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLCTRL-PREDICT]
+    @PostMapping("/predict")
+    public ResponseEntity<Map<String, Object>> predict(
+            @RequestParam(name = "variant", defaultValue = "C") String variant,
+            @RequestBody Map<String, Object> payload
+    ) {
+        // (선택) 예시 숫자 유효성 — Double.isFinite "정적 호출"만 사용
+        Object built = payload.get("builtYear");
+        if (built instanceof Number) {
+            double v = ((Number) built).doubleValue();
+            if (!Double.isFinite(v)) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "error", "invalid builtYear"));
+            }
+        }
+        Map<String, Object> body = ml.predict(payload, variant);
+        return ResponseEntity.ok(body);
+    }
 
-	// [추가]
-	// --------------------------------------------------------
-	// API: 예측
-	// Method/Path:
-	// 	POST /api/forecast/ml/predict?variant=C
-	// 입력:
-	// 	- 쿼리: variant (선택, 기본 C; A|B|C 중 하나)
-	// 	- 바디: PredictRequest(JSON)
-	// 		· type, region/regionRaw, builtYear, floorAreaM2
-	// 		· energy_kwh/eui_kwh_m2y (옵션)
-	// 		· yearsFrom/yearsTo, yearlyConsumption[], monthlyConsumption[] (옵션)
-	// 전제:
-	// 	- FastAPI /predict 사용 가능
-	// 	- DTO 스키마가 FastAPI와 호환
-	// 동작:
-	// 	1) (안전) Type/Region 정규화
-	// 	2) Service.predict() 호출 → FastAPI로 프록시
-	// 출력:
-	// 	- 200 OK + PredictResponse(JSON)
-	// 	- 502 BAD_GATEWAY + { error } (하위 서버 오류)
-	// 	- 500 INTERNAL_SERVER_ERROR + { error } (기타 실패)
-	// 부작용:
-	// 	- 없음(하위 서버 호출 외)
-	@PostMapping("/predict")
-	public ResponseEntity<PredictDtos.PredictResponse> predict(
-			@RequestParam(name = "variant", required = false, defaultValue = "C") String variant,
-			@RequestBody PredictDtos.PredictRequest request
-	) {
-		try {
-			TypeRegionNormalizer.normalizeInPlace(request); // 방어적 전처리
-			PredictDtos.PredictResponse rsp = mlBridgeService.predict(variant, request);
-			return ResponseEntity.ok(rsp);
-		} catch (MlBridgeService.DownstreamException de) {
-			return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-					.body(PredictDtos.PredictResponse.error("PREDICT_DOWNSTREAM: " + de.getMessage()));
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(PredictDtos.PredictResponse.error("PREDICT_FAILED: " + e.getMessage()));
-		}
-	}
+    /* ------------------------------------------------------------
+     * 2) 학습 시작(비동기)
+     *    POST /api/forecast/ml/train
+     *    - 바로 202 Accepted 응답 반환
+     *    - 학습 호출은 백그라운드 스레드에서 실행(응답 대기 X)
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:ML-TRAIN-ASYNC]
+    // ★ 변경 전에는 lastRunId.set(jobId)만 하고 끝났음
+
+    @PostMapping("/train")
+    public ResponseEntity<Map<String, Object>> startTrainAsync() {
+        final String jobId = "train-" + java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-"
+                + java.util.UUID.randomUUID().toString().substring(0, 8);
+
+        // (선택) 임시값으로 넣어두되, 나중에 반드시 ML run_id로 덮어씌웁니다.
+        lastRunId.set(jobId);
+
+        final Map<String, Object> ack = new java.util.LinkedHashMap<>();
+        ack.put("ok", true);
+        ack.put("accepted", true);
+        ack.put("jobId", jobId);
+        // FE 호환 키
+        ack.put("run_id", jobId);
+        ack.put("runId", jobId);
+
+        // ← 백그라운드 스레드에서 ML 트리거 후, 응답으로 받은 run_id 저장
+        new Thread(() -> {
+            try {
+                Map<String, Object> rsp = ml.startTrain();   // FastAPI /train 호출
+                // ① ML이 돌려준 run_id/runId 우선 저장
+                String rid = null;
+                if (rsp != null) {
+                    Object v = rsp.get("run_id"); if (v == null) v = rsp.get("runId");
+                    if (v != null) rid = String.valueOf(v);
+                }
+                // ② 못 받았으면 로그 tail에서 추정
+                if (rid == null || rid.isBlank()) {
+                    rid = sniffLatestRunIdFromTail();
+                }
+                if (rid != null && !rid.isBlank()) {
+                    lastRunId.set(rid); // ★★★ 여기서 진짜 run_id로 덮어쓰기 ★★★
+                    org.slf4j.LoggerFactory.getLogger(getClass())
+                            .info("ML-TRAIN run_id pinned: {}", rid);
+                } else {
+                    org.slf4j.LoggerFactory.getLogger(getClass())
+                            .warn("ML-TRAIN run_id not found; stay with jobId={}", jobId);
+                }
+            } catch (Exception ex) {
+                org.slf4j.LoggerFactory.getLogger(getClass()).warn("ML-TRAIN bg failed: {}", ex.toString());
+            }
+        }, "ml-train-bg-" + jobId).start();
+
+        return ResponseEntity.accepted().body(ack);
+    }
+
+
+
+
+    /* ------------------------------------------------------------
+     * 3) 학습 상태 조회
+     *    GET /api/forecast/ml/train/status?jobId=...
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLCTRL-STATUS]
+    @GetMapping("/train/status")
+    public ResponseEntity<Map<String, Object>> trainStatus(@RequestParam("jobId") String jobId) {
+        Map<String, Object> body = ml.getTrainStatus(jobId);
+        return ResponseEntity.ok(body);
+    }
+
+    // ==== [HELPER] 최근 로그에서 가장 최신 run_id 추정(sniff) ====
+    @SuppressWarnings("unchecked")
+    private String sniffLatestRunIdFromTail() {
+        try {
+            Map<String, Object> latest = ml.tailLatestLogs(1000); // tail 크게
+            if (latest == null) return null;
+
+            // lastN / items / lines 중 있는 걸 사용
+            Object any = latest.get("lastN");
+            if (!(any instanceof java.util.List<?>)) {
+                any = (latest.get("items") instanceof java.util.List<?>)
+                        ? latest.get("items") : latest.get("lines");
+            }
+            if (!(any instanceof java.util.List<?> list)) return null;
+
+            // ts 내림차순으로 훑으며 run_id 찾기 (train_start 우선)
+            return list.stream()
+                    .filter(Map.class::isInstance)
+                    .map(o -> (Map<String, Object>) o)
+                    .sorted(Comparator.comparing(
+                            (Map<String, Object> m) -> {
+                                Object ts = m.get("ts");
+                                return (ts != null) ? String.valueOf(ts) : "";
+                            }
+                    ).reversed())
+
+                    .map(m -> {
+                        String rid = null;
+                        Object tags = m.get("tags");
+                        if (tags instanceof Map<?, ?> t) {
+                            Object v = ((Map<?, ?>) t).get("run_id");
+                            if (v == null) v = ((Map<?, ?>) t).get("runId");
+                            if (v != null) rid = String.valueOf(v);
+                        }
+                        if (rid == null) { // 혹시 top-level에 있는 경우
+                            Object v = m.get("run_id");
+                            if (v == null) v = m.get("runId");
+                            if (v != null) rid = String.valueOf(v);
+                        }
+                        String kind = String.valueOf(m.get("kind"));
+                        String type = String.valueOf(m.get("type"));
+                        // 우선순위: train_start(event) > metrics(score_* / cv)
+                        boolean meaningful = "event".equals(type) && "train_start".equals(kind)
+                                || ("metrics".equals(type) && (
+                                "score_train".equals(kind) || "score_test".equals(kind) || "cv".equals(kind)
+                        ));
+                        return (rid != null && meaningful) ? rid : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+
+    // [SG-ANCHOR:MLCTRL-RUN-CURRENT]
+    // 프론트: GET /api/forecast/ml/run/current
+    @GetMapping("/run/current")
+    public ResponseEntity<Map<String, Object>> getCurrentRun() {
+        String id = lastRunId.get();
+        if (id == null || id.isBlank()) {
+            // ★ 서버가 기억 못했으면 최근 로그에서 추정
+            id = sniffLatestRunIdFromTail();
+            if (id != null) lastRunId.set(id);
+        }
+        Map<String, Object> out = new HashMap<>();
+        if (id == null || id.isBlank()) {
+            out.put("ok", false);
+            out.put("run_id", null);
+            out.put("runId", null);
+            return ResponseEntity.status(404).body(out);
+        }
+        out.put("ok", true);
+        out.put("run_id", id);
+        out.put("runId", id);
+        return ResponseEntity.ok(out);
+    }
+
+
+
+    /* ------------------------------------------------------------
+     * 4) 최근 로그 제공(JSONL tail)
+     *    GET /api/forecast/ml/logs/latest?lastN=50
+     *  - KST 기준 오늘 파일 우선, 없으면 디렉토리 최신 파일.
+     *  - { ok, path, count, lastEntry, lastN[] } 형태로 반환.
+     * ------------------------------------------------------------ */
+    // [SG-ANCHOR:MLCTRL-LOGS]
+    @GetMapping("/logs/latest")
+    public ResponseEntity<Map<String, Object>> latestLogs(
+            @RequestParam(name = "lastN", defaultValue = "50") int lastN
+    ) {
+        Map<String, Object> body = ml.tailLatestLogs(lastN);
+        return ResponseEntity.ok(body);
+    }
+
+    // [SG-ANCHOR:MLCTRL-LOGS-BYRUN]
+// GET /api/forecast/ml/logs/by-run?runId=...
+    @GetMapping("/logs/by-run")
+    public ResponseEntity<List<Map<String, Object>>> logsByRun(@RequestParam("runId") String runId) {
+        if (runId == null || runId.isBlank()) return ResponseEntity.ok(List.of());
+
+        Map<String, Object> latest = ml.tailLatestLogs(2000);
+        List<Map<String, Object>> all = new ArrayList<>();
+
+        Object any = (latest != null) ? latest.get("lastN") : null;
+        if (!(any instanceof List<?>)) {
+            any = (latest != null && latest.get("items") instanceof List<?>)
+                    ? latest.get("items")
+                    : (latest != null ? latest.get("lines") : null);
+        }
+        if (!(any instanceof List<?> list)) return ResponseEntity.ok(all);
+
+        for (Object o : list) {
+            if (!(o instanceof Map)) continue;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> m = (Map<String, Object>) o;
+
+            String rid = null;
+            Object tags = m.get("tags");
+            if (tags instanceof Map<?, ?> t) {
+                Object v = t.get("run_id"); if (v == null) v = t.get("runId");
+                if (v != null) rid = String.valueOf(v);
+            }
+            if (rid == null) { // 혹시 top-level
+                Object v = m.get("run_id"); if (v == null) v = m.get("runId");
+                if (v != null) rid = String.valueOf(v);
+            }
+            if (!runId.equals(rid)) continue;
+
+            all.add(m);
+        }
+        return ResponseEntity.ok(all);
+    }
+
+
+
+
 }

@@ -32,6 +32,290 @@ let __RUN_LOCK__ = false;
 // 헤더 기본 높이(최소값) 캐시
 let __HEADER_BASE_MIN__ = null;
 
+/* ======================================================================
+ * [ADD][SG-LOGS] ML 점수 로그 유틸 — runId 기반으로 A/B/C 최신 점수를 콘솔에 3줄 포맷 출력
+ * - 전역 네임스페이스: window.SaveGreen.MLLogs
+ * - 사용처(차트 시작부): await window.SaveGreen.MLLogs.consoleScoresByRunAndLetter('A'|'B'|'C');
+ * - 엔드포인트: /api/forecast/ml/logs/by-run?runId=...  (서버 라우팅에 맞춰 필요시 변경)
+ * ====================================================================== */
+window.SaveGreen.MLLogs = (function () {
+    function getRunId() {
+        try {
+            const url = new URL(window.location.href);
+            const q = url.searchParams.get('runId');
+            if (q && q.trim()) return q.trim();
+        } catch {}
+        if (window.__SG_RUN_ID && String(window.__SG_RUN_ID).trim()) {
+            return String(window.__SG_RUN_ID).trim();
+        }
+        console.warn('[logs] runId not provided. set ?runId=... to avoid mixing runs.');
+        return null;
+    }
+
+    async function fetchLogsByRun(runId) {
+        if (!runId) return [];
+        const url = `/api/forecast/ml/logs/by-run?runId=${encodeURIComponent(runId)}`;
+        try {
+            const res = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+            if (!res.ok) {
+                console.error('[logs] fetch failed', res.status, await res.text());
+                return [];
+            }
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data?.items || []);
+        } catch (e) {
+            console.error('[logs] fetch error', e);
+            return [];
+        }
+    }
+
+    function latestByTs(arr) {
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        return arr.slice().sort((a, b) => String(b.ts).localeCompare(String(a.ts)))[0] || null;
+    }
+
+    function pickLatestScores(logs, letter) {
+        if (!Array.isArray(logs) || !letter) return null;
+        const prefix = `${letter}_`;
+
+        // ▼ 모델 접두사 필터
+        const rel = logs.filter(r => {
+            const m = r?.tags?.model;
+            return m && String(m).startsWith(prefix);
+        });
+
+        // ▼ kind 후보 더 넓게 잡기
+        const isTrain  = r => r.type === 'metrics' && /^(score_train|train_score)$/i.test(String(r.kind||''));
+        const isTest   = r => r.type === 'metrics' && /^(score_test|test_score)$/i.test(String(r.kind||''));
+        const isCv     = r => r.type === 'metrics' && /^(cv|cv_mean|cv_stats)$/i.test(String(r.kind||''));
+        const isEns    = r => r.type === 'metrics' && /^ensemble$/i.test(String(r.kind||''));
+
+        const trains = rel.filter(isTrain);
+        const tests  = rel.filter(isTest);
+        const cvs    = rel.filter(isCv);
+        const ens    = rel.filter(isEns);
+
+        const latestByTsLocal = (arr) => {
+            if (!arr.length) return null;
+            // ts 가 문자열/숫자 섞여도 안전하게 정렬
+            return arr.slice().sort((a,b) => String(b.ts).localeCompare(String(a.ts)))[0] || null;
+        };
+
+        const tTrain = latestByTsLocal(trains);
+        const tTest  = latestByTsLocal(tests);
+        const tCv    = latestByTsLocal(cvs);
+        const tEns   = latestByTsLocal(ens);
+
+        const modelName = (tTrain?.tags?.model) || (tTest?.tags?.model) || (tCv?.tags?.model) || (tEns?.tags?.model) || `${letter}_N/A`;
+
+        // 숫자 파서: number 또는 숫자 문자열 모두 허용
+        const num = (v) => {
+            if (typeof v === 'number' && Number.isFinite(v)) return v;
+            const n = Number(String(v).trim());
+            return Number.isFinite(n) ? n : NaN;
+        };
+        const pickNum = (obj, keys) => {
+            if (!obj) return NaN;
+            for (const k of keys) {
+                const v = num(obj[k]);
+                if (Number.isFinite(v)) return v;
+            }
+            return NaN;
+        };
+        const to4 = v => Number.isFinite(v) ? v.toFixed(4) : 'n/a';
+
+        // ── 표준: train/test 가 둘 다 있으면 그걸로
+        if (tTrain && tTest) {
+            const tr_mae  = pickNum(tTrain.metrics, ['train_mae','mae']);
+            const tr_rmse = pickNum(tTrain.metrics, ['train_rmse','rmse']);
+            const tr_r2   = pickNum(tTrain.metrics, ['train_r2','r2']);
+
+            const te_mae  = pickNum(tTest.metrics,  ['test_mae','mae']);
+            const te_rmse = pickNum(tTest.metrics,  ['test_rmse','rmse']);
+            const te_r2   = pickNum(tTest.metrics,  ['test_r2','r2']);
+
+            let d_mae = pickNum(tTest.metrics, ['delta_mae']);
+            if (!Number.isFinite(d_mae) && Number.isFinite(tr_mae) && Number.isFinite(te_mae)) {
+                d_mae = te_mae - tr_mae;
+            }
+
+            return {
+                modelName,
+                train: { mae: to4(tr_mae), rmse: to4(tr_rmse), r2: to4(tr_r2) },
+                test:  { mae: to4(te_mae), rmse: to4(te_rmse), r2: to4(te_r2), dmae: to4(d_mae) }
+            };
+        }
+
+        // ── 폴백: cv(mean/std)만 있어도 표기
+        if (tCv) {
+            const m = tCv.metrics || {};
+            const cv_mae_mean  = pickNum(m, ['mae_mean','maeMean']);
+            const cv_rmse_mean = pickNum(m, ['rmse_mean','rmseMean']);
+            const cv_r2_mean   = pickNum(m, ['r2_mean','r2Mean']);
+
+            const cv_mae_std   = pickNum(m, ['mae_std','maeStd']);
+            const cv_rmse_std  = pickNum(m, ['rmse_std','rmseStd']);
+            const cv_r2_std    = pickNum(m, ['r2_std','r2Std']);
+
+            return {
+                modelName,
+                train: { mae: to4(cv_mae_mean),  rmse: to4(cv_rmse_mean),  r2: to4(cv_r2_mean) },
+                test:  { mae: to4(cv_mae_std),   rmse: to4(cv_rmse_std),   r2: to4(cv_r2_std),  dmae: 'n/a' }
+            };
+        }
+
+        // ── ensemble만 있는 경우는 상위 print 함수에서 처리(C 전용)
+        return { modelName };
+    }
+
+
+
+    function printChartScoreLogs(logs, letter) {
+        const picked = pickLatestScores(logs, letter);
+        const modelName = picked?.modelName || `${letter}_N/A`;
+
+        // 헤더(보라색) + 내용(검정) 2~3줄을 한 그룹으로
+        console.group(
+            `%c[chart ${letter}]%c ${modelName}`,
+            'color:#9c27b0;font-weight:600',  // 보라
+            'color:inherit'                   // 검정
+        );
+
+        const lineOf = o => `MAE=${o.mae}, RMSE=${o.rmse}, R2=${o.r2}`;
+
+        if (picked?.train && picked?.test) {
+            console.log(`[train] ${lineOf(picked.train)}`);
+            console.log(
+                `[test ] ${lineOf(picked.test)}${
+                picked.test.dmae !== 'n/a' ? `  (ΔMAE=${picked.test.dmae})` : ''
+                }`
+            );
+        } else if (letter === 'C') {
+            // C는 앙상블 전용(하드코딩 허용)
+            const ens = latestByTs(
+                logs.filter(r => r.type === 'metrics' && /^ensemble$/i.test(String(r.kind || '')))
+            );
+            if (ens?.metrics) {
+                const wA = typeof ens.metrics.wA === 'number' ? ens.metrics.wA.toFixed(4) : 'n/a';
+                const wB = typeof ens.metrics.wB === 'number' ? ens.metrics.wB.toFixed(4) : 'n/a';
+                console.log(`[ensemble] wA=${wA}, wB=${wB}`);
+            } else {
+                console.log('[ensemble] (no weights)');
+            }
+        } else {
+        console.log('(no train/test logs for this run)');
+        }
+        console.groupEnd();
+    }
+
+
+    // [ADD] 디버그 도우미: 모델 접두사(A/B/C)별 어떤 kind가 찍혔는지와 최신 metrics를 바로 확인
+    async function debugDump(letter) {
+        const id = await ensureRunId();
+        if (!id) { console.warn('[debugDump] no runId'); return; }
+
+        const rows = await fetchLogsByRun(id);
+        const rel = rows.filter(r => String(r?.tags?.model || '').startsWith(`${letter}_`));
+
+        console.group(`[debugDump] ${letter} (rows=${rel.length})`);
+        // kind 분포(몇 개씩 찍혔는지)
+        const kinds = rel.reduce((m, r) => { m[r.kind] = (m[r.kind] || 0) + 1; return m; }, {});
+        console.log('kinds:', kinds);
+
+        // 최신 train/test/cv 한 줄씩
+        const byTs = arr => arr.slice().sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+        const lastTrain = byTs(rel.filter(r => /^(score_train|train_score)$/i.test(r.kind||'')))[0];
+        const lastTest  = byTs(rel.filter(r => /^(score_test|test_score)$/i.test(r.kind||'')))[0];
+        const lastCv    = byTs(rel.filter(r => /^(cv|cv_mean|cv_stats)$/i.test(r.kind||'')))[0];
+
+        console.log('lastTrain.metrics =', lastTrain?.metrics);
+        console.log('lastTest.metrics  =', lastTest?.metrics);
+        console.log('lastCv.metrics    =', lastCv?.metrics);
+        console.groupEnd();
+    }
+
+
+    async function consoleScoresByRunAndLetter(letter, runId = null) {
+        // 우선 외부에서 넘긴 값이 있으면 그것부터 등록
+        if (runId && String(runId).trim()) {
+            setRunId(String(runId).trim());
+        }
+        // 보장 획득
+        const id = await ensureRunId();
+        if (!id) {
+            console.warn('[logs] no runId. skip consoleScoresByRunAndLetter.');
+            return;
+        }
+        const logs = await fetchLogsByRun(id);
+        printChartScoreLogs(logs, letter);
+    }
+
+
+    // --- (1) 런아이디 세팅: 전역 + 세션에 저장(하드코딩 금지, 동적 주입용) ---
+    function setRunId(runId) {
+        if (!runId || !String(runId).trim()) return;
+        const id = String(runId).trim();
+        // 전역(즉시 사용)
+        window.__SG_RUN_ID = id;
+        // 세션(탭/새로고침 복구)
+        try { sessionStorage.setItem('ml.runId', id); } catch {}
+    }
+
+    // --- (2) 서버에서 현재 세션의 run_id를 받아오는 API 헬퍼 ---
+    async function getServerRunId() {
+        try {
+            const res = await fetch('/api/forecast/ml/run/current', { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return null;
+            const js = await res.json();
+            const id = (js && (js.run_id || js.runId)) ? String(js.run_id || js.runId).trim() : '';
+            return id || null;
+        } catch {
+            return null;
+        }
+    }
+
+    // --- (3) 보장 헬퍼: 없으면 서버/스토리지에서 찾아서 세팅 후 반환 ---
+    async function ensureRunId() {
+        // 0) 이미 메모리에 있으면 바로
+        if (window.__SG_RUN_ID && String(window.__SG_RUN_ID).trim()) return String(window.__SG_RUN_ID).trim();
+
+        // 1) URL
+        try {
+            const url = new URL(window.location.href);
+            const q = url.searchParams.get('runId');
+            if (q && q.trim()) { setRunId(q.trim()); return q.trim(); }
+        } catch {}
+
+        // 2) dataset
+        try {
+            const ds = document.getElementById('forecast-root')?.dataset || {};
+            const d = (ds.runId || ds.runid || '').trim();
+            if (d) { setRunId(d); return d; }
+        } catch {}
+
+        // 3) session/local storage
+        try {
+            const s = (sessionStorage.getItem('ml.runId') || localStorage.getItem('ml.runId') || '').trim();
+            if (s) { setRunId(s); return s; }
+        } catch {}
+
+        // 4) 서버-세션(최종 복구 루트)
+        const srv = await getServerRunId();
+        if (srv) { setRunId(srv); return srv; }
+
+        return null;
+    }
+
+
+    return {
+        getRunId, fetchLogsByRun, pickLatestScores, printChartScoreLogs, consoleScoresByRunAndLetter,
+        // [NEW]
+        setRunId, ensureRunId,
+        debugDump   // ← 추가
+    };
+
+})();
+
 
 
 /* =========================================================
@@ -1271,6 +1555,104 @@ async function applyCatalogHints(ctx) {
 // ───────────────────────────────────────────────────────────
 const ML_ENDPOINT = '/api/forecast/ml';   // 백엔드(스프링)측 베이스 경로
 const ML_VARIANT = 'C';                   // 기본은 앙상블(C) 사용
+
+// =====================================================================
+// [ADD][SG-TRAIN] 학습 트리거/상태 폴링/로그 스냅샷 헬퍼 (import 불필요)
+// - startMlTrain(): 학습 시작 → { jobId, run_id } 수신 시 run_id 저장
+// - waitTrainDone(jobId, opts): 상태 폴링(비차단)
+// - fetchMlLogSnapshotLatest(): 최근 ml 로그 1줄 요약(옵션)
+// =====================================================================
+
+async function startMlTrain() {
+	// 서버 규약: POST /api/forecast/ml/train → { jobId, run_id? }
+	const url = `${ML_ENDPOINT}/train`;
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+		body: JSON.stringify({ mode: 'async' })
+	});
+	if (!res.ok) {
+		let detail = ''; try { detail = await res.text(); } catch {}
+		throw new Error(`TRAIN ${res.status} ${res.statusText} — ${detail?.slice(0,200)}`);
+	}
+	const js = await res.json();
+
+	// ★ run_id가 오면 즉시 전역/세션에 저장(하드코딩 금지)
+	try {
+		const rid = js?.run_id || js?.runId;
+		if (rid && window.SaveGreen?.MLLogs?.setRunId) {
+			window.SaveGreen.MLLogs.setRunId(String(rid));
+			// dataset에도 심어두면 이후 ensureRunId()가 더 빨라짐
+			const root = document.getElementById('forecast-root');
+			if (root?.dataset) root.dataset.runId = String(rid);
+			SaveGreen.log.debug('kpi', `run_id from train → ${rid}`);
+		}
+	} catch {}
+
+	// 서버가 주는 jobId(필수) 반환
+	return js?.jobId || js?.id || null;
+}
+
+async function waitTrainDone(jobId, {
+	intervalMs = 1200,
+	timeoutMs = 5 * 60 * 1000,
+	perRequestTimeoutMs = 12000,
+	maxNetErr = 5,
+	onTick = () => {}
+} = {}) {
+	if (!jobId) return { ok:false, status:'NO_JOB' };
+
+	const started = Date.now();
+	let netErr = 0;
+
+	while (Date.now() - started < timeoutMs) {
+		onTick?.({ jobId });
+
+		try {
+			const ctl = new AbortController();
+			const timer = setTimeout(() => ctl.abort(), perRequestTimeoutMs);
+
+			const url = `${ML_ENDPOINT}/train/status?jobId=${encodeURIComponent(jobId)}`;
+			const res = await fetch(url, { method: 'GET', headers: { 'Accept':'application/json' }, signal: ctl.signal });
+			clearTimeout(timer);
+
+			if (res.ok) {
+				const js = await res.json();
+				// 서버 규약 예시: { status: 'PENDING|RUNNING|DONE|ERROR', run_id? }
+				if (js?.run_id && window.SaveGreen?.MLLogs?.setRunId) {
+					window.SaveGreen.MLLogs.setRunId(String(js.run_id));
+					const root = document.getElementById('forecast-root');
+					if (root?.dataset) root.dataset.runId = String(js.run_id);
+				}
+				if (js?.status === 'DONE') return { ok:true, status:'DONE', data:js };
+				if (js?.status === 'ERROR') return { ok:false, status:'ERROR', data:js };
+				// RUNNING/PENDING이면 아래 sleep 후 재시도
+			} else {
+				netErr++;
+				if (netErr > maxNetErr) return { ok:false, status:'UNREACHABLE' };
+			}
+
+		} catch {
+			netErr++;
+			if (netErr > maxNetErr) return { ok:false, status:'UNREACHABLE' };
+		}
+
+		await new Promise(r => setTimeout(r, intervalMs));
+	}
+	return { ok:false, status:'TIMEOUT' };
+}
+
+// (선택) 최근 ML 로그 스냅샷 1줄 요약
+async function fetchMlLogSnapshotLatest() {
+	try {
+		const res = await fetch('/api/forecast/ml/logs/snapshot/latest', { headers:{ 'Accept':'application/json' } });
+		if (!res.ok) return null;
+		const js = await res.json();
+		// 기대 형식 예: { path:"D:\\CO2\\ml\\data\\manifest.json", entry:"[score] TEST   ..." }
+		return js || null;
+	} catch { return null; }
+}
+
 
 // === ML 브리지 호출(POST /api/forecast/ml/predict?variant=C) ===
 async function callMl(payload) {
@@ -2697,6 +3079,27 @@ async function trainThenPredictOrFallback(buildPredictPayload) {
 		try {
 			jobId = await startMlTrain();
 			SaveGreen.log.info('kpi', 'train started (async), predict with current model');
+
+			// ------------------------------------------------------------------
+			// [ADD][SG-RUNID] 학습 트리거 직후 run_id 확보
+			// - 원칙: 서버가 "현재 세션의 최신 run_id"를 알고 있으므로
+			//   window.SaveGreen.MLLogs.ensureRunId() 로 URL/전역/세션/서버 순으로 복구
+			// - 성공 시 dataset(#forecast-root[data-run-id])에도 심어 공유
+			// ------------------------------------------------------------------
+			try {
+				if (window.SaveGreen?.MLLogs?.ensureRunId) {
+					const rid = await window.SaveGreen.MLLogs.ensureRunId();
+					if (rid) {
+						const root = document.getElementById('forecast-root');
+						if (root?.dataset) root.dataset.runId = rid;
+						SaveGreen.log.debug('kpi', `run_id set (post-train trigger) → ${rid}`);
+					}
+				}
+			} catch (e) {
+				SaveGreen.log.debug('kpi', `ensureRunId post-train trigger failed: ${String(e)}`);
+			}
+			// ------------------------------------------------------------------
+
 		} catch (err) {
 			// 학습 트리거 실패해도 예측은 진행 (경고만 남김)
 			SaveGreen.log.warn('kpi', `train not started → ${String(err)}`);
@@ -2707,34 +3110,51 @@ async function trainThenPredictOrFallback(buildPredictPayload) {
 		if (jobId) {
 			(async () => {
 				try {
-                    const res = await waitTrainDone(jobId, {
-                        intervalMs: 1200,          // 시작 1.2s
-                        timeoutMs: 5 * 60 * 1000,  // 총 5분
-                        perRequestTimeoutMs: 12000,
-                        maxNetErr: 5,
-                        onTick: (s) => SaveGreen.log.debug('kpi', 'train tick', s)
-                    });
+					const res = await waitTrainDone(jobId, {
+						intervalMs: 1200,          // 시작 1.2s
+						timeoutMs: 5 * 60 * 1000,  // 총 5분
+						perRequestTimeoutMs: 12000,
+						maxNetErr: 5,
+						onTick: (s) => SaveGreen.log.debug('kpi', 'train tick', s)
+					});
 
-                    // [SG-ANCHOR:TRAIN-BG-TIMEOUT-SOFT]  ← 이 블록으로 교체
-                    if (res?.ok) {
-                        SaveGreen.log.info('kpi', 'train finished (bg)');
-                        try {
-                            const snap = await fetchMlLogSnapshotLatest();
-                            if (snap) {
-                                SaveGreen.log.info(
-                                    'chart C',
-                                    'ml-log snapshot (post-train)',
-                                    snap.path ? snap.path.split(/[\\/]/).pop() : ''
-                                );
-                            }
+					// [SG-ANCHOR:TRAIN-BG-TIMEOUT-SOFT]  ← 이 블록으로 교체
+					if (res?.ok) {
+						SaveGreen.log.info('kpi', 'train finished (bg)');
 
-                        } catch {}
-                    } else {
-                        // 기존: info/warn로 떠서 거슬림 → debug 로 톤 다운
-                        // status: 'TIMEOUT' | 'UNREACHABLE' | 'RETRY' 등
-                        SaveGreen.log.debug('kpi', 'train still running (bg), non-blocking', res?.status || 'UNKNOWN');
-                    }
+						// ----------------------------------------------------------
+						// [ADD][SG-RUNID] 백그라운드 완료 시점에 한 번 더 보장
+						//  - 일부 환경에선 완료 시점에 run_id가 세션에 최종 반영되므로 재확보
+						// ----------------------------------------------------------
+						try {
+							if (window.SaveGreen?.MLLogs?.ensureRunId) {
+								const rid2 = await window.SaveGreen.MLLogs.ensureRunId();
+								if (rid2) {
+									const root = document.getElementById('forecast-root');
+									if (root?.dataset) root.dataset.runId = rid2;
+									SaveGreen.log.debug('kpi', `run_id verified (bg done) → ${rid2}`);
+								}
+							}
+						} catch (e) {
+							SaveGreen.log.debug('kpi', `ensureRunId on bg-done failed: ${String(e)}`);
+						}
+						// ----------------------------------------------------------
 
+						try {
+							const snap = await fetchMlLogSnapshotLatest();
+							if (snap) {
+								SaveGreen.log.info(
+									'chart C',
+									'ml-log snapshot (post-train)',
+									snap.path ? snap.path.split(/[\\/]/).pop() : ''
+								);
+							}
+						} catch {}
+					} else {
+						// 기존: info/warn로 떠서 거슬림 → debug 로 톤 다운
+						// status: 'TIMEOUT' | 'UNREACHABLE' | 'RETRY' 등
+						SaveGreen.log.debug('kpi', 'train still running (bg), non-blocking', res?.status || 'UNKNOWN');
+					}
 
 				} catch (e) {
 					SaveGreen.log.info('kpi', `train bg polling stopped → ${String(e)}`);
@@ -2746,14 +3166,24 @@ async function trainThenPredictOrFallback(buildPredictPayload) {
 		const payload = buildPredictPayload();
 		try { logMlPayloadPretty(payload); } catch {}
 
-		// 예측 직전 로그 스냅샷(선택)
-        // 예측 직전 로그 스냅샷(선택) — 요약만 debug로
-        try {
-            const snap = await fetchMlLogSnapshotLatest();
-            if (snap?.entry) {
-               SaveGreen.log.debug('chart C', `ml-log ready (pre-predict) · last=1 line @ ${snap.path ? snap.path.split(/[\\/]/).pop() : ''}`);
-           }
-        } catch {}
+		// 예측 직전 로그 스냅샷(선택) — 요약만 debug로
+		try {
+			const snap = await fetchMlLogSnapshotLatest();
+			if (snap?.entry) {
+				SaveGreen.log.debug('chart C', `ml-log ready (pre-predict) · last=1 line @ ${snap.path ? snap.path.split(/[\\/]/).pop() : ''}`);
+			}
+		} catch {}
+
+		// ----------------------------------------------------------------------
+		// [ADD][SG-RUNID] 예측 직전에도 run_id 최종 보장(경고 방지용)
+		//  - 차트 A/B/C 시작 시 consoleScoresByRunAndLetter(...)에서 runId 필요
+		// ----------------------------------------------------------------------
+		try {
+			if (window.SaveGreen?.MLLogs?.ensureRunId) {
+				await window.SaveGreen.MLLogs.ensureRunId();
+			}
+		} catch {}
+		// ----------------------------------------------------------------------
 
 		return await callMl(payload);
 
@@ -2762,6 +3192,14 @@ async function trainThenPredictOrFallback(buildPredictPayload) {
 		SaveGreen.log.warn('kpi', `train+predict flow error → ${String(e)}`);
 		try {
 			const payload = buildPredictPayload();
+
+			// [ADD][SG-RUNID] 폴백에서도 run_id 보장 시도
+			try {
+				if (window.SaveGreen?.MLLogs?.ensureRunId) {
+					await window.SaveGreen.MLLogs.ensureRunId();
+				}
+			} catch {}
+
 			return await callMl(payload);
 		} catch (e2) {
 			SaveGreen.log.error('kpi', `predict failed → ${String(e2)}`);
