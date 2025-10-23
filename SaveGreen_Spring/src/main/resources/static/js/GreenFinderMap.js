@@ -89,6 +89,8 @@ function buildingInfoEvent(windowPosition, ecefPosition, cartographic, modelObje
     // 모델 객체에 PNU가 있으면 바로 저장
     if (modelObject && modelObject.attributes && modelObject.attributes.PNU) {
         requestParam.pnu = modelObject.attributes.PNU;
+        sessionStorage.setItem("pnu", modelObject.attributes.PNU);
+        console.log("pnu : ",sessionStorage.getItem('pnu'));
         $("#pnu").val(modelObject.attributes.PNU);
     }
 }
@@ -121,7 +123,7 @@ function getPnuFromCoord(lon, lat, callback) {
                     // hidden input 채우기
                     $("#pnu").val(requestParam.pnu);
 
-
+                    sessionStorage.setItem("pnu", props.pnu);
                     console.log("PNU/ldCodeNm/mnnmSlno 채워짐:", requestParam);
 
                     // callback 호출
