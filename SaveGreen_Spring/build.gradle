@@ -20,7 +20,7 @@ repositories {
 
 dependencies {
 	
-  
+
 
 	// 타임리프
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf' 

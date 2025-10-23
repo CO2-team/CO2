@@ -417,3 +417,47 @@ body.swal2-shown {
 .card-year{
     font-size:24px;
 }
+
+/* .ai-card {
+  margin-top: 25px;
+  background: #f8faf8;
+  border-left: 5px solid #81c784;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+  font-family: "Pretendard", sans-serif;
+  line-height: 1.7;
+  color: #1b5e20;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s ease-out;
+}
+
+.ai-card.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ai-card h3 {
+  color: #2e7d32;
+  border-bottom: 1px solid #c8e6c9;
+  padding-bottom: 4px;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+#aiButton {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #66bb6a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+#aiButton:hover {
+  background: #4caf50;
+} */

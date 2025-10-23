@@ -40,12 +40,12 @@
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" name="area" step="any" id="area1" placeholder="건물 면적" required title="건물 면적을 입력하세요">
+                    <input type="number" name="area" step="any" id="area1" placeholder="건물 면적" required>
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/battery.png" alt="Battery Icon">
                     <label>kWh/년</label>
-                    <input type="number" name="energy" id="energy1" step="any" placeholder="에너지" required title="에너지 사용량을 입력하세요">
+                    <input type="number" name="energy" id="energy1" step="any" placeholder="에너지" required >
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
@@ -140,13 +140,13 @@
                
                 <div class="form-group">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
-                    <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off" required title="주소가 입력되지 않았습니다.">
+                    <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off" required >
                     <div  class="dropdown searchResult"></div>
                 </div>
                 <div class="form-group">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
-                    <input type="number" id="area2" step="any" name="area" placeholder="건물 면적" required title="면적이 입력되지 않았습니다.">
+                    <input type="number" id="area2" step="any" name="area" placeholder="건물 면적" required>
                 </div>
 
                 <div class="form-row">
@@ -179,7 +179,7 @@
                 </div>
                 <div class="form-row">
                       
-                    <select name="panelPower"  required title="태양광 정격출력이 입력되지 않았습니다. 시중 태양광 패널의 평균 정격출력은 500W입니다.">
+                    <select name="panelPower"  required >
                         <option value="">패널 정격출력</option>
                         <option value="400">400 Wp (Trina Solar Vertex S)</option>
                         <option value="500">500 Wp (Hanwha Q Cells Q.PEAK DUO ML-G11)</option>               
@@ -235,6 +235,7 @@
         <i class="fa-solid fa-envelope"></i>
         </button>
     </div>
+    
 
     <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과차트</strong> 보기 </div>
     <br>
@@ -244,9 +245,14 @@
     <br><br>
     <canvas id="intensityChart3" style="display: none;" >비교차트</canvas>
     <br><br>
-    <hr>
     <canvas id="solarEfficiencyChart" style="display:none">누적 비교차트</canvas>
-    <br><br><br><br>
+    <br><br>
+    <hr>
+    <div class="ai-summary-container">
+    <button id="aiSummaryBtn" class="btn btn-success">AI 요약 보기</button>
+    <div id="aiResult" style="white-space: pre-line; margin-top: 10px;"></div>
+    </div>
+    <br><br>
 </div>
 
 
@@ -261,8 +267,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <script th:src="@{/js/compare.js}" defer></script>
-<script th:src="@{/js/simulator.js}"></script>
-<script th:src="@{/js/policy.js}"></script>
+<script th:src="@{/js/simulator.js}" defer></script>
+<script th:src="@{/js/policy.js}" defer></script>
 
 
 </body>

@@ -76,11 +76,11 @@ Swal.fire({
 
 //에너지 등급 시뮬레이터
 document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('simulatorForm1');
-    if (!form) return;
+    const form1 = document.getElementById('simulatorForm1');
+    if (!form1) return;
     
 
-    form.addEventListener('submit', async (e) => {
+    form1.addEventListener('submit', async (e) => {
         e.preventDefault();
         const box = document.getElementById('resultBox1');
         const items = box.querySelectorAll('.result-item');
@@ -89,15 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const box5 = document.getElementById("intensityChart3");
         const box2 = document.getElementById('compareText');
         if (!box3) return;
-    
-        
 
-        const formData = new FormData(form);
+
+        const formData = new FormData(form1);
         const resp = await fetch('/simulate1', {
           method: 'POST',
           body: formData
         });
         const data = await resp.json();
+        window.simulatorData1=data;
         
         if (!box) return;
       
@@ -112,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
-       
+        
+        // sendAiSummary(data)
         box.style.display='block';
         box2.style.display='block';
         box3.style.display='block';
@@ -125,21 +126,23 @@ document.addEventListener('DOMContentLoaded', () => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
     });
-});
-//태양광 시뮬레이터
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('simulatorForm2');
-    if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
+
+
+    const form2 = document.getElementById('simulatorForm2');
+    if (!form2) return;
+
+    form2.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const formData = new FormData(form);
+        const formData = new FormData(form2);
 
         const resp = await fetch('/simulate2', {
           method: 'POST',
           body: formData
         });
         const data = await resp.json();
+
+        window.simulatorData2=data;
 
         const box = document.getElementById('resultBox2');
         if (!box) return;     
@@ -160,7 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
         animateValue("annualSaveElectric", 0, data.annualSaveElectric, 2000, 0);
         animateValue("annualSaveCO2", 0, data.annualSaveCO2, 2000, 1);
         animateValue("requiredPanels", 0, data.requiredPanels, 2000, 0);
-
+        
+        
+        // sendAiSummary(data)
         console.log("data",data)
         box.style.display = 'block';
         box2.style.display='block'
@@ -173,7 +178,80 @@ document.addEventListener('DOMContentLoaded', () => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
     });
+
+
+const aiBtn = document.getElementById("aiSummaryBtn");
+
+  aiBtn.addEventListener("click", async () => {
+    // 1️⃣ 왼쪽과 오른쪽 결과 박스의 데이터 확인
+    const leftResult = window.simulatorData1 || null;  // 왼쪽 시뮬레이터 JSON
+    const rightResult = window.simulatorData2 || null; // 오른쪽 시뮬레이터 JSON
+
+    // 2️⃣ 전송할 JSON 구성
+    let prompt = "";
+
+    if (leftResult && rightResult) {
+      prompt = `
+        다음은 왼쪽과 오른쪽 시뮬레이터의 결과 데이터입니다.
+    
+        solarradiation, onePanelGeneration, onePanelCO2, onePanelSaveElectric, daySolar, total, annualSaveElectric, annualSaveCO2, requiredPanels은
+        각각 태양광 일사량, 패널 1개당 발전량, 패널 1개당 CO2 절감량, 패널 1개당 절감 전기량, 일일 태양광 발전량, 총 발전량, 연간 절감 전기량, 연간 절감 CO2량, 필요한 패널 수를 의미합니다.  
+        propertyTax, acquireTax, areaBonus, grade, category, energySelf, certificationDiscount, renewableSupport, zebGrade은  
+        각각 재산세 감면율, 취득세 감면율, 면적 보너스 비율, 에너지 등급, 건물 유형, 에너지 자립률, 인증 감면율, 신재생에너지 지원금, ZEB 등급을 의미합니다.
+        비율은 퍼센트단위입니다. 
+        이에대한 15줄~20줄 내외의 종합적인 평가 리포트를 작성해주세요.
+        이미 각각의 계산에대한 차트는 나와있으니 데이터 분석과 평가는 조금 얕게, 심층 평가는 깊게 작성해주세요.
+
+        [왼쪽 결과]
+        ${JSON.stringify(leftResult)}
+
+        [오른쪽 결과]
+        ${JSON.stringify(rightResult)}
+              `;
+    } 
+    else if (leftResult) {
+      prompt = `
+        다음은 왼쪽 시뮬레이터의 결과 데이터입니다.
+        이 데이터를 분석하여 10~15줄 내외의 평가 리포트를 작성해주세요.
+        propertyTax, acquireTax, areaBonus, grade, category, energySelf, certificationDiscount, renewableSupport, zebGrade은  
+        각각 재산세 감면율, 취득세 감면율, 면적 보너스 비율, 에너지 등급, 건물 유형, 에너지 자립률, 인증 감면율, 신재생에너지 지원금, ZEB 등급을 의미합니다.
+        비율은 퍼센트단위입니다.
+
+        ${JSON.stringify(leftResult)}
+              `;
+            } 
+            else if (rightResult) {
+              prompt = `
+        다음은 오른쪽 시뮬레이터의 결과 데이터입니다.
+        이 데이터를 분석하여 10~15줄 내외의 평가 리포트를 작성해주세요.
+        solarradiation, onePanelGeneration, onePanelCO2, onePanelSaveElectric, daySolar, total, annualSaveElectric, annualSaveCO2, requiredPanels은
+        각각 태양광 일사량, 패널 1개당 발전량, 패널 1개당 CO2 절감량, 패널 1개당 절감 전기량, 일일 태양광 발전량, 총 발전량, 연간 절감 전기량, 연간 절감 CO2량, 필요한 패널 수를 의미합니다.  
+
+        ${JSON.stringify(rightResult)}
+              `;
+    } 
+    else {
+      alert("아직 시뮬레이터 결과가 없습니다.");
+      return;
+    }
+
+    // 3️⃣ 로딩 표시
+    const aiResult = document.getElementById("aiResult");
+    aiResult.textContent = " AI 분석 중입니다... 잠시만 기다려주세요.";
+
+    // 4️⃣ 서버에 전송
+    const resp = await fetch("/ai/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt })
+    });
+
+    // 5️⃣ 응답 표시
+    const data = await resp.json();
+    aiResult.textContent = data.reply;
+  });
 });
+
 
 // 빌딩에어리어 가져오기
 document.addEventListener("DOMContentLoaded", () => {
@@ -737,3 +815,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+

@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `policy_all${getTimestamp()}.csv`;
+        a.download = `policy_${getTimestamp()}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 function getTimestamp() {
   const now = new Date();
+  console.log(now);
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
