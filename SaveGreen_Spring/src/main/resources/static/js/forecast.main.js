@@ -32,6 +32,12 @@ let __RUN_LOCK__ = false;
 // 헤더 기본 높이(최소값) 캐시
 let __HEADER_BASE_MIN__ = null;
 
+// [ADD] 중복방지 가드: runId+letter 조합별 1회만 출력
+const __printedKeys = new Set();
+function _printedKey(runId, letter) {
+    return `${runId}::${letter}`; // 고유키
+}
+
 /* ======================================================================
  * [ADD][SG-LOGS] ML 점수 로그 유틸 — runId 기반으로 A/B/C 최신 점수를 콘솔에 3줄 포맷 출력
  * - 전역 네임스페이스: window.SaveGreen.MLLogs
@@ -246,6 +252,12 @@ window.SaveGreen.MLLogs = (function () {
             console.warn('[logs] no runId. skip consoleScoresByRunAndLetter.');
             return;
         }
+
+        // [ADD] 중복 방지: 같은 runId+letter는 한 번만 찍는다
+        const key = _printedKey(id, letter);
+        if (__printedKeys.has(key)) return;
+        __printedKeys.add(key);
+
         const logs = await fetchLogsByRun(id);
         printChartScoreLogs(logs, letter);
     }
@@ -2151,6 +2163,7 @@ async function runForecast() {
     const $surface = $el('.result-surface');
 
     SaveGreen.log.info('forecast', 'run start');
+
     // 실행마다 컨텍스트 스냅샷 1회만 허용
     window.__CTX_LOGGED_ONCE__ = false;
 
@@ -2958,106 +2971,6 @@ async function logScoresFromSnapshotToCharts() {
 }
 
 
-/* ==========================================================
- * 7) ML Train → Status Poll → 결과 대기 유틸
- * 학습 시작: POST /api/forecast/ml/train → { jobId | id | runId }
- * @returns {Promise<string>} jobId
- * ========================================================== */
-async function startMlTrain() {
-    const url = `${ML_ENDPOINT}/train`;
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' }
-    });
-    if (!res.ok) throw new Error(`TRAIN ${res.status} ${res.statusText}`);
-    const json = await res.json().catch(() => ({}));
-    // 서버 구현마다 키가 다를 수 있어 안전하게 집계
-    const jobId = (json.jobId || json.id || json.runId || '').toString().trim();
-    if (!jobId) throw new Error('TRAIN: invalid job id');
-    SaveGreen.log.info('provider', `train started (jobId=${jobId})`);
-    return jobId;
-}
-
-
-
-/**
- * 학습 상태 폴링: 화면 로더 문구는 절대 변경하지 않음.
- * 필요하면 opt.onTick으로 외부(로거/패널)로만 전달.
- * 반환: 최종 status 문자열(DONE / FAILED / CANCELLED / TIMEOUT)
- */
-async function waitTrainDone(jobId, opt = {}) {
-    // 기본값(여유 있게)
-    const totalTimeoutMs     = opt.timeoutMs ?? 5 * 60 * 1000;    // 총 대기 5분
-    const perRequestTimeout  = opt.perRequestTimeoutMs ?? 12000;  // 요청당 12초
-    const baseIntervalMs     = opt.intervalMs ?? 1200;            // 시작 간격 1.2s
-    const maxIntervalMs      = 6000;                               // 최대 간격 6s
-    const maxNetErr          = opt.maxNetErr ?? 5;
-    const onTick             = typeof opt.onTick === 'function' ? opt.onTick : null;
-
-    const t0 = Date.now();
-    let consecutiveNetErr = 0;
-    let intervalMs = baseIntervalMs;
-
-    while (true) {
-        let state = 'unknown';
-        let json = null;
-
-        try {
-            const ctrl = new AbortController();
-            const kill = setTimeout(() => ctrl.abort(), perRequestTimeout);
-
-            const url = `${ML_ENDPOINT}/train/status?jobId=${encodeURIComponent(jobId)}`;
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: ctrl.signal });
-            clearTimeout(kill);
-
-            if (!res.ok) {
-                consecutiveNetErr++;
-                state = 'retry';
-            } else {
-                json = await res.json().catch(() => ({}));
-                state = String(json?.status || json?.state || '').toLowerCase();
-                consecutiveNetErr = 0;
-            }
-        } catch (e) {
-            consecutiveNetErr++;
-            state = 'retry';
-        }
-
-        try { onTick && onTick({ state, json, consecutiveNetErr }); } catch {}
-
-        // 완료/성공 신호(서버 표기 다양성 수용)
-        if (state === 'done' || state === 'success' || state === 'ready' || state === 'completed') {
-            SaveGreen.log.info('provider', `train status: done (ms=${Date.now() - t0})`);
-            return 'DONE';
-        }
-        // 실패/취소
-        if (state === 'failed' || state === 'error') {
-            SaveGreen.log.warn('provider', 'train status: failed');
-            return 'FAILED';
-        }
-        if (state === 'cancelled' || state === 'canceled') {
-            SaveGreen.log.warn('provider', 'train status: cancelled');
-            return 'CANCELLED';
-        }
-
-        // 네트워크 연속 오류 초과
-        if (consecutiveNetErr > maxNetErr) {
-            SaveGreen.log.warn('provider', `train status: too many network errors (${consecutiveNetErr})`);
-            return 'FAILED';
-        }
-
-        // 총 타임아웃
-        if ((Date.now() - t0) > totalTimeoutMs) {
-            SaveGreen.log.warn('provider', 'train status: timeout');
-            return 'TIMEOUT';
-        }
-
-        // 지수 백오프
-        await new Promise(r => setTimeout(r, intervalMs));
-        intervalMs = Math.min(Math.round(intervalMs * 1.5), maxIntervalMs);
-    }
-}
-
 
 
 
@@ -3308,18 +3221,14 @@ async function runABCSequence({ ctx, baseForecast, onCComplete }) {
     // ── A
     const A = modelOrFallback('A');
     await renderModelAChart?.({ years: A.years, yhat: A.yhat, costRange });
-    if (SHOW_LOCAL_SCORES) {
-        _logChartOneLine('chart A', _preferServerMetricsOrLocal('A', y_true, A.yhat));
-    }
-    await sleep(EXTRA_STAGE_HOLD_MS);
+    // 서버 점수(A) 한 줄 로그
+    await SaveGreen.MLLogs.consoleScoresByRunAndLetter('A');
 
     // ── B
     const B = modelOrFallback('B');
     await renderModelBChart?.({ years: B.years, yhat: B.yhat, costRange });
-    if (SHOW_LOCAL_SCORES) {
-        _logChartOneLine('chart B', _preferServerMetricsOrLocal('B', y_true, B.yhat));
-    }
-    await sleep(EXTRA_STAGE_HOLD_MS);
+    // 서버 점수(B) 한 줄 로그
+    await SaveGreen.MLLogs.consoleScoresByRunAndLetter('B');
 
     // ── C (Ensemble)
     try { if (makeEnsemble) void makeEnsemble([A, B]); } catch {}
@@ -3338,9 +3247,9 @@ async function runABCSequence({ ctx, baseForecast, onCComplete }) {
         costRange,
         subtitleOverride
     });
-    if (SHOW_LOCAL_SCORES) {
-        _logChartOneLine('chart C', _preferServerMetricsOrLocal('C', y_true, Cyhat));
-    }
+    // 서버 점수(C) 한 줄 로그
+    await SaveGreen.MLLogs.consoleScoresByRunAndLetter('C');
+
 
 
     await sleep(300);
