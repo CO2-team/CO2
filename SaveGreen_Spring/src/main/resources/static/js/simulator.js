@@ -112,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('renewableSupport').textContent = data.renewableSupport ?? '-';
         document.getElementById('zebGrade').textContent = data.zebGrade ?? '-';   
 
-        
+
+
         // sendAiSummary(data)
         box.style.display='block';
         box2.style.display='block';
@@ -192,59 +193,68 @@ const aiBtn = document.getElementById("aiSummaryBtn");
 
     if (leftResult && rightResult) {
       prompt = `
-        이 시뮬레이터는 건물의 에너지 효율 등급을 평가하고, 
-        태양광 패널을 설치했을 때 목표 등급에 도달하기 위해 필요한 패널 수와 
-        그에 따른 경제적·환경적 효과를 분석하기 위한 시스템입니다.
+          이 시뮬레이터는 건물의 에너지 효율 등급을 평가하고, 
+          태양광 패널을 설치했을 때 목표 등급에 도달하기 위해 필요한 패널 수와 
+          그에 따른 경제적·환경적 효과를 분석하기 위한 시스템입니다.
 
-        시뮬레이션의 기본 흐름은 다음과 같습니다:
-        1. [에너지 효율 시뮬레이터]는 건물의 주소, 면적, 위도·경도, 에너지 사용량, 태양광 패널 정격 출력, 
-          에너지 효율 등급 기준 등을 바탕으로 현재 건물의 등급과 세제 감면율을 산출합니다.
-        2. [태양광 경제성 시뮬레이터]는 사용자가 에너지 효율 시뮬레이터에서 검색한 현재등급에서 "현재 등급 → 목표 등급" 구간을 바탕으로,
-          목표 등급을 달성하기 위해 필요한 태양광 패널 수를 계산하고, 
-          예상 발전량, 절약 전기량, 탄소 절감량, 절세 효과 등을 분석합니다.
-        3. 이 두 결과를 종합하여, 태양광 설치 전후의 에너지 자립률 변화, 
-          세제 인센티브, 환경적 개선 효과를 비교·평가합니다.
+          시뮬레이션의 기본 흐름은 다음과 같습니다:
+          1. [에너지 효율 시뮬레이터]는 건물의 주소, 면적, 위도·경도, 에너지 사용량, 태양광 패널 정격 출력, 
+            에너지 효율 등급 기준 등을 바탕으로 현재 건물의 등급과 세제 감면율을 산출합니다.
+          2. [태양광 경제성 시뮬레이터]는 사용자가 에너지 효율 시뮬레이터에서 검색한 현재등급에서 "현재 등급 → 목표 등급" 구간을 바탕으로,
+            목표 등급을 달성하기 위해 필요한 태양광 패널 수를 계산하고, 
+            예상 발전량, 절약 전기량, 탄소 절감량, 절세 효과 등을 분석합니다.
+          3. 이 두 결과를 종합하여, 태양광 설치 전후의 에너지 자립률 변화, 
+            세제 인센티브, 환경적 개선 효과를 비교·평가합니다.
 
-        
-        실제계산은 이 기준으로 합니다:
-        패널 규격: 2.2 ㎡ / 500 Wp(=0.5 kW) / 장
-        설치 필요 면적(간격 포함): 패널 면적 x 1.8 = 3.96 ㎡/장
-        패널 단가: 400,000원/장
-        설치비(시공): 100,000원/장
-        전력요금: 185.5 원/kWh
-        전력 배출계수: 0.415 kgCO₂/kWh
-        발전 효율 상수: 0.8
+          데이터 항목 설명(변수명은 그대로 사용하세요):
+          - solarradiation: 연간 태양광 일사량  
+          - onePanelGeneration: 패널 1개당 연간 발전량  
+          - onePanelCO2: 패널 1개당 연간 CO₂ 절감량  (0.1ton)
+          - annualSaveElectric: 연간 절감 전기세(만원)  
+          - annualSaveCO2: 연간 절감 CO₂량(ton)  
+          - total: 연간 절감 전기에너지량(kWh)
+          - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
+          - propertyTax / acquireTax / areaBonus / certificationDiscount: 재산세/취득세/용적률증가/인증비용감면율
+          - grade / zebGrade: 에너지 효율 등급 및 ZEB 등급  
+          - energySelf: 에너지 자립률(%)  
+          - category: 건물 유형 (예: 공장, 병원, 창고 등)
+          - daySolar: 일평균 일사량 (kWh/m²/day)
+          - currentGrade: 현재 에너지 효율 등급
+          - targetGrade: 목표 에너지 효율 등급
+          - 패널1개당 설치 면적 요구치는 약 3.3m²입니다.
 
-        데이터 항목 설명:
-        - solarradiation: 태양광 일사량  
-        - onePanelGeneration: 패널 1개당 연간 발전량  
-        - onePanelCO2: 패널 1개당 연간 CO₂ 절감량  
-        - annualSaveElectric: 연간 절감 전기세(만원)  
-        - annualSaveCO2: 연간 절감 CO₂량(ton)  
-        - total: 연간 절감 전기에너지량(kWh)
-        - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
-        - propertyTax / acquireTax / areaBonus / certificationDiscount: 재산세/소득세/용적률증가/인증비용감면율
-        - grade / zebGrade: 에너지 효율 등급 및 ZEB 등급  
-        - energySelf: 에너지 자립률(%)  
-        - category: 건물 유형 (예: 공장, 병원, 창고 등)
+          [분석 규칙(반드시 준수)]
+          - 각 문장은 반드시 “수치 → 의미(원인→결과)”를 포함하세요. 숫자만 나열 금지.
+          - 에너지 자립률은 태양광패널개수가 입력되지 않으면 0%일 수 있으므로 그 가능성을 고려해 해석하세요.
+          - 도메인 변수명은 반드시 위에 제시한 이름 그대로 사용하세요(예: acquireTax는 ‘취득세’로 해석하되 변수명 맥락 유지).
+          - 퍼센타일/평균 비교 가능하다면 제시하세요.
+          - “대안/우선순위”를 반드시 포함해 의사결정 관점의 분석을 하세요(예: 패널 수 증설 vs 효율 개선 vs 배치 최적화).
+          - 출력은 항상 딱딱한 보고서형식보단 자연스러운 기사문체로 작성하세요.
 
-        ---
+          [필수 검증(불일치 시 내부적으로 재계산 후 일관된 수치로 서술; 계산 과정은 노출하지 않음)]
+          - total ≈ requiredPanels x onePanelGeneration
+          - annualSaveElectric ≈ total x 0.1855 / 10000    (만원)
+          - annualSaveCO2 ≈ total x 0.415 / 1000           (톤)
+          - onePanelCO2(톤/패널) ≈ annualSaveCO2 / requiredPanels
+          - 값이 제공되지 않은 경우에는 추정하지 말고 “데이터 미제공”으로 간결히 언급
 
-        결과는 반드시 다음의 3단 구조로 서술해주세요:
-        ① 현재 상태 분석 — 건물의 에너지 효율, 자립률, 등급, 절세 현황  
-        ② 목표 등급 달성을 위한 태양광 시나리오 — 필요한 패널 수, 절감량, CO₂ 저감 효과, 경제성  
-        ③ 종합 평가 — 환경적·경제적 개선 효과, 등급 상승 가능성, 지속 가능성 관점 요약
+          [출력 형식(문단 3개, 15~25줄 내외)]
+          ① 현재 상태 분석 — grade, zebGrade, energySelf, propertyTax/acquireTax/areaBonus/certificationDiscount, 
+            eik1 vs average1, percent(상위%) 등을 “운영비/정책 인센티브 관점”으로 해석. 
+            위험(병목)과 기회(레버리지)를 4~5문장으로 요약.
 
-        추가 지침:
-        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 15~25줄 내외로 서술해주세요.
-        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 그 점을 고려하여 작성해주세요.
-        - 에너지 효율등급은 1+++,1++,1+,1,2,3,4,5,6,7등급까지 존재합니다.예를들어 1등급은 사실상 10개중 4번째 등급이므로 중간에위치한 등급임을 인지하고 설명해주세요
-        - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
-        - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
-        - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
-        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 흐름 중심으로,  
-          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요.
-        - 계산 기준을 가지고 이 건물의 최대 태양광 설치 가능 개수같은 수치적 접근을 해주세요
+          ② 목표 등급 달성을 위한 태양광 시나리오 — requiredPanels, total, annualSaveElectric, annualSaveCO2, onePanelGeneration,
+            onePanelCO2를 근거로 “투입 대비 효과(만원/패널, 톤/패널), 설치 면적(= requiredPanels × 3.3m²)과 현실성, 
+            대안(패널 효율/배치/부분 설치)”을 4~6문장 분석. 단순 나열 금지.
+
+          ③ 종합 평가 — 경제성·환경성·정책 인센티브를 함께 보아 실행 타당성을 2~3문장으로 정리. 
+            가정/전제(전력단가 185.5원/kWh, 배출계수 0.415 kgCO₂/kWh 등)를 한 줄로 명시.
+
+          [금지]
+          - 표/리스트형 숫자 나열만 하는 문장
+          - “데이터가 ~입니다” 같은 정보 나열형 문장 반복
+          - 좌/우(왼쪽/오른쪽) 존재 시 무조건 비교로 끝내기 (비교는 가능하되, 최종 문단은 의사결정 인사이트로 마무리)
+       
 
         [왼쪽 결과]
         ${JSON.stringify(leftResult)}
@@ -259,30 +269,39 @@ const aiBtn = document.getElementById("aiSummaryBtn");
         입력된 주소, 면적, 위도·경도, 에너지 사용량, 태양광 패널 정격 출력, 
         에너지 효율 기준을 바탕으로 현재 상태의 등급 및 절세 가능성을 분석합니다.
 
-       실제계산은 이 기준으로 합니다:
-        패널 규격: 2.2 ㎡ / 500 Wp(=0.5 kW) / 장
-        설치 필요 면적(간격 포함): 패널 면적 x 1.8 = 3.96 ㎡/장
-        패널 단가: 400,000원/장
-        설치비(시공): 100,000원/장
-        전력요금: 185.5 원/kWh
-        전력 배출계수: 0.415 kgCO₂/kWh
-        발전 효율 상수: 0.8
+        데이터 항목 설명:
+      - solarradiation: 연간 태양광 일사량  
+      - onePanelGeneration: 패널 1개당 연간 발전량  
+      - onePanelCO2: 패널 10개당 연간 CO₂ 절감량
+      - annualSaveElectric: 연간 절감 전기세(만원)  
+      - annualSaveCO2: 연간 절감 CO₂량(ton)  
+      - total: 연간 절감 전기에너지량(kWh)
+      - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
+      - propertyTax / acquireTax / areaBonus / certificationDiscount: 재산세/취득세/용적률증가/인증비용감면율
+      - grade / zebGrade: 에너지 효율 등급 및 ZEB 등급  
+      - energySelf: 에너지 자립률(%)  
+      - category: 건물 유형 (예: 공장, 병원, 창고 등)
+      - daySolar: 일평균 일사량 (kWh/m²/day)
+
 
         결과는 다음 3단 구조로 작성하세요:
-        ① 현재 상태 분석 — 건물의 등급, 자립률, 절세 현황  
+        ① 현재 상태 분석 — 건물의 등급, 자립률, 절세 현황을 얘기하지만. 자립률이 0인경우는 미입력이거나 0개일수도있다는 가정을 해야합니다. 몰라서 미입력인데 0이라고 확정짓고 대답하면 흐름이 이상해집니다.
         ② 개선 필요성 — 태양광 설치 또는 효율 개선을 통한 잠재 효과  
-        ③ 종합 평가 — 향후 절감, 환경 개선, 정책 연계 가능성  
+        ③ 종합 평가 — 환경적·경제적 기여 가능성, 등급 향상 여지, 정책적인 인사이트를 얘기해주세요.
 
         추가 지침:
-        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 10~15줄 내외로 서술해주세요.
-        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 몰라서 입력을 안했거나, 0개일수도있다는 두가지 가정을 고려하여 작성해주세요.
-        - 에너지 효율등급은 1+++,1++,1+,1,2,3,4,5,6,7등급까지 존재합니다.예를들어 1등급은 사실상 10개중 4번째 등급이므로 중간에위치한 등급임을 인지하고 설명해주세요
+        - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 15~25줄 내외로 서술해주세요.
+        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 그 점을 고려하여 작성해주세요.
+        - 에너지 효율등급은 다음과 같이 숫자가 낮을수록 효율이 나쁜 구조입니다."1+++", "1++", "1+", "1", "2", "3", "4", "5", "6", "7" 순서로 존재합니다. 
+        - ZEB등급은 다음과 같이 숫자가 높을수록 효율이 나쁜 구조입니다."+", "1", "2", "3", "4", "5" 순서로 존재합니다. +는 1등급보다 더 좋은등급입니다.
+        - 절세율은 0%부터 시작하여 최대 20%까지 존재합니다. 퍼센트가 높을수록 좋은구조입니다.
         - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
         - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
         - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
-        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 비교 중심으로,  
-          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요.  
-        - 계산 기준을 가지고 이 건물의 최대 태양광 설치 가능 개수같은 수치적 접근을 해주세요
+        - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 흐름 중심으로,  
+          하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요. 두 데이터의 비교는 하지마세요.
+        
+
 
         [왼쪽 결과]
 
@@ -295,29 +314,38 @@ const aiBtn = document.getElementById("aiSummaryBtn");
         해당 목표를 달성하기 위해 필요한 태양광 패널 수, 
         에너지 절감 효과, 탄소 절감량, 경제적 효과를 분석하는 시스템입니다.
 
-        실제계산은 이 기준으로 합니다:
-        패널 규격: 2.2 ㎡ / 500 Wp(=0.5 kW) / 장
-        설치 필요 면적(간격 포함): 패널 면적 x 1.8 = 3.96 ㎡/장
-        패널 단가: 400,000원/장
-        설치비(시공): 100,000원/장
-        전력요금: 185.5 원/kWh
-        전력 배출계수: 0.415 kgCO₂/kWh
-        발전 효율 상수: 0.8
+         데이터 항목 설명:
+        - solarradiation: 연간 태양광 일사량  
+        - onePanelGeneration: 패널 1개당 연간 발전량  
+        - onePanelCO2: 패널 1개당 연간 CO₂ 절감량 (0.1ton) 
+        - annualSaveElectric: 연간 절감 전기세(만원)  
+        - annualSaveCO2: 연간 절감 CO₂량(ton)  
+        - total: 연간 절감 전기에너지량(kWh)
+        - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
+        - energySelf: 에너지 자립률(%)  
+        - category: 건물 유형 (예: 공장, 병원, 창고 등)
+        - daySolar: 일평균 일사량 (kWh/m²/day)
+        - currentGrade: 현재 에너지 효율 등급
+        - targetGrade: 목표 에너지 효율 등급
+        - 패널1개당 설치 면적 요구치는 약 3.3m²입니다.
+
+        - solarRadiation 나누기 366 하면 daySolar가 나옵니다(윤년).
+        - solarRadiation 곱하기 efficiency(0.8) 곱하기 정격출력(kw) 곱하기 패널수 = total
+        - annualSaveElectric = total 곱하기 0.1855 / 10000
+        - annualSaveCO2 = total 곱하기 0.419 / 1000
+      
 
         결과는 다음 3단 구조로 작성하세요:
-        ① 목표 등급 분석 — 설정된 목표의 의미와 달성 기준  
+        ① 시뮬레이터의 필요성에대해 설명해주세요, 이 시뮬레이터는 목표치 달성시 절감예측이 목표이므로 현재상태분석보단 필요성을 대두시키는게 중요합니다.
         ② 필요한 태양광 규모 — 패널 수, 발전량, 절감량, CO₂ 저감 효과  
         ③ 종합 평가 — 경제성, 환경 기여, 설치 타당성 및 정책적 시사점  
 
         추가 지침:
         - 형식적 문체 대신, 보고서나 기사처럼 자연스럽고 이해하기 쉬운 문장으로 10~15줄 내외로 서술해주세요.
-        - 에너지 자립률은 태양광패널개수가 입력되지않으면 0%이므로, 몰라서 입력을 안했거나, 0개일수도있다는 두가지 가정을 고려하여 작성해주세요.
-        - 문단 구분은 하되, 문단 번호 제외한 기호는 삼가해주세요. 
         - 데이터 간의 관계와 의미를 분석하되, 단순 수치 나열보다 "개선 인사이트"에 초점을 맞춰주세요.  
-        - 주요 수치(예: 절감량, 등급, 감면율 등)는 문장 안에 자연스럽게 포함시켜주세요.  
         - 왼쪽(기존 상태)과 오른쪽(태양광 적용 후) 데이터가 모두 존재한다면 비교 중심으로,  
           하나만 있을 경우에는 그 데이터의 의미를 중심으로 평가해주세요. 
-        - 계산 기준을 가지고 이 건물의 최대 태양광 설치 가능 개수같은 수치적 접근을 여러가지로 해주세요
+        - 계산적 접근이 주인 시뮬레이터기때문에 이 값이 어떻게 나온건지 수치적인 인사이트가 필요하고 이 데이터들로 더 얻을 수 있는 정보가 있으면 서술해주세요.
 
         [오른쪽 결과]
         ${JSON.stringify(rightResult)}
@@ -582,9 +610,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         .then(r => r.ok ? r.json() : null)
                         .then(data => {
                           if (!data) return;
-                          const BM = document.querySelector('#buildingMonthly')
+                          const BM = document.getElementById('buildingMonthly')
                           BM.value = JSON.stringify(data);
                           console.log("선택건물 월별비중:", data);
+                          console.log("✅ 선택건물 월별비중 저장 완료:", BM.value);
                         });
 
                     // 카테고리 평균 퍼센트 가져오기
@@ -592,7 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         .then(r => r.ok ? r.json() : null)
                         .then(data => {
                           if (!data) return;
-                          const CM = document.querySelector('#categoryMonthly');
+                          const CM = document.getElementById('categoryMonthly');
                           CM.value = JSON.stringify(data);
                           console.log("비교군 월별비중:", data);
                         });
@@ -895,9 +924,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
-        const BM = document.querySelector('#buildingMonthly')
+        const BM = document.getElementById('buildingMonthly')
         BM.value = JSON.stringify(data);
         console.log("선택건물 월별비중:", data);
+        console.log("✅ 선택건물 월별비중 저장 완료:", BM.value);
       });
 
   // 카테고리 평균 퍼센트 가져오기
@@ -905,9 +935,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
-        const CM = document.querySelector('#categoryMonthly');
+        const CM = document.getElementById('categoryMonthly');
         CM.value = JSON.stringify(data);
         console.log("비교군 월별비중:", data);
+         console.log("✅ 선택건물 월별비중 저장 완료:", CM.value);
       });
 });
 
