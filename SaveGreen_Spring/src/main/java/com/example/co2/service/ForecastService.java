@@ -211,17 +211,17 @@ public class ForecastService {
     /* FE와 동일한 점수 계산(가드 포함)*/
     private int computeStatusScore(double savingPct, double paybackYears, Integer builtYear) {
         // 가드 : 원치 않는 과대 판정 금지
-        if (savingPct < 5.0 || paybackYears > 12.0) return 0;
+        if (savingPct < 5.0 || paybackYears > 20.0) return 0;
 
         int score = 0;
 
         // 1. 절감률
-        if (savingPct >= 15.0) score += 2;
+        if (savingPct >= 18.0) score += 2;
         else if (savingPct >= 10.0) score += 1;
 
         // 2. 회수기간
-        if (paybackYears <= 5.0) score += 2;
-        else if (paybackYears <= 8.0) score += 1;
+        if (paybackYears <= 8.0) score += 2;
+        else if (paybackYears <= 12.0) score += 1;
 
         // 3. 연식(없으면 중립 1점)
         int agePt = 1;
@@ -240,7 +240,7 @@ public class ForecastService {
     /* FE와 동일한 판정 라벨(점수 기반) */
     private String decideLabelByScore(double savingPct, double paybackYears, Integer builtYear) {
         // 가드 우선
-        if (savingPct < 5.0 || paybackYears > 12.0) return "NOT_RECOMMEND";
+        if (savingPct < 5.0 || paybackYears > 20.0) return "NOT_RECOMMEND";
 
         int score = computeStatusScore(savingPct, paybackYears, builtYear);
         if (score >= 4) return "RECOMMEND";

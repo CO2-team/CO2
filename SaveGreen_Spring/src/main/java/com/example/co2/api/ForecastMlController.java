@@ -287,4 +287,15 @@ public class ForecastMlController {
 		}
 		return ResponseEntity.ok(all);
 	}
+
+	// 웹 페이지 console log에 뜨는 (GET http://localhost:8080/favicon.ico 404) 에러 제거
+	@RestController
+	static class RootAuxController {
+		@GetMapping("/favicon.ico")
+		public ResponseEntity<Void> faviconNoop() {
+			return ResponseEntity.noContent().build(); // 204 No Content
+		}
+	}
+
+
 }

@@ -84,9 +84,6 @@
         		const denom = Math.max(1, savingKwh);
         		paybackYears = (afterKwh / denom) * 0.8;
         	}
-
-        	// 보수적 표시 범위 고정
-        	paybackYears = clamp(paybackYears, 3, 8);
         }
 
 
@@ -123,7 +120,7 @@
         let score = 0;
 
         // 1. 절감률
-        if (savingPct >= 15) score += 2;
+        if (savingPct >= 18) score += 2;
         else if (savingPct >= 10) score += 1;
 
         // 2. 회수기간
