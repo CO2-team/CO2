@@ -3,7 +3,7 @@ document.addEventListener('click', function(e) {
   if (e.target.closest('.chatbot')) {
     const botWindow = document.querySelector('.chatbot-window');
     botWindow.classList.toggle('hidden');
-    console.log("💬 챗봇 토글됨");
+    console.log(" 챗봇 아이콘 클릭됨");
   }
 
   // 챗봇 닫기 버튼 클릭
@@ -25,7 +25,7 @@ const chatbotData = {
 
   simulator: [
     { text: "시뮬레이터는 어떤 구조인가요?", answer: "좌측은 현재 에너지 상태를, 우측은 태양광 시뮬레이션을 보여줍니다. 주소 입력 → 면적 → 패널 수를 입력하면 결과를 확인할 수 있습니다." },
-    { text: "패널 개수를 모르면 어떻게 하나요?", answer: "패널 수를 모르면 면적만 입력해도 자동으로 추정합니다. 평균 3.3m²당 1패널 기준입니다." },
+    { text: " "},
     { text: "처음으로", next: "root" }
   ],
 
@@ -42,8 +42,8 @@ const chatbotData = {
   ],
 
   solar: [
-    { text: "태양광 발전량 계산은 어떻게 하나요?", answer: "일사량 × 효율(0.8) × 패널 출력 × 패널 개수로 계산됩니다. NASA POWER API 데이터를 기반으로 합니다." },
-    { text: "패널 1개가 얼마나 발전하나요?", answer: "500Wp 패널 기준, 연간 약 1,200kWh 발전합니다." },
+    { text: "태양광 발전량 계산은 어떻게 하나요?", answer: "일사량 x 효율(0.8) x 패널 출력 x 패널 개수로 계산됩니다. NASA POWER API 데이터를 기반으로 합니다." },
+    { text: "패널 1개가 얼마나 발전하나요?", answer: "500Wp 패널 기준, 연간 약 600kWh 발전합니다." },
     { text: "처음으로", next: "root" }
   ]
 };
