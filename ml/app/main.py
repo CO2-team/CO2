@@ -20,8 +20,9 @@
 # - 개발 중엔 server.py를 실행(uvicorn.run("app.main:app", reload=True))
 # - 브라우저: http://localhost:8000/health , /docs 로 스웨거 확인
 # ============================================================
-
 from __future__ import annotations
+
+import logging
 
 from datetime import datetime
 from typing import List, Optional, Literal
@@ -33,6 +34,19 @@ from .schema import PredictRequest, PredictResponse
 from .model import ModelManager
 from .trainer import start_training, get_status, TrainJob
 from . import ml_logging
+
+# ─────────────────────────────────────────────────────────
+# [LOG FILTER] uvicorn.access에서 /train/status 요청만 숨김
+#  - 장점: 다른 요청(access log)은 그대로 보이고, 폴링만 조용해짐
+#  - 위치: FastAPI app 생성(및 uvicorn.run)보다 "먼저" 실행되어야 함
+# ─────────────────────────────────────────────────────────
+class _HideTrainStatus(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        # uvicorn access log 예: '127.0.0.1:56739 - "GET /train/status?jobId=... HTTP/1.1" 200 OK'
+        return ("/train/status" not in msg)
+
+logging.getLogger("uvicorn.access").addFilter(_HideTrainStatus())
 
 
 # ------------------------ 공통 run_id (예측용) ------------------------
@@ -246,6 +260,12 @@ def train_status(job_id: str):
         )
     )
 
+# [추가] 쿼리 파라미터 버전(별칭)
+@app.get("/train/status")
+def train_status_query(jobId: str = Query(..., description="학습 jobId")):
+	return train_status(jobId)  # 기존 경로파라미터 버전 재사용
+
+
 # ============================================================
 # 추가 엔드포인트 — 모델 상태 조회 & 리로드 & 배치 예측
 # ------------------------------------------------------------
@@ -263,6 +283,7 @@ def model_status():
     """
     m = get_model()
     return m.status()
+
 
 @app.post("/admin/reload-model", summary="학습 산출물 재로딩")
 def reload_model():
