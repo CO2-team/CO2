@@ -355,6 +355,7 @@ class ModelManager:
         years/series/cost/kpi를 포함하는 표준 응답을 생성.
         - baselineKwh이 없으면 floorAreaM2×DEFAULT_EUI를 사용.
         - cost.savingKrwYr은 연도별 전력단가 상승률을 반영.
+        - 판정/표시는 '첫 해' 기준 절감비용을 사용.
         """
         floor = _safe_float(payload.get("floorAreaM2"), 0.0)
         baseline_kwh = _safe_float(
@@ -362,12 +363,15 @@ class ModelManager:
             floor * DEFAULT_EUI if floor > 0 else 300_000.0
         )
 
+        # [NEW] 현실성용 절감률 클램프(판정용) : 0~40%
+        saving_pct_clamped = max(0.0, min(float(saving_pct), 40.0))
+
         tariff0 = _safe_float(payload.get("tariffKrwPerKwh"), DEFAULT_TARIFF)
         escal = _safe_float(payload.get("electricityEscalationPctPerYear"), DEFAULT_ESCALATION)
         capex_per_m2 = _safe_float(payload.get("capexPerM2"), DEFAULT_CAPEX_PER_M2)
 
         # after = baseline × (1 - pct)
-        after = baseline_kwh * (1.0 - saving_pct / 100.0)
+        after = baseline_kwh * (1.0 - saving_pct_clamped / 100.0)
         series_after = [round(after, 4) for _ in years]
 
         # savingKwh는 단순 동일(연차별 변화 필요시 정책 반영)
@@ -380,12 +384,53 @@ class ModelManager:
             tariff_year_i = tariff0 * ((1.0 + escal) ** i)
             cost_saving_krw.append(round(saving_kwh * tariff_year_i, 2))
 
-        # KPI(마지막 연도 기준)
-        capex = floor * capex_per_m2 if floor > 0 else 0.0
-        last_saving_cost = cost_saving_krw[-1] if cost_saving_krw else 0.0
-        payback = (capex / last_saving_cost) if last_saving_cost > 0 else 99.0
+        # KPI: CAPEX 및 첫 해 절감비용(= 판정 기준)
+        capex_fixed = _safe_float(payload.get("capexFixed"), 0.0)
+        capex_free = _safe_float(payload.get("capexFreeAreaM2"), 0.0)
+        eff_area = max(0.0, floor - capex_free)
+        capex = max(0.0, capex_fixed + capex_per_m2 * eff_area)
 
-        label = "RECOMMEND" if (saving_pct >= 15.0 and payback <= 5.0) else ("CONDITIONAL" if payback <= 8.0 else "NOT_RECOMMEND")
+        first_saving_cost = cost_saving_krw[0] if cost_saving_krw else 0.0  # 첫 해 기준
+        payback = (capex / first_saving_cost) if first_saving_cost > 0 else 99.0
+
+        # -------------------- 라벨/점수(현실형 18/10/8/12) --------------------
+        # 가드: 너무 낮은 절감률, 너무 긴 회수기간은 비추천
+        if saving_pct_clamped < 5.0 or payback > 20.0:
+            label = "NOT_RECOMMEND"
+            score = 0
+            saving_pct_pts = 0
+            payback_pts = 0
+            age_pts = 0
+        else:
+            # 점수(절감률/회수/연식)
+            score = 0
+
+            # 절감률 점수
+            saving_pct_pts = 2 if saving_pct_clamped >= 18.0 else (1 if saving_pct_clamped >= 10.0 else 0)
+            score += saving_pct_pts
+
+            # 회수기간 점수
+            payback_pts = 2 if payback <= 8.0 else (1 if payback <= 12.0 else 0)
+            score += payback_pts
+
+            # 연식 점수 (미입력은 중립 1점)
+            built_year = int(payload.get("builtYear") or 0)
+            now = datetime.now().year
+            if built_year > 0 and built_year <= now:
+                age = now - built_year
+                age_pts = 2 if age >= 25 else (1 if age >= 10 else 0)
+            else:
+                age_pts = 1
+            score += age_pts
+
+            # 최종 라벨
+            if score >= 4:
+                label = "RECOMMEND"
+            elif score >= 2:
+                label = "CONDITIONAL"
+            else:
+                label = "NOT_RECOMMEND"
+        # ---------------------------------------------------------------------
 
         return {
             "schemaVersion": "1.0",
@@ -399,11 +444,20 @@ class ModelManager:
                 "savingKrwYr": cost_saving_krw
             },
             "kpi": {
-                "savingCostYr": last_saving_cost,
+                # [FIX] 첫 해 기준 비용 절감 사용 + 변수명 오타 수정
+                "savingCostYr": first_saving_cost,
                 "savingKwhYr": round(saving_kwh, 4),
-                "savingPct": round(saving_pct, 4),
+                # [NOTE] savingPct는 클램프된 값으로 표기(현실성)
+                "savingPct": round(saving_pct_clamped, 4),
                 "paybackYears": round(payback, 3),
-                "label": label
+                "label": label,
+                # [OPTIONAL] 설명가능성: 점수 디테일 추가(원하면 사용)
+                "scoreDetail": {
+                    "savingPctPts": saving_pct_pts if 'saving_pct_pts' in locals() else 0,
+                    "paybackPts": payback_pts if 'payback_pts' in locals() else 0,
+                    "agePts": age_pts if 'age_pts' in locals() else 0,
+                    "total": score
+                }
             },
             "contextEcho": {
                 "buildingName": payload.get("buildingName"),
