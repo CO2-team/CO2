@@ -246,6 +246,12 @@ def train_status(job_id: str):
         )
     )
 
+# [추가] 쿼리 파라미터 버전(별칭)
+@app.get("/train/status")
+def train_status_query(jobId: str = Query(..., description="학습 jobId")):
+	return train_status(jobId)  # 기존 경로파라미터 버전 재사용
+
+
 # ============================================================
 # 추가 엔드포인트 — 모델 상태 조회 & 리로드 & 배치 예측
 # ------------------------------------------------------------
@@ -263,6 +269,7 @@ def model_status():
     """
     m = get_model()
     return m.status()
+
 
 @app.post("/admin/reload-model", summary="학습 산출물 재로딩")
 def reload_model():
