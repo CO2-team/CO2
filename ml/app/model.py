@@ -395,7 +395,7 @@ class ModelManager:
 
         # -------------------- 라벨/점수(현실형 18/10/8/12) --------------------
         # 가드: 너무 낮은 절감률, 너무 긴 회수기간은 비추천
-        if saving_pct_clamped < 5.0 or payback > 20.0:
+        if saving_pct_clamped < 5.0 or payback > 12.0:
             label = "NOT_RECOMMEND"
             score = 0
             saving_pct_pts = 0
