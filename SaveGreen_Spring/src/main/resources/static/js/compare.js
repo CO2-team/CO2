@@ -8,6 +8,8 @@ function runCompare() {
     console.log('runCompare 실행됨');
     console.log('Chart 객체:', window.Chart);
     console.log('캔버스들:', document.getElementById('intensityChart1'), document.getElementById('intensityChart2'), document.getElementById('intensityChart3'));
+    console.log("현재 BM:", document.querySelector('#buildingMonthly')?.value);
+    console.log("현재 CM:", document.querySelector('#categoryMonthly')?.value);
     console.log(percent);
     if (!eikEl1 && !eikEl2) return;
     if (!avgEl1 && !avgEl2) return;
@@ -31,8 +33,10 @@ function runCompare() {
     var avg = Number(avgStr);
     const BM = document.getElementById('buildingMonthly');
     const CM = document.getElementById('categoryMonthly');
+    console.log("서버 응답(raw):", BM.value, CM.value);
     BMlist = JSON.parse(BM.value);
     CMlist = JSON.parse(CM.value);
+    
     if(!BMlist||!CMlist){
         console.log('차트 빔');
         return;

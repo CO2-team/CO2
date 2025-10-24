@@ -20,8 +20,25 @@
       <div class="menu-toggle"><img src="/img/menu.svg" style="color: aliceblue;"></div>
     </div>
     
-
-    
+    <div class="chatbot" ><img src="/img/chatbot.png" width="30px" height="30px"></div>
+    <div class="chatbot">
+      <img src="/img/chatbot.png" width="30" height="30" alt="Chatbot Icon">
+    </div>
+    <div class="chatbot-window hidden">
+      <div class="chatbot-header">
+        <span>SaveGreen 도우미</span>
+        <button class="chatbot-close">&times;</button>
+      </div>
+      <div class="chatbot-body">
+        <p>무엇을 도와드릴까요?</p>
+        <div class="chatbot-options">
+          <button>시뮬레이터 사용법</button>
+          <button>세금 감면 정책</button>
+          <button>에너지 등급</button>
+          <button>태양광 계산법</button>
+        </div>
+      </div>
+    </div>
     <nav class="navbar">
       <ul class="nav-links">
         <li>
@@ -56,4 +73,5 @@
     <hr class="lineHR" style="color: aliceblue; margin: 0; padding: 0;">
   </header>
   <script th:src="@{/js/header.js}"></script>
+  <script th:src="@{/js/chatbot.js}"></script>
 </div>

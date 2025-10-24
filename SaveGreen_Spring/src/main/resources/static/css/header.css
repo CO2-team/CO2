@@ -246,6 +246,10 @@
     font-size: 16px;
   }
 
+
+
+  
+
   /* 모바일에서는 드롭다운 항상 펼쳐진 형태 */
   .dropdown-panel {
     position: static;
@@ -273,4 +277,77 @@
 @keyframes fadeDown {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+
+
+
+/* .chatbot{
+  position:absolute;
+  right:10px;
+  top:15px;
+  cursor:pointer ;
+} */
+
+.chatbot {
+  position: fixed;
+  top : 15px;
+  right: 10px;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.2s;
+}
+
+.chatbot:hover {
+  transform: scale(1.1);
+}
+
+.chatbot-window {
+  position: fixed;
+  top: 240px;
+  right: 20px;
+  width: 320px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 999;
+  font-family: 'Pretendard', sans-serif;
+  transition: opacity 0.3s ease;
+}
+
+.chatbot-window.hidden {
+  display: none;
+}
+
+.chatbot-header {
+  background-color: #2e7d32;
+  color: white;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.chatbot-body {
+  padding: 10px;
+  font-size: 14px;
+  color: #333;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.chatbot-options button {
+  width: 100%;
+  padding: 8px;
+  margin: 4px 0;
+  background-color: #e8f5e9;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.chatbot-options button:hover {
+  background-color: #c8e6c9;
 }

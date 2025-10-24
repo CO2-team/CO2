@@ -175,6 +175,8 @@ public class SimulatorService {
         res.setTotal(total);
         res.setRequiredPanels(requiredPanels);
         res.setRoadAddr(roadAddr);
+        // res.setCurrentGrade(currentGrade);
+        // res.setTargetGrade(targetGrade);
 
         
 
