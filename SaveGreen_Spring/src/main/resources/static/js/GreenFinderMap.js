@@ -243,6 +243,7 @@ function hidePopup() {
 
 //////////////////////
 //검색 -> 화면 이동 -> 팝업
+
 let currentMarker = null; //기존 마커를 제거하기 위해 전역 변수
 
 
@@ -372,71 +373,6 @@ function showPopup(html, windowPosition) {
 }
 
 
-
-
-// 검색 요청 함수
-// function searchAddress(keyword) {
-//     $.ajax({
-//         url: "https://api.vworld.kr/req/search",
-//         type: "GET",
-//         dataType: "jsonp",
-//         data: {
-//             service: "search",
-//             request: "search",
-//             version: "2.0",
-//             crs: "EPSG:4326",
-//             key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69",
-//             query: keyword,
-//             type: "address",
-//             category: "road",
-//             format: "json"
-//         },
-//         success: function (response) {
-//             const resultContainer = document.getElementById("search-results");
-//             resultContainer.innerHTML = "";
-
-//             if (response.response.status === "OK" && response.response.result.items.length > 0) {
-//                 response.response.result.items.forEach(item => {
-//                     const addr = item.address.road || item.address.parcel;
-//                     const li = document.createElement("li");
-//                     li.textContent = addr;
-//                     li.style.cursor = "pointer";
-
-//                     // 📍 클릭 시 지도 이동 + PNU 조회 → 건물정보 → 팝업 표시
-//                     li.addEventListener("click", function() {
-//                         const x = parseFloat(item.point.x);
-//                         const y = parseFloat(item.point.y);
-
-//                         // 1️지도 이동
-//                         vwmoveTo(x, y, 500);
-
-//                         // PNU 조회 → 건물 정보 API 호출
-//                         getPnuFromCoord(x, y)
-//                             .then(pnu => {
-//                                 if (!pnu) throw new Error("PNU를 찾을 수 없습니다.");
-//                                 $("#pnu").val(pnu); // 숨겨진 input에도 저장
-//                                 return getBuildingInfo(pnu); // 팝업 표시까지
-//                             })
-//                             .catch(err => {
-//                                 console.warn("검색 기반 PNU 조회 실패:", err);
-//                                 alert("건물 정보를 불러올 수 없습니다.");
-//                             });
-//                     });
-
-//                     resultContainer.appendChild(li);
-//                 });
-//             } else {
-//                 resultContainer.innerHTML = "<li>검색 결과가 없습니다.</li>";
-//             }
-//         },
-//         error: function () {
-//             alert("검색 요청 중 오류가 발생했습니다.");
-//         }
-//     });
-// }
-
-// document.addEventListener("DOMContentLoaded", searchAddress);
-
 //////////////////////////////
 //지도 이동
 //////////////////////////////
@@ -448,5 +384,37 @@ function vwmoveTo(x, y, z) {
 }
 
 function checkE(){
-    location.href="/GreenFinder/energyCheck";
+    
+    dummyDataEnergy();
 }
+
+function dummyDataEnergy(){
+    // 숨겨진 input에서 pnu 값 가져오기
+    const pnu = document.getElementById("pnu").value;
+    console.log("받은 PNU:", pnu);
+
+    if (!pnu) {
+        alert("PNU 값이 없습니다. 건물을 선택해주세요.");
+        return;
+    }
+
+    // Spring Controller로 GET 요청 보내기
+    fetch(`/GreenFinder/energyCheck/${pnu}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("데이터 없음");
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("서버에서 받은 데이터:", data);
+            location.href="/GreenFinder/energyCheck";
+            //window.location.href = `/GreenFinder/energyCheck?pnu=${pnu}`;
+        })
+        .catch(error => {
+            console.error(error);
+            alert("해당 건물의 에너지 데이터가 없습니다.");
+            //location.href="/GreenFinder";
+        });
+}
+
