@@ -220,21 +220,7 @@
     </section>
     </div> 
 </div>
-    <div class="floating-btns">
-        <input type="file" id="csvFile" name="file" accept=".csv" style="display:none;">
-        <button id="downloadAll" title="정책 CSV 다운로드">
-        <i class="fa-solid fa-download"></i>
-        </button>
-        <button id="uploadAll" title="정책 CSV 업로드">
-        <i class="fa-solid fa-upload"></i>
-        </button>
-        <button id="downloadBtn" title="PDF로 저장">
-        <i class="fa-solid fa-file-pdf"></i>
-        </button>
-        <button id="sendMailBtn" title="메일로 보내기">
-        <i class="fa-solid fa-envelope"></i>
-        </button>
-    </div>
+   
     
 
     <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과차트</strong> 보기 </div>
@@ -252,13 +238,28 @@
     
     <hr>
     <div class="ai-summary-container">
-    <button id="aiSummaryBtn" class="btn btn-success">AI 분석</button>
+    
     <div id="aiResult" style="white-space: pre-line; margin-top: 10px;"></div>
     </div>
     <br><br>
 </div>
+     <div class="floating-btns">
+        <input type="file" id="csvFile" name="file" accept=".csv" style="display:none;">
+        <button id="downloadAll" title="정책 CSV 다운로드">
+        <i class="fa-solid fa-download"></i>
+        </button>
+        <button id="uploadAll" title="정책 CSV 업로드">
+        <i class="fa-solid fa-upload"></i>
+        </button>
+        <button id="downloadBtn" title="PDF로 저장">
+        <i class="fa-solid fa-file-pdf"></i>
+        </button>
+        <button id="sendMailBtn" title="메일로 보내기">
+        <i class="fa-solid fa-envelope"></i>
+        </button>
+    </div>
 
-
+<button id="aiSummaryBtn" class="btn btn-success">AI 분석</button>
    
    
 
@@ -275,5 +276,5 @@
 
 
 </body>
-<!-- <div th:replace="layouts/footer :: footer"></div> -->
+<div th:replace="layouts/footer :: footer"></div>
 </html>

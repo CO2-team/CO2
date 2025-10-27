@@ -13,15 +13,19 @@
 
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SAVE GREEN</title>
-  <link rel="stylesheet" th:href="@{/css/style.css}">
-  <link rel="stylesheet" th:href="@{/css/greenFinderMap.css}">
-  <script type="text/javascript" src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
-  <script type="text/javascript" src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=AED66EDE-3B3C-3034-AE11-9DBA47236C69"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAVE GREEN</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/greenFinderMap.css}">
+    <script type="text/javascript"
+        src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
+    <script type="text/javascript"
+        src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=AED66EDE-3B3C-3034-AE11-9DBA47236C69"></script>
 </head>
+
 <body>
 
     <!-- 헤더 -->
@@ -40,7 +44,7 @@
 
         <!-- 검색창 오버레이 -->
         <div class="search-container">
-            <input type="text" name="search" class="searchBox search-box" placeholder="도로명 주소 검색" >
+            <input type="text" name="search" class="searchBox search-box" placeholder="도로명 주소 검색">
             <div class="searchResult"></div>
         </div>
 
@@ -49,8 +53,16 @@
             <img src="/img/popup_guide.png" alt="팝업 가이드" />
             <button class="close-btn" onclick="closePopup()">X</button>
         </div>
+        <div class="home-popup">
+            <div id="agreePopup" class="agree-popup-frame">
+                <div class="agree-popup-inner">
+                    <a href="javascript:todayClose('agreePopup', 1);" class="today-x-btn">오늘하루닫기</a>
+                    <a href="javascript:fadeOutPop('#agreePopup');" class="x-btn">닫기</a>
+                </div>
+            </div>
+        </div>
     </main>
-  
+
     <div id="popup" class="popup">
         <div class="popup-header">
             <span>건축물정보</span>
@@ -64,13 +76,48 @@
                 <span class="tag">영문</span> <span id="engAddr">-</span>
             </div> -->
             <table class="info-table">
-                <tr><th>건물명</th><td id="buldNm">-</td><th>건물동명</th><td id="buldDongNm">-</td></tr>
-                <tr><th>법정동명</th><td id="ldCodeNm">-</td><th>지번</th><td id="mnnmSlno">-</td></tr>
-                <tr><th>지상층수</th><td id="groundFloorCo">-</td><th>지하층수</th><td id="undgrndFloorCo">-</td></tr>
-                <tr><th>건축면적</th><td id="buldBildngAr">-</td><th>대지면적</th><td id="buldPlotAr">-</td></tr>
-                <tr><th>건물높이</th><td id="buldHg">-</td><th>용도</th><td id="buldPrposClCodeNm">-</td></tr>
-                <tr><th>주용도</th><td id="mainPurpsClCodeNm">-</td><th>건축년도</th><td id="useConfmDe">-</td></tr>
-                <tr><th>세부용도</th><td id="detailPrposCodeNm">-</td><th>허가일자</th><td id="prmisnDe">-</td></tr>
+                <tr>
+                    <th>건물명</th>
+                    <td id="buldNm">-</td>
+                    <th>건물동명</th>
+                    <td id="buldDongNm">-</td>
+                </tr>
+                <tr>
+                    <th>법정동명</th>
+                    <td id="ldCodeNm">-</td>
+                    <th>지번</th>
+                    <td id="mnnmSlno">-</td>
+                </tr>
+                <tr>
+                    <th>지상층수</th>
+                    <td id="groundFloorCo">-</td>
+                    <th>지하층수</th>
+                    <td id="undgrndFloorCo">-</td>
+                </tr>
+                <tr>
+                    <th>건축면적</th>
+                    <td id="buldBildngAr">-</td>
+                    <th>대지면적</th>
+                    <td id="buldPlotAr">-</td>
+                </tr>
+                <tr>
+                    <th>건물높이</th>
+                    <td id="buldHg">-</td>
+                    <th>용도</th>
+                    <td id="buldPrposClCodeNm">-</td>
+                </tr>
+                <tr>
+                    <th>주용도</th>
+                    <td id="mainPurpsClCodeNm">-</td>
+                    <th>건축년도</th>
+                    <td id="useConfmDe">-</td>
+                </tr>
+                <tr>
+                    <th>세부용도</th>
+                    <td id="detailPrposCodeNm">-</td>
+                    <th>허가일자</th>
+                    <td id="prmisnDe">-</td>
+                </tr>
             </table>
         </div>
         <div class="popup-footer">
@@ -79,8 +126,9 @@
     </div>
 
 
-  <script th:src="@{/js/GreenFinderMap.js}"></script>
+    <script th:src="@{/js/GreenFinderMap.js}"></script>
 
 
 </body>
+<div th:replace="layouts/footer :: footer"></div>
 </html>

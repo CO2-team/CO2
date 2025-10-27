@@ -48,8 +48,8 @@ public class SimulatorService {
         System.out.println("usage = " + usage);
 
         ZebPolicy z = zebPolicyRepository
-        .findFirstByMinPercentLessThanEqualAndMaxPercentGreaterThanEqual(energySelf, energySelf)
-        .orElse(null);
+                .findFirstByMinPercentLessThanEqualAndMaxPercentGreaterThanEqual(energySelf, energySelf)
+                .orElse(null);
        
         TaxPolicy p = taxPolicyRepository
                 .findFirstByEnergyUsageMinLessThanEqualAndEnergyUsageMaxGreaterThanEqual(usage, usage)
