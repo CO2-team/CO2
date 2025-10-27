@@ -1,11 +1,11 @@
-// 1️⃣ URL에서 pnu 가져오기
+// 1. URL에서 pnu 가져오기
 const urlParams = new URLSearchParams(window.location.search);
 const pnu = urlParams.get('pnu');
 
 if (!pnu) {
     alert("PNU 값이 없습니다. 건물을 선택해주세요.");
 } else {
-    // 2️⃣ 서버에서 데이터 요청
+    // 2. 서버에서 데이터 요청
     fetch(`/GreenFinder/energyCheck/${pnu}`)
         .then(res => {
             if (!res.ok) throw new Error("데이터 없음");
@@ -14,18 +14,31 @@ if (!pnu) {
         .then(data => {
             console.log("서버에서 받은 데이터:", data);
 
-            // 배열로 올 수도 있고 단일 객체일 수도 있음
             const buildingData = Array.isArray(data) ? data[0] : data;
-
             if (!buildingData) {
                 alert("데이터가 없습니다.");
                 return;
             }
 
-            // 월별 에너지 사용량 차트
+            // 3. 월별 에너지 사용량 차트
             if (buildingData.monthlyConsumption?.length > 0) {
-                const labels = buildingData.monthlyConsumption.map(item => `${item.month}월`);
-                const values = buildingData.monthlyConsumption.map(item => item.electricity);
+                const monthly = [...buildingData.monthlyConsumption];
+
+                // 현재 달 기준 정렬
+                const today = new Date();
+                const currentMonth = today.getMonth() + 1; // 1~12
+
+                // 지난달이 맨 앞에 오도록 재정렬
+                const sortedMonthly = [];
+                for (let i = 1; i <= 12; i++) {
+                    let month = ((currentMonth - 1 + i - 1) % 12);
+                    // currentMonth-1: 지난달부터 시작, 1~12 순환
+                    const found = monthly.find(item => item.month === month);
+                    if (found) sortedMonthly.push(found);
+                }
+
+                const labels = sortedMonthly.map(item => `${item.month}월`);
+                const values = sortedMonthly.map(item => item.electricity);
 
                 const ctx = document.getElementById('monthlyChart').getContext('2d');
                 new Chart(ctx, {
@@ -51,10 +64,15 @@ if (!pnu) {
                 });
             }
 
-            // 연식/용도별 에너지 사용량 차트
+
+            // 4. 연도별 에너지 사용량 차트
             if (buildingData.yearlyConsumption?.length > 0) {
-                const labels = buildingData.yearlyConsumption.map(item => item.year);
-                const values = buildingData.yearlyConsumption.map(item => item.electricity);
+                const sortedYearly = [...buildingData.yearlyConsumption].sort(
+                    (a, b) => a.year - b.year
+                );
+
+                const labels = sortedYearly.map(item => `${item.year}년`);
+                const values = sortedYearly.map(item => item.electricity);
 
                 const ctx2 = document.getElementById('usageChart').getContext('2d');
                 new Chart(ctx2, {
@@ -62,7 +80,7 @@ if (!pnu) {
                     data: {
                         labels: labels,
                         datasets: [{
-                            label: '연식별 에너지 사용량 (kWh)',
+                            label: '연도별 에너지 사용량 (kWh)',
                             data: values,
                             backgroundColor: 'rgba(255, 159, 64, 0.2)',
                             borderColor: 'rgba(255, 159, 64, 1)',
@@ -89,6 +107,7 @@ if (!pnu) {
         });
 }
 
+// 페이지 로드 시 시작/종료 월 표시
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
 
@@ -100,10 +119,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const startMonth = startMonthDate.toISOString().slice(0, 7);
 
     // 값 설정
-    document.getElementById('startMonth').value = startMonth;
-    document.getElementById('endMonth').value = endMonth;
+    const startInput = document.getElementById('startMonth');
+    const endInput = document.getElementById('endMonth');
 
-    // 사용자가 수정하지 못하게 disabled 처리도 가능
-    document.getElementById('startMonth').disabled = true;
-    document.getElementById('endMonth').disabled = true;
+    if (startInput && endInput) {
+        startInput.value = startMonth;
+        endInput.value = endMonth;
+
+        startInput.disabled = true;
+        endInput.disabled = true;
+    }
 });
