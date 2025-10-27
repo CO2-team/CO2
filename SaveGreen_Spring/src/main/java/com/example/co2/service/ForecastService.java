@@ -309,8 +309,8 @@ public class ForecastService {
 	 *  - savingPct 비교는 **정수 %** 기준, paybackYears는 현재 이 함수 인자로 넘어온 값(서버 계산값)을 그대로 사용.
 	 * ========================================================================== */
 	private int computeStatusScore(double savingPct, double paybackYears, Integer builtYear) {
-		// [가드] 절감률<5% 또는 회수기간>12년 → 0점 처리(즉시 비추천)
-		if (savingPct < 5.0 || paybackYears > 12.0) return 0;
+		// [가드] 절감률<5% 또는 회수기간>20년 → 0점 처리(즉시 비추천)
+		if (savingPct < 5.0 || paybackYears > 20.0) return 0;
 
 		int score = 0;
 

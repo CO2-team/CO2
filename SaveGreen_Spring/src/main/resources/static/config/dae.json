@@ -96,7 +96,7 @@
                 "tariff": 140,
                 "capexFixed": 30000000,
                 "capexFreeArea": 500,
-                "capexPerM2": 220000,
+                "capexPerM2": 150000,
                 "savingPct": 0.18
             }
         },
@@ -108,7 +108,7 @@
                 "tariff": 130,
                 "capexFixed": 25000000,
                 "capexFreeArea": 400,
-                "capexPerM2": 180000,
+                "capexPerM2": 120000,
                 "savingPct": 0.16
             }
         },
@@ -120,7 +120,7 @@
                 "tariff": 170,
                 "capexFixed": 40000000,
                 "capexFreeArea": 300,
-                "capexPerM2": 260000,
+                "capexPerM2": 140000,
                 "savingPct": 0.17
             }
         },
@@ -132,7 +132,7 @@
                 "tariff": 150,
                 "capexFixed": 20000000,
                 "capexFreeArea": 300,
-                "capexPerM2": 200000,
+                "capexPerM2": 130000,
                 "savingPct": 0.15
             }
         }

@@ -93,14 +93,14 @@
             ? Math.round((savingKwh / beforeKwh) * 100)
             : 0;
 
-        try {
-            // [교체] 멀티라인 요약(kv) 사용
-            SaveGreen.log.kv('kpi', 'kpi snapshot', {
-                savingPct,
-                savingCostYr: Math.round(savingCost),
-                paybackYears: Number((Math.round(paybackYears * 10) / 10).toFixed(1))
-            }, ['savingPct','savingCostYr','paybackYears']);
-        } catch {}
+//        try {
+//            // [교체] 멀티라인 요약(kv) 사용
+//            SaveGreen.log.kv('kpi', 'kpi snapshot', {
+//                savingPct,
+//                savingCostYr: Math.round(savingCost),
+//                paybackYears: Number((Math.round(paybackYears * 10) / 10).toFixed(1))
+//            }, ['savingPct','savingCostYr','paybackYears']);
+//        } catch {}
 
         return {
             savingCostYr: savingCost,   // 연간 비용 절감(원)
@@ -138,7 +138,7 @@
         score += agePt;
 
         // 가드
-		if (savingPct < 5 || payback > 12) {
+		if (savingPct < 5 || payback > 20) {
 			const status = 'not-recommend';
 			return { status, label: status, score };
 		}
