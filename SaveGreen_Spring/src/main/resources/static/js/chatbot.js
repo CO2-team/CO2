@@ -1,49 +1,106 @@
+const chatbotData = {
+  root: {
+    text: "무엇이 궁금하신가요?",
+    options: [
+      { text: "시뮬레이터", next: "simulator" },
+      { text: "세금 감면 정책", next: "tax" },
+      { text: "시뮬레이터 산출 계산식", next: "calc" }
+    ]
+  },
+
+
+  simulator: {
+    text: "에너지 등급 시뮬레이터, 태양광 패널 시뮬레이터 두 가지가 있습니다.",
+    options: [
+      { text: "에너지 등급 시뮬레이터", next: "simulator_detail_grade" },
+      { text: "태양광 패널 시뮬레이터", next: "simulator_detail_solar" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  simulator_detail_grade: {
+    text: "검색된 건물의 에너지 등급을 알 수 있는 시뮬레이터로, 건물 면적, 에너지 사용량, 발전량(태양광 패널 규격, 수량 입력 시)을 고려해 책정된 등급과 그에대한 혜택이 나타납니다.<br> 또,결과 창 아래의 표는 검색된 건물의 에너지 사용량과 월별 사용량을 동일 카테고리의 평균과 비교한 것 입니다.",
+    options: [
+      { text: "이전으로", next: "simulator" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  simulator_detail_solar: {
+    text: "태양광 패널 시뮬레이터는 건물, 면적, 패널 규격을 입력하면 필요한 패널 수량과 예상 발전량, 탄소절감량을 계산해줍니다.<br> 또, 결과 창 아래의 표는 입력된 결과창 에선 나오지 않는 패널 한 개당 정보를 담고 있으며, 여러 번 검색 시 최대 3개 까지 누적되어 검색된 결과 끼리 비교 할 수 있습니다.",
+    options: [
+      { text: "이전으로", next: "simulator" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+
+
+  tax: {
+    text: "재산세, 취득세, 인증비용, 용적률 증가에 대한 감면율을 계산합니다.",
+    options: [
+      { text: "재산세", next: "propertyTax" },
+      { text: "취득세", next: "acquiredTax" },
+      { text: "인증비용", next: "certificationTax" },
+      { text: "용적률 증가", next: "areaBonus" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  calc: {
+    text: "시뮬레이터 계산에 사용된 변수입니다.",
+    options: [
+      { text: "일사량", next: "solarRadiation" },
+      { text: "패널 발전량", next: "panelGeneration" },
+      { text: "전기세, 탄소배출계수", next: "referenceValue" },
+      { text: "처음으로", next: "root" }
+    ]
+  }
+};
+
+let currentState = "root";
+
+function renderChatbot(state) {
+  const body = document.querySelector('.chatbot-body');
+  body.innerHTML = "";
+
+  const data = chatbotData[state];
+  if (!data) return;
+
+  const p = document.createElement('p');
+  p.textContent = data.text;
+  body.appendChild(p);
+
+  data.options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.classList.add('chatbot-btn');
+    btn.textContent = opt.text;
+    btn.dataset.next = opt.next;
+    body.appendChild(btn);
+  });
+
+  currentState = state;
+}
+
 document.addEventListener('click', function(e) {
-  // 챗봇 아이콘 클릭
+
   if (e.target.closest('.chatbot')) {
-    const botWindow = document.querySelector('.chatbot-window');
-    botWindow.classList.toggle('hidden');
-    console.log(" 챗봇 아이콘 클릭됨");
+    const win = document.querySelector('.chatbot-window');
+    win.classList.toggle('hidden');
+    renderChatbot('root'); 
   }
 
-  // 챗봇 닫기 버튼 클릭
+
   if (e.target.closest('.chatbot-close')) {
-    const botWindow = document.querySelector('.chatbot-window');
-    botWindow.classList.add('hidden');
+    const win = document.querySelector('.chatbot-window');
+    win.classList.add('hidden');
+    renderChatbot('root');
+  }
+
+
+  if (e.target.classList.contains('chatbot-btn')) {
+    const next = e.target.dataset.next;
+    renderChatbot(next);
   }
 });
 
 
-
-const chatbotData = {
-  root: [
-    { text: "시뮬레이터 사용법", next: "simulator" },
-    { text: "세금 감면 정책 안내", next: "tax" },
-    { text: "에너지 효율 등급 설명", next: "grade" },
-    { text: "태양광 발전량 계산법", next: "solar" }
-  ],
-
-  simulator: [
-    { text: "시뮬레이터는 어떤 구조인가요?", answer: "좌측은 현재 에너지 상태를, 우측은 태양광 시뮬레이션을 보여줍니다. 주소 입력 → 면적 → 패널 수를 입력하면 결과를 확인할 수 있습니다." },
-    { text: " "},
-    { text: "처음으로", next: "root" }
-  ],
-
-  tax: [
-    { text: "어떤 세금이 감면되나요?", answer: "재산세, 취득세, 인증비용, 용적률 증가에 대한 감면율이 계산됩니다." },
-    { text: "감면율은 어떻게 결정되나요?", answer: "건물의 에너지 효율 등급과 ZEB 등급에 따라 자동으로 결정됩니다." },
-    { text: "처음으로", next: "root" }
-  ],
-
-  grade: [
-    { text: "에너지 등급은 어떻게 나뉘나요?", answer: "1+++, 1++, 1+, 1, 2, 3, 4, 5, 6, 7 순이며 숫자가 높을수록 효율이 낮습니다." },
-    { text: "ZEB 등급은요?", answer: "ZEB는 '+', 1, 2, 3, 4, 5 등급으로 '+'가 최고 효율입니다." },
-    { text: "처음으로", next: "root" }
-  ],
-
-  solar: [
-    { text: "태양광 발전량 계산은 어떻게 하나요?", answer: "일사량 x 효율(0.8) x 패널 출력 x 패널 개수로 계산됩니다. NASA POWER API 데이터를 기반으로 합니다." },
-    { text: "패널 1개가 얼마나 발전하나요?", answer: "500Wp 패널 기준, 연간 약 600kWh 발전합니다." },
-    { text: "처음으로", next: "root" }
-  ]
-};
+document.addEventListener('DOMContentLoaded', () => {
+  renderChatbot('root');
+});
