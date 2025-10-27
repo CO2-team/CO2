@@ -2,9 +2,32 @@ const chatbotData = {
   root: {
     text: "무엇이 궁금하신가요?",
     options: [
+      { text: "건물정보검색", next: "finder" },
       { text: "시뮬레이터", next: "simulator" },
       { text: "에너지등급과 ZEB", next: "tax" },
       { text: "시뮬레이터 계산 기준", next: "calc" }
+    ]
+  },
+
+  finder: {
+    text: "건물 정보 검색에 대한 안내입니다.",
+    options: [
+      { text: "건물정보검색이란?", next: "finder_detail" },
+      { text: "처음으로", next: "root"}
+    ]
+  },
+
+  finder_detail: {
+     text: 
+    `<p>
+      건물정보검색은 주소를 입력하면 해당 건물의 <b>에너지 사용량</b>, <b>에너지 등급</b>,
+      <b>ZEB 등급</b> 등을 <b> GREEN REMODELING,GREENWIMULATOR</b> 페이지로 연결하여 확인할 수 있습니다.
+    </p>
+    `
+    ,
+    options: [
+      { text: "이전으로", next: "finder" },
+      { text: "처음으로", next: "root" }
     ]
   },
 
