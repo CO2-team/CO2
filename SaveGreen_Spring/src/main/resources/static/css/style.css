@@ -121,7 +121,7 @@ main, .container {
 /* ==============================================
    [푸터 영역]
    ============================================== */
-.footer {
+/* .footer {
     height: 40px;
     background: rgba(0,0,0,0.6);
     color: white;
@@ -130,7 +130,7 @@ main, .container {
     align-items: center;
     font-size: 2rem;
     scroll-snap-align: start;
-}
+} */
 
 /* ==============================================
    [반응형 처리]

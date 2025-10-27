@@ -391,3 +391,21 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+.chatbot-body h4 {
+  color: #2d40eb;
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chatbot-body ul {
+  margin: 6px 0 10px 18px;
+  padding-left: 10px;
+  list-style-type: disc;
+}
+
+.chatbot-body li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
