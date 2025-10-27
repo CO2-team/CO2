@@ -64,13 +64,13 @@ function renderChatbot(state) {
   if (!data) return;
 
   const p = document.createElement('p');
-  p.textContent = data.text;
+  p.innerHTML = data.text;
   body.appendChild(p);
 
   data.options.forEach(opt => {
     const btn = document.createElement('button');
     btn.classList.add('chatbot-btn');
-    btn.textContent = opt.text;
+    btn.innerHTML = opt.text;
     btn.dataset.next = opt.next;
     body.appendChild(btn);
   });
