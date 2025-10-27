@@ -34,15 +34,29 @@ const chatbotData = {
 
 
   tax: {
-    text: "재산세, 취득세, 인증비용, 용적률 증가에 대한 감면율을 계산합니다.",
+    text: "재산세, 취득세, 인증비용, 용적률 증가에 대한 기준입니다. 기준은 에너지등급, ZEB인증 등급에 따라 달라집니다.",
     options: [
-      { text: "재산세", next: "propertyTax" },
-      { text: "취득세", next: "acquiredTax" },
-      { text: "인증비용", next: "certificationTax" },
-      { text: "용적률 증가", next: "areaBonus" },
+      { text: "에너지등급", next: "energyGrade" },
+      { text: "ZEB등급", next: "ZEBGrade" },
       { text: "처음으로", next: "root" }
     ]
   },
+  energyGrade: {
+    text: "재산세 기준<br> - 1+++등급 10%감면<br> - 1++등급 9%감면<br> - 1+등급 5%감면<br> - 1등급 3%감면<br> 그 이하는 0%입니다.<br><br>취득세 기준 <br> - 1+++등급 10%감면<br> - 1++등급 9%감면<br> - 1+등급 7%감면<br> - 1등급 3%감면<br> 그 이하는 0%입니다.<br><br> 용적률 증가 기준<br> - 1+++등급 14% 증가<br> - 1++등급 12% 증가<br> - 1+등급 6% 증가 <br> - 1등급 3% 증가<br>그 이하는 0%입니다. <br><br> 에너지등급은 인증감면 혜택이 없습니다. ",
+    options: [
+      { text: "이전으로", next: "tax" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+
+  ZEBGrade: {
+    text: ".",
+    options: [
+      { text: "이전으로", next: "tax" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+
   calc: {
     text: "시뮬레이터 계산에 사용된 변수입니다.",
     options: [

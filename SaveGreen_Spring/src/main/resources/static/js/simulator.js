@@ -244,7 +244,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
             위험(병목)과 기회(레버리지)를 4~5문장으로 요약.
 
           ② 목표 등급 달성을 위한 태양광 시나리오 — requiredPanels, total, annualSaveElectric, annualSaveCO2, onePanelGeneration,
-            onePanelCO2를 근거로 “투입 대비 효과(만원/패널, 톤/패널), 설치 면적(= requiredPanels × 3.3m²)과 현실성, 
+            onePanelCO2를 근거로 “투입 대비 효과(만원/패널, 톤/패널), 설치 면적(= requiredPanels x 3.3m²)과 현실성, 
             대안(패널 효율/배치/부분 설치)”을 4~6문장 분석. 단순 나열 금지.
 
           ③ 종합 평가 — 경제성·환경성·정책 인센티브를 함께 보아 실행 타당성을 2~3문장으로 정리. 
