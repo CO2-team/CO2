@@ -409,7 +409,7 @@ function dummyDataEnergy(){
         .then(data => {
             console.log("서버에서 받은 데이터:", data);
             location.href="/GreenFinder/energyCheck";
-            //window.location.href = `/GreenFinder/energyCheck?pnu=${pnu}`;
+            window.location.href = `/GreenFinder/energyCheck?pnu=${pnu}`;
         })
         .catch(error => {
             console.error(error);
