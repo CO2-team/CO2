@@ -4,6 +4,7 @@ import org.springframework.stereotype.Controller;
 
 import com.example.co2.dto.AddressDto;
 import com.example.co2.dto.SearchBuilding;
+import com.example.co2.service.FinderSearchBuildingService;
 import com.example.co2.service.GreenFinderService;
 import com.example.co2.service.SearchBuildingJsonService;
 
@@ -16,14 +17,15 @@ import java.util.List;
 @CrossOrigin
 @Controller
 public class GreenFinderController {
-/**dddddgit */
+    /** dddddgit */
     private final GreenFinderService greenFinderService;
-    
-    private final SearchBuildingJsonService searchBuildingJsonService; // dummy data service
-    
-    public GreenFinderController(GreenFinderService greenFinderService, SearchBuildingJsonService searchBuildingJsonService) {
+
+    private final FinderSearchBuildingService finderSearchBuildingService; // dummy data service
+
+    public GreenFinderController(GreenFinderService greenFinderService,
+            FinderSearchBuildingService finderSearchBuildingService) {
         this.greenFinderService = greenFinderService;
-        this.searchBuildingJsonService = searchBuildingJsonService;
+        this.finderSearchBuildingService = finderSearchBuildingService;
     }
 
     @GetMapping("/GreenFinder")
@@ -48,15 +50,20 @@ public class GreenFinderController {
         return "html/energyUseCheck";
     }
 
-
     @GetMapping("/GreenFinder/energyCheck/{pnu}")
     @ResponseBody
-    public ResponseEntity<?> getByPnu(@PathVariable String pnu) {
-        SearchBuilding found = searchBuildingJsonService.findByPnu(pnu);
-        if (found == null) {
-            return ResponseEntity.status(404).body("[에너지데이터없음]");
+    public ResponseEntity<?> getByPnu(@PathVariable("pnu") String pnu) {
+        System.out.println("pnu = " + pnu);
+        try {
+            SearchBuilding found = finderSearchBuildingService.findByPnu(pnu);
+            if (found == null) {
+                return ResponseEntity.status(404).body("[에너지데이터없음]");
+            }
+            return ResponseEntity.ok(found);
+        } catch (Exception e) {
+            e.printStackTrace(); // 콘솔에 정확한 에러 로그 출력
+            return ResponseEntity.status(500).body("서버 내부 오류: " + e.getMessage());
         }
-        return ResponseEntity.ok(found);
     }
 
 }
