@@ -88,3 +88,22 @@ if (!pnu) {
             alert("해당 건물의 에너지 데이터를 불러오지 못했습니다.");
         });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+
+    // 종료 = 현재 달
+    const endMonth = today.toISOString().slice(0, 7);
+
+    // 시작 = 현재 달 기준 1년 전
+    const startMonthDate = new Date(today.getFullYear() - 1, today.getMonth(), 1);
+    const startMonth = startMonthDate.toISOString().slice(0, 7);
+
+    // 값 설정
+    document.getElementById('startMonth').value = startMonth;
+    document.getElementById('endMonth').value = endMonth;
+
+    // 사용자가 수정하지 못하게 disabled 처리도 가능
+    document.getElementById('startMonth').disabled = true;
+    document.getElementById('endMonth').disabled = true;
+});
