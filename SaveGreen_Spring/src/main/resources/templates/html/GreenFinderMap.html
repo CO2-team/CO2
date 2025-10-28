@@ -20,10 +20,10 @@
     <title>SAVE GREEN</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <link rel="stylesheet" th:href="@{/css/greenFinderMap.css}">
-    <script type="text/javascript"
-        src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
-    <script type="text/javascript"
-        src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=AED66EDE-3B3C-3034-AE11-9DBA47236C69"></script>
+    <script type="text/javascript" src="https://cesium.com/downloads/cesiumjs/releases/1.82/Build/Cesium/Cesium.js"></script>
+    <script type="text/javascript" src="https://map.vworld.kr/js/webglMapInit.js.do?version=3.0&apiKey=AED66EDE-3B3C-3034-AE11-9DBA47236C69"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
 </head>
 
 <body>
@@ -49,18 +49,17 @@
         </div>
 
         <!-- 팝업 (이미지로) -->
-        <div id="intro_popup" class="intro_popup">
-            <img src="/img/popup_guide.png" alt="팝업 가이드" />
+        <div id="intro_popup" class="intro_popup" name="popup1">
+            
             <button class="close-btn" onclick="closePopup()">X</button>
         </div>
-        <div class="home-popup">
-            <div id="agreePopup" class="agree-popup-frame">
-                <div class="agree-popup-inner">
-                    <a href="javascript:todayClose('agreePopup', 1);" class="today-x-btn">오늘하루닫기</a>
-                    <a href="javascript:fadeOutPop('#agreePopup');" class="x-btn">닫기</a>
-                </div>
-            </div>
+
+        <div class="main_notice_pop" name="popup1" style="position:fixed; left:50px; top:63px; display:none; z-index:999;">
+            <img src="/img/popup_img.png" alt="팝업 가이드" />
+            <a href="#" class="btn_close">X</a> <br>
+            <input type="checkbox" name="today_close1" />오늘만 이 창을 열지 않음
         </div>
+
     </main>
 
     <div id="popup" class="popup">
@@ -72,7 +71,7 @@
             <h3 id="buildingName">-</h3>
             <!-- <div class="addr">
                 <span class="tag">도로명</span> <span id="roadAddr">-</span><br>
-                <span class="tag">지번</span> <span id="jibunAddr">-</span><br>
+                <span class="tag">지번</span> <span id="jibunAddr">-</span><br> 
                 <span class="tag">영문</span> <span id="engAddr">-</span>
             </div> -->
             <table class="info-table">
@@ -131,4 +130,5 @@
 
 </body>
 <div th:replace="layouts/footer :: footer"></div>
+
 </html>

@@ -90,7 +90,8 @@ body {
 
 .search-container {
     position: absolute;
-    top: 5%;
+    /* top: 5%; */
+    top:18%;
     left: 5%;
     z-index: 100;
     width: 300px;
@@ -195,7 +196,7 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 200; /* 검색창보다 위 */
-    display: none; /* 기본 숨김 */
+    display: show; /* 기본 숨김 */
 }
 
 .intro_popup img {
