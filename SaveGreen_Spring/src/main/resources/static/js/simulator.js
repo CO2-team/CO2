@@ -979,4 +979,67 @@ document.addEventListener('DOMContentLoaded', () => {
   
 });
 
+document.addEventListener("DOMContentLoaded", function () {
+  const steps = ["eg1", "eg2", "eg3", "eg4", "eg5"];
+  let current = 0;
+  const nextBtn = document.getElementById("nextBtn");
+  const submitBtn = document.querySelector(".btn-submit");
 
+  // ✅ 공용 "다음으로" 버튼
+  nextBtn.addEventListener("click", function () {
+    const currentGroup = document.getElementById(steps[current]);
+    const input = currentGroup.querySelector("input");
+
+    // 입력 확인
+    if (input && input.value.trim() === "") {
+      alert("값을 입력해주세요!");
+      input.focus();
+      return;
+    }
+
+    // 다음 단계 열기
+    if (current < steps.length - 1) {
+      const nextId = steps[current + 1];
+
+      // ✅ eg4는 자동으로 열지 않고 버튼(예/아니오)만 표시
+      if (nextId === "eg4") {
+        nextBtn.style.display = "none";
+        const choiceDiv = document.getElementById("eg4-buttons");
+        choiceDiv.classList.remove("hidden");
+        choiceDiv.classList.add("show");
+      } else {
+        // 일반 단계는 바로 다음 입력칸 열기
+        const nextGroup = document.getElementById(nextId);
+        nextGroup.classList.remove("hidden");
+        nextGroup.classList.add("show");
+      }
+
+      current++;
+    }
+  });
+
+  // ✅ 예/아니오 버튼 처리
+  const btnYes = document.querySelector("#eg4-buttons .btn-yes");
+  const btnNo = document.querySelector("#eg4-buttons .btn-no");
+
+  btnYes.addEventListener("click", function () {
+    // 예 선택 시 eg4, eg5 표시
+    document.getElementById("eg4").classList.remove("hidden");
+    document.getElementById("eg4").classList.add("show");
+    document.getElementById("eg5").classList.remove("hidden");
+    document.getElementById("eg5").classList.add("show");
+
+    // 예/아니오 버튼 숨기고 결과보기 버튼 표시
+    document.getElementById("eg4-buttons").classList.add("hidden");
+    submitBtn.style.display = "block";
+  });
+
+  btnNo.addEventListener("click", function () {
+    // 아니오 선택 시 eg4, eg5 숨기고 결과보기 표시
+    document.getElementById("eg4").classList.add("hidden");
+    document.getElementById("eg5").classList.add("hidden");
+    document.getElementById("eg4-buttons").classList.add("hidden");
+
+    submitBtn.style.display = "block";
+  });
+});

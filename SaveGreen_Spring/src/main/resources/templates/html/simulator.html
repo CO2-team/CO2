@@ -32,29 +32,43 @@
                 <input type="hidden" name="pct" id="percent">
                 <input type="hidden" name="bm" id="buildingMonthly">
                 <input type="hidden" name="cm" id="categoryMonthly">
-                <div class="form-group">
+                <div class="form-group show" id="eg1">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <input type="text" id="juso1" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off">
                     <div  class="dropdown searchResult"></div>
                 </div>
-                <div class="form-group">
+    
+
+                <div class="form-group hidden" id="eg2">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
                     <input type="number" name="area" step="any" id="area1" placeholder="건물 면적" required>
                 </div>
-                <div class="form-group">
+
+
+                <div class="form-group hidden" id="eg3" >
                     <img class="icon" src="/img/battery.png" alt="Battery Icon">
                     <label>kWh/년</label>
                     <input type="number" name="energy" id="energy1" step="any" placeholder="에너지" required >
                 </div>
-                <div class="form-group">
+
+
+                <div class="choice-buttons hidden" id="eg4-buttons">
+                    <p>태양광 패널 관련 입력을 진행하시겠습니까?</p>
+                    <button type="button" class="btn-yes">예</button>
+                    <button type="button" class="btn-no">아니요</button>
+                </div>
+
+
+                <div class="form-group hidden" id="eg4" >
                     <img class="icon" src="/img/solarpanel.png" alt="Solar Panel Icon">
                     <label>대</label>
                     <input type="number" name="panelCount" placeholder="태양광 패널 개수(선택)">
                 </div>
-              
-                <div class="form-row">
-                     <select name="panelPower" >
+
+
+                <div class="form-row hidden" id="eg5" >
+                    <select name="panelPower" >
                         <option value="">패널 정격출력(선택)</option>
                         <option value="400">400 Wp (Trina Solar Vertex S)</option>
                         <option value="500">500 Wp (Hanwha Q Cells Q.PEAK DUO ML-G11)</option>               
@@ -64,8 +78,8 @@
                         <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
-              
-                <button type="submit" class="btn-submit">결과보기</button>
+                <button type="button" id="nextBtn" class="btn-next">다음으로</button>
+                <button type="submit" class="btn-submit" style="display: none;">결과보기</button>
             </form>
         </div>        
     </section>
