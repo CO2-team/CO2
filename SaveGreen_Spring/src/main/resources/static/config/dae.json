@@ -93,7 +93,7 @@
             "notes": "공정부하 변동성 고려해 보수적 절감률.",
             "keywords": ["공장", "제조", "산단", "플랜트", "물류센터", "창고"],
             "base": {
-                "tariff": 140,
+                "tariff": 185.5,
                 "capexFixed": 30000000,
                 "capexFreeArea": 500,
                 "capexPerM2": 150000,
@@ -105,7 +105,7 @@
             "notes": "운영패턴 개선 여지로 절감률 상향.",
             "keywords": ["학교", "초등", "중학교", "고등학교", "대학교", "캠퍼스", "교육"],
             "base": {
-                "tariff": 130,
+                "tariff": 185.5,
                 "capexFixed": 25000000,
                 "capexFreeArea": 400,
                 "capexPerM2": 120000,
@@ -117,7 +117,7 @@
             "notes": "설비 복잡도/상시부하로 CAPEX·단가 상향.",
             "keywords": ["병원", "의원", "메디컬", "요양", "클리닉", "종합병원"],
             "base": {
-                "tariff": 170,
+                "tariff": 185.5,
                 "capexFixed": 40000000,
                 "capexFreeArea": 300,
                 "capexPerM2": 140000,
@@ -129,7 +129,7 @@
             "notes": "일반 사무용 건물 기준. BEMS/조명/HVAC 리트로핏 가정.",
             "keywords": ["오피스", "사무", "본사", "오피스텔(비주거)", "행정", "공공청사"],
             "base": {
-                "tariff": 150,
+                "tariff": 185.5,
                 "capexFixed": 20000000,
                 "capexFreeArea": 300,
                 "capexPerM2": 130000,
