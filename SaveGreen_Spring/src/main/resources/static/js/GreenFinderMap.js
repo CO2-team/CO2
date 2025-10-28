@@ -418,3 +418,36 @@ function dummyDataEnergy(){
         });
 }
 
+//팝업창 
+$(document).ready(function () {
+    // 팝업창에 주어진 이름을 변수로 던져 저장된 쿠키가 있는지 확인 
+    var popup1 = getCookie('popup1');
+
+    // 변수가 없을경우 팝업 출력 
+    if (!popup1) {
+        popUpAction('popup1');
+    }
+});
+
+function getCookie(name) {
+    var nameOfCookie = name + "=";
+    var x = 0;
+    while (x <= document.cookie.length) {
+        var y = (x + nameOfCookie.length);
+
+        if (document.cookie.substring(x, y) == nameOfCookie) {
+            if ((endOfCookie = document.cookie.indexOf(";", y)) == -1)
+                endOfCookie = document.cookie.length;
+            return unescape(document.cookie.substring(y, endOfCookie));
+        }
+
+        x = document.cookie.indexOf(" ", x) + 1;
+
+        if (x == 0) break;
+    }
+
+    return "";
+} // 24시간 기준 쿠키 설정하기 
+
+
+
