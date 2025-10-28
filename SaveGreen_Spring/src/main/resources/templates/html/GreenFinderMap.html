@@ -49,16 +49,19 @@
         </div>
 
         <!-- 팝업 (이미지로) -->
-        <div id="intro_popup" class="intro_popup" name="popup1">
-            
+        <!-- <div id="intro_popup" class="intro_popup" name="popup1">       
             <button class="close-btn" onclick="closePopup()">X</button>
+        </div> -->
+        <div class="popup-overlay"></div>
+        
+        <div class="main_notice_pop" name="popup1" style="display:none;">    
+            <img src="/img/popup_img.png" alt="팝업 가이드" style="width: 100%;"/>
+            <a href="#" class="btn_close" data-popup="popup1">X</a> <br>
+            <div class="today_close1">
+                <input type="checkbox" name="today_close1" class="today_close1" /> 오늘만 이 창을 열지 않음
+            </div>
         </div>
 
-        <div class="main_notice_pop" name="popup1" style="position:fixed; left:50px; top:63px; display:none; z-index:999;">
-            <img src="/img/popup_img.png" alt="팝업 가이드" />
-            <a href="#" class="btn_close">X</a> <br>
-            <input type="checkbox" name="today_close1" />오늘만 이 창을 열지 않음
-        </div>
 
     </main>
 

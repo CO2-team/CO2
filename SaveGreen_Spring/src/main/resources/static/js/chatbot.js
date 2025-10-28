@@ -22,7 +22,7 @@ const chatbotData = {
     `
     ,
     options: [
-      { text: "이전으로", next: "finder" }
+      { text: "이전으로", next: "root" }
     ]
   },
 

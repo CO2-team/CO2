@@ -420,34 +420,59 @@ function dummyDataEnergy(){
 
 //팝업창 
 $(document).ready(function () {
-    // 팝업창에 주어진 이름을 변수로 던져 저장된 쿠키가 있는지 확인 
+    // 쿠키 확인
     var popup1 = getCookie('popup1');
 
-    // 변수가 없을경우 팝업 출력 
+    // 쿠키가 없을 때만 팝업 노출
     if (!popup1) {
         popUpAction('popup1');
     }
+
+    // 닫기 버튼 클릭 이벤트
+    $('.btn_close').click(function (e) {
+        e.preventDefault();
+
+        const name = $(this).data('popup'); // 팝업 이름 가져오기
+        const popupDiv = $("div[name=" + name + "]");
+
+        // 팝업 닫기
+        popupDiv.fadeOut();
+         $('.popup-overlay').fadeOut();
+        // 오늘 하루 보지 않기 체크 시 쿠키 설정
+        if (popupDiv.find("input[name=today_close1]").is(":checked")) {
+            setCookie00(name, "done", 1);
+        }
+    });
 });
 
+// ======================= 쿠키 관련 함수 =======================
+
 function getCookie(name) {
-    var nameOfCookie = name + "=";
-    var x = 0;
-    while (x <= document.cookie.length) {
-        var y = (x + nameOfCookie.length);
-
-        if (document.cookie.substring(x, y) == nameOfCookie) {
-            if ((endOfCookie = document.cookie.indexOf(";", y)) == -1)
-                endOfCookie = document.cookie.length;
-            return unescape(document.cookie.substring(y, endOfCookie));
+    const cookies = document.cookie.split(';').map(c => c.trim());
+    for (const cookie of cookies) {
+        if (cookie.startsWith(name + '=')) {
+            return cookie.substring(name.length + 1);
         }
+    }
+    return "";
+}
 
-        x = document.cookie.indexOf(" ", x) + 1;
+// 00:00 기준으로 쿠키 설정
+function setCookie00(name, value, expiredays) {
+    var todayDate = new Date();
+    todayDate = new Date(parseInt(todayDate.getTime() / 86400000) * 86400000 + 54000000);
 
-        if (x == 0) break;
+    if (todayDate > new Date()) {
+        expiredays = expiredays - 1;
     }
 
-    return "";
-} // 24시간 기준 쿠키 설정하기 
+    todayDate.setDate(todayDate.getDate() + expiredays);
 
+    document.cookie = `${name}=${escape(value)}; path=/; expires=${todayDate.toGMTString()};`;
+}
 
-
+// 팝업 보이기
+function popUpAction(name) {
+    $('.popup-overlay').fadeIn();
+    $("div[name=" + name + "]").fadeIn();
+}
