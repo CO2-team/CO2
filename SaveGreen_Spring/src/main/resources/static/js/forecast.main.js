@@ -18,7 +18,7 @@
 
 // 전역 카탈로그 경로 (정적 리소스 기준)
 // - 에너지 카탈로그(샘플/더미) JSON을 한 번만 내려받아 세션 캐시에 보관
-const CATALOG_URL = '/dummy/buildingenergydata.json';
+const CATALOG_URL = '/dummy/green.json';
 
 window.SaveGreen = window.SaveGreen || {};
 window.SaveGreen.Forecast = window.SaveGreen.Forecast || {};
@@ -794,7 +794,8 @@ function renderPreloadInfoAndRisks() {
         useName: pick('use') || pick('useName') || '',
         builtYear: pick('builtYear') || '',
         floorArea: pick('area') || pick('floorArea') || '',
-        pnu: ''
+        // ★ dataset 우선, 없으면 로컬스토리지 키(있다면) 시도
+        pnu: ds.pnu || ''
     };
     const box = document.getElementById('preload-building');
     if (box) {
@@ -1149,7 +1150,7 @@ function bootstrapContextFromStorage(rootEl) {
     };
     const read = (k) => window.sessionStorage.getItem(k) ?? '';
     const ctx = {
-        pnu: read(STORAGE_KEYS.pnu),
+        pnu: read(STORAGE_KEYS.pnu) || sessionStorage.getItem('gf:pnu') || sessionStorage.getItem('pnu'),
         builtYear: read(STORAGE_KEYS.builtYear),
         floorArea: read(STORAGE_KEYS.floorArea),
         useName: read(STORAGE_KEYS.useName),
@@ -1236,31 +1237,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-function mapUseToCoreType(str) {
-	const s = String(str || '');
-	const sLc = s.toLowerCase();
-
-	const K = {
-		// 제조/산단
-		'공장':'factory','제조':'factory','제조업':'factory','산단':'factory','산업단지':'factory','산업':'factory',
-		'플랜트':'factory','공업':'factory','공장동':'factory',
-		'factory':'factory','plant':'factory','industrial':'factory','manufactur':'factory',
-		// 의료
-		'병원':'hospital','종합병원':'hospital','의료':'hospital','요양':'hospital',
-		'의원':'hospital','클리닉':'hospital','메디컬':'hospital','의료원':'hospital',
-		'치과':'hospital','한방':'hospital','rehab':'hospital','hospital':'hospital','clinic':'hospital','dental':'hospital',
-		// 교육
-		'학교':'school','교육':'school','대학':'school','초등':'school','중학':'school','고등':'school','캠퍼스':'school',
-		// 업무/그 외(불확실 시 office 강제 금지)
-		'사무':'office','업무':'office','오피스':'office','연구':'office','근린생활':'office',
-		'판매':'office','집회':'office','문화':'office','체육':'office','숙박':'office','창고':'office','타워':'office'
-	};
-
-	for (const [k, v] of Object.entries(K)) {
-		if (s.includes(k) || sLc.includes(k.toLowerCase())) return v;
+// [수정] 한글 → 코어타입 정규화 테이블 보강(물류/창고는 factory로 묶음)
+function mapUseToCoreType(raw, opts = {}) {
+	// [추가] 정규화 유틸(괄호/특수문자 제거 + 공백 정리 + 소문자화)
+	function _norm(s) {
+		return String(s || '')
+			.replace(/[()\[\]{}【】〈〉<>:·•■□\-—_=+.,/\\!?~※“”"']/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.toLowerCase();
 	}
-	return null; // 확실치 않으면 null 유지
+
+	const noOfficeFallback = !!opts.noOfficeFallback;
+	const s = _norm(raw);
+
+	if (!s) return null;
+
+	// [추가] factory: 공장/제조/산단/플랜트 + 물류/창고 계열 포함
+	const isFactory =
+		/(공장|일반공장|제조|생산|산업|산단|산업단지|공업|플랜트|가공|작업장)/.test(s) ||
+		/(물류|물류센터|유통센터|배송센터|택배|허브|하치장|창고|창고형|냉동창고|저온창고|보관창고|보세창고|3pl|logistics|warehouse)/.test(s) ||
+		/(지식산업센터|아웃소싱센터|유통물류)/.test(s);
+
+	// [추가] hospital: 병원/의원/메디컬/요양/치과/한방 등
+	const isHospital =
+		/(병원|종합병원|의원|메디컬|의료원|보건소|요양(병원)?|클리닉|치과|한방|재활|검진센터|응급의료)/.test(s);
+
+	// [추가] school: 학교/초중고/대학교/캠퍼스/교육기관
+	const isSchool =
+		/(학교|초등|초등학교|중학교|고등학교|고교|대학교|대학|캠퍼스|교육기관|유치원|학원|연수원|연구소(캠퍼스)?)/.test(s);
+
+	// [추가] office: 오피스/사무/본사/행정/청사/업무/빌딩/타워
+	const isOffice =
+		/(오피스|사무|업무|본사|행정|청사|공공청사|동사무소|행정복지센터|구청|시청|군청|빌딩|타워|센터|문화센터|복합행정)/.test(s);
+
+	if (isFactory) return 'factory';
+	if (isHospital) return 'hospital';
+	if (isSchool) return 'school';
+	if (isOffice && !noOfficeFallback) return 'office';
+
+	// [추가] 확신 없으면 null (office 강제 폴백 금지 옵션 유지)
+	return null;
 }
+
 
 
 
@@ -1293,7 +1312,9 @@ function mapUseToCoreType(str) {
             lat: parseFloat(get('gf:lat') || get('lat') || '') || null,
             lng: parseFloat(get('gf:lng') || get('lng') || '') || null,
             featureId: get('gf:featureId') || get('featureId') || '',
-            buildingName: get('gf:buildingName') || get('buildingName') || ''
+            buildingName: get('gf:buildingName') || get('buildingName') || '',
+            // ★ 추가: 브이월드/내부 모두 지원
+            pnu: get('gf:pnu') || get('pnu') || ''
         };
         payload.norm = {
             road: _normalizeAddr(payload.roadAddr),
@@ -1317,40 +1338,70 @@ function mapUseToCoreType(str) {
         return Math.hypot(dx, dy) <= radiusM;
     }
 
+    /**
+     * 카탈로그에서 한 건을 찾아 반환
+     * 매칭 우선순위: ① PNU 정확일치 → ② 주소(도로/지번) 일치 → ③ 좌표 근접(≤30m) → ④ 건물명 포함
+     */
     function matchCatalogRecord(session, catalog) {
-        if (!Array.isArray(catalog)) return null;
-        const road = session.norm.road;
-        const jibun = session.norm.jibun;
+    	// 가드
+    	if (!Array.isArray(catalog)) return null;
 
-        let candidates = catalog;
+    	// --- 0) 도움 함수 ---
+    	// PNU는 숫자만 남겨 비교(하이픈/공백/문자 제거)
+    	const normPnu = v => String(v ?? '').replace(/\D/g, '');
+    	// 주소는 공백 정리 + 접미사 간단 정규화(파일 상단의 _normalizeAddr와 동일 정책이면 그대로 사용)
+    	const road = session.norm.road;
+    	const jibun = session.norm.jibun;
 
-        if (road || jibun) {
-            candidates = candidates.filter(it => {
-                const itRoad = _normalizeAddr(it.roadAddr || '');
-                const itJibun = _normalizeAddr(it.jibunAddr || '');
-                return (road && itRoad && itRoad === road) || (jibun && itJibun && itJibun === jibun);
-            });
-        }
+    	// --- 1) PNU 정확 일치(가장 신뢰도 높음) ---
+    	const sessionPnu = normPnu(session.pnu);
+    	if (sessionPnu) {
+    		const pnuHit = catalog.filter(it => normPnu(it.pnu) === sessionPnu);
+    		if (pnuHit.length > 0) {
+    			return pnuHit[0];
+    		}
+    	}
 
-        if ((!candidates || candidates.length === 0) && (session.lat != null && session.lng != null)) {
-            candidates = catalog.filter(it => _isNear(
-                { lat: session.lat, lng: session.lng },
-                { lat: parseFloat(it.lat), lng: parseFloat(it.lon ?? it.lng) },
-                30
-            ));
-        }
+    	// --- 2) 주소(도로/지번) 일치 ---
+    	let candidates = catalog;
+    	if (road || jibun) {
+    		candidates = candidates.filter(it => {
+    			const itRoad  = _normalizeAddr(it.roadAddr  || it.address || '');
+    			const itJibun = _normalizeAddr(it.jibunAddr || '');
+    			return (road  && itRoad  && itRoad  === road) ||
+    			       (jibun && itJibun && itJibun === jibun);
+    		});
+    	}
+    	if (candidates && candidates.length > 0) {
+    		return candidates[0];
+    	}
 
-        if (!candidates || candidates.length === 0) {
-            const bname = (session.buildingName || '').trim();
-            if (bname) {
-                const lw = bname.toLowerCase();
-                candidates = catalog.filter(it => (it.buildingName || '').toLowerCase().includes(lw));
-            }
-        }
+    	// --- 3) 좌표 근접 (기본 30m) ---
+    	if (session.lat != null && session.lng != null) {
+    		const near = catalog.filter(it => _isNear(
+    			{ lat: session.lat, lng: session.lng },
+    			{ lat: parseFloat(it.lat), lng: parseFloat(it.lon ?? it.lng) },
+    			30
+    		));
+    		if (near.length > 0) {
+    			return near[0];
+    		}
+    	}
 
-        if (!candidates || candidates.length === 0) return null;
-        return candidates[0];
+    	// --- 4) 건물명 부분일치 ---
+    	const bname = (session.buildingName || '').trim();
+    	if (bname) {
+    		const lw = bname.toLowerCase();
+    		const byName = catalog.filter(it => (it.buildingName || '').toLowerCase().includes(lw));
+    		if (byName.length > 0) {
+    			return byName[0];
+    		}
+    	}
+
+    	// 실패 시 null
+    	return null;
     }
+
 
     function buildChartContextLine(rec) {
         const name = (rec?.buildingName && String(rec.buildingName).trim()) || '건물명 없음';
@@ -1369,16 +1420,39 @@ function mapUseToCoreType(str) {
             if (!dae) return;
 
             const rawUse = (rec.useName || rec.use || '').toString();
-            const mapped = (typeof resolveCoreType === 'function')
-                ? resolveCoreType({
-                    useName: rawUse,
-                    buildingName: rec.buildingName,
-                    roadAddr: rec.roadAddr,
-                    jibunAddr: rec.jibunAddr,
-                    type: rec.type,
-                    mappedType: rec.mappedType
-                }, { noOfficeFallback: true })
-                : null;
+
+            // [추가] 카탈로그 필드(Type/type/buildingType2/eui/energy)를 컨텍스트에 먼저 주입
+            const preCtx = { useName: rawUse, buildingName: rec.buildingName, roadAddr: rec.roadAddr, jibunAddr: rec.jibunAddr };
+            if (window.SaveGreen?.Forecast?.providers?.applyCatalogToContext) {
+                window.SaveGreen.Forecast.providers.applyCatalogToContext(rec, preCtx);
+            }
+
+            // (일부 생략) … hydratePreloadUI(preCtx) …
+            let mapped = (typeof resolveCoreType === 'function')
+            	? (resolveCoreType({
+            		...preCtx,
+            		type: preCtx.type ?? rec.type,
+            		mappedType: rec.mappedType
+            	}, { noOfficeFallback: true }) ||
+            	   resolveCoreType({
+            		...preCtx,
+            		type: preCtx.type ?? rec.type,
+            		mappedType: rec.mappedType
+            	   }))
+            	: null;
+
+            // 마지막 안전망: useName에 ‘업무/사무/오피스/행정/청사’ 계열이 보이면 office로 간주
+            if (!mapped) {
+            	const u = String(preCtx.useName || '').toLowerCase();
+            	if (/(업무|사무|오피스|행정|청사)/.test(u)) mapped = 'office';
+            }
+
+            // mapped가 여전히 없더라도, 이후 base/euiRules 시도 로직은 그대로 진행
+            // (이하 base/euiRules 주입, KPI 프리뷰 등 기존 로직) …
+
+
+
+
 
             if (!mapped) return;
 
@@ -1557,9 +1631,11 @@ function matchCatalogItem(ctx, list) {
         .replace(/[()]/g, '')
         .toLowerCase();
 
-    // 1) PNU 완전일치
+    // ★ 숫자만 남기고 비교 (하이픈/공백/문자 제거)
+    const normPnu = v => String(v ?? '').replace(/\D/g, '');
     if (pnu) {
-        const byPnu = list.find(it => String(it.pnu || '').trim() === pnu);
+        const p = normPnu(pnu);
+        const byPnu = list.find(it => normPnu(it.pnu) === p);
         if (byPnu) return byPnu;
     }
 
@@ -1648,9 +1724,9 @@ async function applyCatalogHints(ctx) {
         }
 
         const unitRaw = (base?.tariffKrwPerKwh ?? base?.unitPrice ?? base?.tariff?.unit ?? base?.tariff);
-        const tariffText = (unitRaw != null && unitRaw !== '') ? `${nf(unitRaw)} 원/kWh (가정)` : '';
+        const tariffText = (unitRaw != null && unitRaw !== '') ? `${nf1(unitRaw)} 원/kWh (가정)` : '';
 
-        let basisText = 'EUI 기준 산출';
+        let basisText = '단위면적당 에너지 사용량 기준';
         try {
             let rules = ctx?.euiRules || null;
             if (!rules && SaveGreen?.Forecast?.loadDaeConfig) {
@@ -1857,6 +1933,17 @@ function buildMlPayload(ctx, data) {
 
     rawType = String(rawType).trim().toLowerCase();
     let type = core.has(rawType) ? rawType : mapUseToCoreType(rawType);
+
+    if (!type) {
+    	// 경고 대신 정보 레벨 + 같은 런에서 1회만 출력
+    	const __ONCE_KEY__ = '__warn_no_type_once__';
+    	if (!window[__ONCE_KEY__]) {
+    		window[__ONCE_KEY__] = true;
+    		SaveGreen.log.info('kpi', 'ML type unresolved; proceed without type (server can infer)');
+    	}
+    }
+
+
 
     const areaNum = Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
     const floorAreaM2 = (Number.isFinite(areaNum) && areaNum > 0) ? areaNum : 1000;
@@ -2066,7 +2153,9 @@ async function getBuildingContext() {
 	// 위치/PNU: 있으면 수집(없어도 무관)
 	const lat = pickNum(ds.lat, sget('lat'), bi.lat, fromUrl('lat'));
 	const lon = pickNum(ds.lon, sget('lon'), sget('lng'), bi.lon, bi.lng, fromUrl('lon'), fromUrl('lng'));
-	const pnu = pickStr(ds.pnu, sget('pnu'), bi.pnu, fromUrl('pnu'));
+	// ★ gf:pnu → pnu → dataset 순으로도 체크
+	const pnu = pickStr(ds.pnu, sget('gf:pnu'), sget('pnu'), bi.pnu, fromUrl('pnu'));
+
 
 	// 3) 주소 → regionRaw(시·구 2토큰) 생성(광역/특별시 접미사는 제거)
 	const addrBase = pickStr(roadAddr, jibunAddr);
@@ -2108,27 +2197,62 @@ async function getBuildingContext() {
 // ─────────────────────────────────────────────────────────────
 
 
-function resolveCoreType(ctx, opts = { noOfficeFallback: true }) {
-    const { noOfficeFallback = true } = opts;
-    const hint = String((ctx && (ctx.mappedType || ctx.type)) || '').trim().toLowerCase();
-    if (['factory','school','hospital','office'].includes(hint)) return hint;
+// [수정] buildingType2/1을 최우선 정규화 입력으로 사용하고, 그 다음 useName/use → 이름/주소 휴리스틱 순
+function resolveCoreType(ctx, options = {}) {
+	try {
+		const noOfficeFallback = !!options.noOfficeFallback;
 
-    let t = mapUseToCoreType((ctx && (ctx.useName || ctx.buildingType2 || ctx.buildingType1)) || '');
+		// (A) 영어 코어타입 최우선: catalog.type / ctx.type / mappedType
+        const preset = String(
+            ctx?.catalog?.type ?? ctx?.type ?? ctx?.mappedType ?? ''
+        ).trim().toLowerCase();
 
-    if (!t) {
-        const hay = [ctx?.buildingName, ctx?.roadAddr, ctx?.jibunAddr].filter(Boolean).join(' ').toLowerCase();
-        if (/(종합병원|요양병원|의료원|병원|의원|클리닉|메디컬|치과|한의원|한방|rehab|hospital|clinic|dental)\b/i.test(hay)) t = 'hospital';
-        else if (/(학교|초등|중학|고등|대학|캠퍼스)/.test(hay)) t = 'school';
-        else if (/(공장|제조|산단|산업단지|플랜트)/.test(hay)) t = 'factory';
-    }
+		if (['factory','hospital','school','office'].includes(preset)) {
+			return preset;
+		}
 
-    if (!t) {
-        const fromStore = (sessionStorage.getItem('forecast.type') || localStorage.getItem('forecast.type') || '').trim().toLowerCase();
-        if (['factory','school','hospital'].includes(fromStore)) t = fromStore;
-    }
+		// (B) buildingType2 → buildingType1 → useName → use  순으로 시도
+		const rawUsePrimary =
+			ctx?.buildingType2 ||
+			ctx?.buildingType1 ||
+			ctx?.useName ||
+			ctx?.use ||
+			'';
 
-    return t || (noOfficeFallback ? null : 'office');
+		let mapped = mapUseToCoreType(rawUsePrimary, { noOfficeFallback });
+
+		// (C) 마지막 보조: 카탈로그 한글(useName/use)도 시도
+        if (!mapped && ctx?.catalog) {
+            mapped = mapUseToCoreType(
+                ctx.catalog.buildingType2 ||
+                ctx.catalog.buildingType1 ||
+                ctx.catalog.useName ||
+                ctx.catalog.use, { noOfficeFallback }
+            );
+        }
+
+		if (!mapped) {
+			const byName = mapUseToCoreType(ctx?.buildingName, { noOfficeFallback });
+			const byAddr = mapUseToCoreType(ctx?.address, { noOfficeFallback });
+			mapped = byName || byAddr || null;
+		}
+
+		ctx.mappedType = mapped;
+		if (window.SaveGreen?.log?.kv) {
+			window.SaveGreen.log.kv('main', 'type resolved', {
+				source: mapped ? (rawUsePrimary ? 'buildingType/use' : (ctx?.buildingName ? 'name' : 'addr')) : 'unknown',
+				raw: rawUsePrimary || ctx?.buildingName || ctx?.address || null,
+				mapped: mapped
+			});
+		}
+		return mapped;
+	} catch (e) {
+		SaveGreen.log.warn('main', 'resolveCoreType failed', e);
+		return null;
+	}
 }
+
+
 
 
 
@@ -2174,15 +2298,10 @@ function applyAssumptionsToDataset(rootEl, ctx) {
     const base = ctx?.daeBase || {};
     const defaults = ctx?.daeDefaults || {};
 
-//    try {
-//        SaveGreen?.log?.kv?.(TAG, `[fn:start] ${FN}`, {
-//            base_tariff: (base.tariffKrwPerKwh ?? base.unitPrice ?? base.tariff?.unit ?? base.tariff),
-//            base_escal:  (base.tariffEscalationPct ?? base.tariff?.escalationPct),
-//            base_disc:   (base.discountRatePct ?? base.discount?.ratePct),
-//            def_escal:   (typeof defaults.electricityEscalationPctPerYear === 'number') ? `${Math.round(defaults.electricityEscalationPctPerYear*100)}%` : undefined,
-//            def_disc:    (typeof defaults.discountRate === 'number') ? `${Math.round(defaults.discountRate*100)}%` : undefined
-//        }, ['base_tariff','base_escal','base_disc','def_escal','def_disc']);
-//    } catch {}
+    // [추가] 타입·가정 미확정 방어: undefined를 빈 객체로 고정
+    if (!base || typeof base !== 'object') base = {};
+    if (!defaults || typeof defaults !== 'object') defaults = {};
+
 
     // (1) 표시용(dataset) – 비어있을 때만 채움
     if (!ds.unitPrice) {
@@ -2226,19 +2345,11 @@ function applyAssumptionsToDataset(rootEl, ctx) {
     // (3) UI 즉시 반영(전력단가/계산기준) — 값 없으면 빈칸
     try {
         const unitRaw = (base.tariffKrwPerKwh ?? base.unitPrice ?? base.tariff?.unit ?? base.tariff);
-        const tariffText = (unitRaw != null && unitRaw !== '') ? `${nf(unitRaw)} 원/kWh (가정)` : '';
-        const basisText = (ctx?.euiRules?.mode === 'primary') ? '1차에너지 기준 산출' : 'EUI 기준 산출';
+        const tariffText = (unitRaw != null && unitRaw !== '') ? `${nf1(unitRaw)} 원/kWh (가정)` : '';
+        const basisText = (ctx?.euiRules?.mode === 'primary') ? '1차에너지 기준 산출' : '단위면적당 에너지 사용량 기준';
         fillAssumptionKV({ tariffText, basisText });
     } catch {}
 
-//    try {
-//        const A = window.__FORECAST_ASSUMP__ || {};
-//        SaveGreen?.log?.kv?.(TAG, `[fn:end] ${FN}`, {
-//            tariffUnit: A.tariffUnit,
-//            tariffEscalation: A.tariffEscalation,
-//            discountRate: A.discountRate
-//        }, ['tariffUnit','tariffEscalation','discountRate']);
-//    } catch {}
 
     function toNum(x, fallback) {
         const n = Number(String(x ?? '').replace(/[^\d.]/g, ''));
@@ -2325,16 +2436,55 @@ async function runForecast() {
             		ctx.floorAreaM2  = ctx.floorAreaM2  || pick(Number(matched.floorArea));
             	}
 
-            	// ★★ 핵심 보강: 카탈로그의 타입 정보를 컨텍스트에 고정 주입
-            	// - mappedType가 있으면 최우선
-            	// - 없으면 type 사용
-            	// - 둘 다 없으면 useName을 한글→코어 매핑 시도
-            	ctx.mappedType = ctx.mappedType || matched.mappedType || null;
-            	ctx.type = ctx.type
-            		|| matched.type
-            		|| (mapUseToCoreType ? mapUseToCoreType(matched.useName || matched.use) : null);
+            	// buildingType2/1도 정규화 입력에 포함 (공장/병원 등 한글을 바로 factory/hospital로 매핑)
+                // 우선순위: matched.mappedType → matched.type → buildingType2 → buildingType1 → useName → use
+                ctx.mappedType = ctx.mappedType || matched.mappedType || null;
+                ctx.type = ctx.type
+                	|| matched.type
+                	|| (mapUseToCoreType
+                		? mapUseToCoreType(
+                			matched.buildingType2
+                			|| matched.buildingType1
+                			|| matched.useName
+                			|| matched.use
+                		)
+                		: null);
+
 
             	await applyCatalogHints(ctx);
+
+            	// === [TYPE FIX] catalog의 영문 type이 있으면 최우선 확정 ===
+                (function forceEnglishCoreType(ctx) {
+                	// 카탈로그 주입 함수가 있으면 catalogItem에, 없으면 matched 객체에 실려 있음
+                	const t = (ctx?.catalogItem?.type ?? ctx?.catalog?.type ?? ctx?.type ?? '')
+                		.toString().trim().toLowerCase();
+
+                	if (['factory','school','hospital','office'].includes(t)) {
+                		ctx.type = t;
+                		ctx.mappedType = t;
+                		// (선택) 로그
+                		if (window.SaveGreen?.log?.kv) {
+                			window.SaveGreen.log.kv('type', 'forced by catalog.type (en)', { type: t });
+                		}
+                	}
+                })(ctx);
+
+            }
+
+             // === [TYPE GUARD] 카탈로그 적용 후에도 type 미해결이면 '로그만' 남기고 계속 진행 ===
+            if (!ctx.type) {
+                if (window.SaveGreen?.log?.kv) {
+                    window.SaveGreen.log.kv('main', 'type unresolved — proceed without type (using dae defaults)', {
+                        source: ctx.source || 'unknown',
+                        use: ctx.useName || null,
+                        buildingType1: ctx.buildingType1 || null,
+                        buildingType2: ctx.buildingType2 || null
+                    });
+                } else {
+                    console.warn('[main] type unknown — proceed without type (using dae defaults)');
+                }
+                // 파이프라인은 그대로 진행(기본 가정/dae.json 사용). 값은 비워 둔다.
+                ctx.__typeUnresolved = true;
             }
 
         } catch (e) {
@@ -2689,7 +2839,7 @@ async function runForecast() {
 
     // [추가] 비용/회수기간을 프런트 가정으로 즉시 재계산(서버 KPI 무시)
     //       false로 바꾸면 다시 '서버 KPI 우선' 모드로 복귀
-    const FE_OVERRIDES_COST_PAYBACK = true;
+    const FE_OVERRIDES_COST_PAYBACK = false;
     const kpiFromApiForCompute = FE_OVERRIDES_COST_PAYBACK ? null : kpiFromServer;
 
     const kpi = SaveGreen.Forecast.computeKpis({
@@ -2900,8 +3050,6 @@ async function runForecast() {
     	}
     }
 
-
-
     const builtYear = Number(document.getElementById('forecast-root')?.dataset.builtYear) || Number(ctx?.builtYear);
     const statusObj = SaveGreen.Forecast.decideStatusByScore(kpi, { builtYear });
     applyStatus(statusObj.status);
@@ -2915,27 +3063,55 @@ async function runForecast() {
 
     // 5-9) ABC 순차 실행(차트)
     await runABCSequence({
-        ctx,
-        baseForecast: data,
-        onCComplete: () => {
-            renderKpis(kpi, { gradeNow });
-            renderSummary({ gradeNow, kpi, rules: euiRules, euiNow, ctx });
+    	ctx,
+    	baseForecast: data,
+    	onCComplete: () => {
+    		// [유지] KPI 카드
+    		renderKpis(kpi, { gradeNow });
 
-            if ($surface) {
-                try {
-                    $surface.style.opacity = '0';
-                    $surface.style.transform = 'translateY(-12px)';
-                    show($surface);
-                    $requestAnimationFramePoly(() => {
-                        $surface.style.transition = 'opacity 350ms ease, transform 350ms ease';
-                        $surface.style.opacity = '1';
-                        $surface.style.transform = 'translateY(0)';
-                        setTimeout(() => { $surface.style.transition = ''; }, 400);
-                    });
-                } catch { show($surface); }
-            }
-        }
+    		// [추가] euiNow 보강: 면적 + (after0 또는 savingKwhYr & savingPct)로 역산
+    		let euiNowSafe = Number(euiNow);
+    		if (!Number.isFinite(euiNowSafe)) {
+    			const fa = Number(ctx?.floorAreaM2 ?? 0);
+    			const sp = Number(kpi?.savingPct ?? NaN);               // 서버 KPI 절감률(%)
+    			const after0 = Number(data?.series?.after?.[0] ?? NaN);  // 첫해 절감 후 kWh
+    			const savingKwhYr = Number(kpi?.savingKwhYr ?? NaN);     // 첫해 절감 kWh
+
+    			if (fa > 0 && Number.isFinite(sp) && sp > 0) {
+    				let baseline = NaN;
+    				if (Number.isFinite(after0)) {
+    					baseline = after0 / (1 - sp / 100);
+    				} else if (Number.isFinite(savingKwhYr)) {
+    					baseline = savingKwhYr / (sp / 100);
+    				}
+    				if (Number.isFinite(baseline)) {
+    					euiNowSafe = baseline / fa; // kWh/㎡·년
+    				}
+    			}
+    		}
+
+    		// [수정] 보강된 값을 전달
+    		renderSummary({ gradeNow, kpi, rules: euiRules, euiNow: euiNowSafe, ctx });
+
+    		if ($surface) {
+    			try {
+    				$surface.style.opacity = '0';
+    				$surface.style.transform = 'translateY(-12px)';
+    				show($surface);
+    				$requestAnimationFramePoly(() => {
+    					$surface.style.transition = 'opacity 350ms ease, transform 350ms ease';
+    					$surface.style.opacity = '1';
+    					$surface.style.transform = 'translateY(0)';
+    					setTimeout(() => { $surface.style.transition = ''; }, 400);
+    				});
+    			} catch {
+    				show($surface);
+    			}
+    		}
+    	}
     });
+
+
 
     setPreloadState('complete');
 }
@@ -2995,102 +3171,130 @@ function renderKpis(kpi, { gradeNow }) {
     if (sp) sp.textContent = kpi.savingPct + '%';
 }
 
+
+let euiNowSafe = Number(euiNow);
+if (!Number.isFinite(euiNowSafe)) {
+	const fa = Number(ctx?.floorAreaM2 ?? 0);
+	const sp = Number(kpi?.savingPct ?? NaN);         // 서버 KPI 절감률(%)
+	const after0 = Number(series?.after?.[0] ?? NaN); // 첫해 절감 후 kWh
+	const savingKwhYr = Number(kpi?.savingKwhYr ?? NaN);
+
+	if (fa > 0 && Number.isFinite(sp) && sp > 0) {
+		if (Number.isFinite(after0)) {
+			const baseline = after0 / (1 - sp / 100);
+			euiNowSafe = baseline / fa;
+		} else if (Number.isFinite(savingKwhYr)) {
+			const baseline = savingKwhYr / (sp / 100);
+			euiNowSafe = baseline / fa;
+		}
+	}
+}
+
+
+
 /** 요약 리스트(EUI 경계/필요 절감률 등) — euiRules 기반 */
 function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
-    const ul = $el('#summary-list');
-    if (!ul) return;
-    ul.innerHTML = '';
+	// [유틸] 안전한 숫자 포맷(소수 1자리, 천단위)
+	function fmt1(n) {
+		const x = Number(n);
+		if (!Number.isFinite(x)) return '-';
+		// 소수 1자리 반올림 + 천단위 콤마
+		return x.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+	}
 
-    // ── renderSummary 내부에 추가(안전 경계 추출)
-    function _extractBands(rules) {
-        if (!rules || typeof rules !== 'object') return [];
-        const cands = [rules.gradeBands, rules.electricityGradeBands, rules.primaryGradeBands, rules.bands].filter(Array.isArray);
-        return cands[0] || [];
-    }
-    function getBoundaryForGradeSafe(targetGrade, rules) {
-        const bands = _extractBands(rules);
-        if (!bands.length) return null;
-        const band = bands.find(b => Number(b.grade) === Number(targetGrade));
-        if (!band) return null;
-        return { value: Number(band.max), unit: 'kWh/m²·년' }; // 상한 경계 사용
-    }
+	const ul = $el('#summary-list');
+	if (!ul) return;
+	ul.innerHTML = '';
+	const gradeNowNum = Number(String(gradeNow ?? '').match(/\d+/)?.[0]);
 
+	// [추가] dae.json 기준: 배열형 grade bands에서 목표 경계(max) 찾기
+	function _extractBands(r) {
+		if (!r || typeof r !== 'object') return [];
+		const cands = [r.primaryGradeBands, r.electricityGradeBands, r.gradeBands, r.bands].filter(Array.isArray);
+		return cands[0] || [];
+	}
+	function getBoundaryForGradeSafe(targetGrade, r) {
+		const bands = _extractBands(r);
+		if (!bands.length) return null;
+		const band = bands.find(b => Number(b.grade) === Number(targetGrade));
+		if (!band) return null;
+		return { value: Number(band.max), unit: 'kWh/㎡·년' }; // 상한 경계 사용
+	}
 
-    let targetGradeText, boundary = null;
-    if (typeof gradeNow === 'number') {
-        const targetGradeNum = Math.max(1, gradeNow - 1);
-        targetGradeText = `${targetGradeNum}등급`;
-        boundary = getBoundaryForGradeSafe(targetGradeNum, rules);
-    } else {
-        targetGradeText = '상위 등급';
-    }
+	// [추가] 목표 등급(한 단계 상향) 결정
+    let targetGradeText = '상위 등급';
+    let boundary = null;
 
-    let currentEuiText = '-';
-    let boundaryText = '-';
-    let needSavingPct = 0;
-
-    if (Number.isFinite(euiNow)) {
-        currentEuiText = `${nf(euiNow)} kWh/m²/년`;
-    }
-    if (boundary && Number.isFinite(boundary.value)) {
-        boundaryText = `${nf(boundary.value)} ${boundary.unit}`;
-    }
-
-
-    const canRuleBased = (
-        Number.isFinite(euiNow) &&
-        boundary &&
-        Number.isFinite(boundary.value) &&
-        boundary.value > 0
-    );
-
-    if (canRuleBased) {
-        // 공식: 필요 절감률 = (1 - 목표등급경계 / 현재EUI) × 100
-        needSavingPct = Math.max(0, Math.round((1 - (boundary.value / euiNow)) * 100));
-    } else {
-        // 룰/면적이 없을 때만 폴백(= UI 설명도 '추정'으로 표시됨)
-        if (Number.isFinite(kpi?.savingPct)) {
-            needSavingPct = Math.max(0, Math.round(100 - kpi.savingPct));
+    if (Number.isFinite(gradeNowNum)) {
+        if (gradeNowNum <= 1) {
+            targetGradeText = '최고 등급';
         } else {
-         needSavingPct = 0;
+            const targetGradeNum = Math.max(1, gradeNowNum - 1);
+            targetGradeText = `${targetGradeNum}등급`;
+            boundary = getBoundaryForGradeSafe(targetGradeNum, rules);
         }
+    } else {
+        targetGradeText = '상위 등급'; // 안전 폴백
     }
 
+	// [추가] 텍스트 구성(한 번만 렌더)
+	const lines = [];
 
-    const lines = [];
-    lines.push(`현재 등급 : <strong>${(typeof gradeNow === 'number') ? `${gradeNow}등급` : String(gradeNow)}</strong>`);
-    lines.push(`목표 : <strong>${targetGradeText}</strong>`);
-    if (boundaryText !== '-') lines.push(`등급 상승 기준(EUI 경계값) : <strong>${boundaryText}</strong>`);
-    if (Number.isFinite(euiNow)) lines.push(`추정 현재 EUI : <strong>${currentEuiText}</strong>`);
-    lines.push(`등급 상승 필요 절감률 : <strong>${needSavingPct}%</strong>`);
+	// 현재 등급
+	lines.push(`현재 등급 : <strong>${(typeof gradeNow === 'number') ? `${gradeNow}등급` : String(gradeNow)}</strong>`);
+
+	// 목표 등급
+	lines.push(`목표 : <strong>${targetGradeText}</strong>`);
+
+	// EUI 현재값
+	if (Number.isFinite(euiNow)) {
+		lines.push(`추정 현재 EUI : <strong>${fmt1(euiNow)} kWh/㎡·년</strong>`);
+	}
+
+	// 목표 경계(있을 때만)
+	if (boundary && Number.isFinite(boundary.value)) {
+		lines.push(`등급 상승 기준(EUI 경계값) : <strong>${fmt1(boundary.value)} ${boundary.unit}</strong>`);
+	}
+
+//	// [수정] 필요 절감률 계산 — 근거가 있을 때는 '추정'을 띄우지 않음
+//    let needSavingPct = null;
+//    if (Number.isFinite(euiNow) && boundary && Number.isFinite(boundary.value) && boundary.value > 0) {
+//    	needSavingPct = Math.max(0, ((euiNow - boundary.value) / euiNow) * 100);
+//    	lines.push(`등급 상승 필요 절감률 : <strong>${fmt1(needSavingPct)}%</strong>`);
+//    } else if (Number.isFinite(euiNow) && Number.isFinite(gradeNowNum) && gradeNowNum === 1) {
+//    	// 최고등급이면 0.0%
+//    	lines.push(`등급 상승 필요 절감률 : <strong>0.0%</strong>`);
+//    } else if (!Number.isFinite(euiNow) || !(boundary && Number.isFinite(boundary.value))) {
+//    	// 정말로 계산 근거가 없을 때만 '추정'
+//    	lines.push(`등급 상승 필요 절감률 : <strong>추정</strong> (데이터 부족)`);
+//    }
 
 
-    lines.forEach((html) => {
-        const li = document.createElement('li');
-        li.innerHTML = html;
-        ul.appendChild(li);
-    });
+	// 렌더(단 한 번)
+	for (const html of lines) {
+		const li = document.createElement('li');
+		li.innerHTML = html;
+		ul.appendChild(li);
+	}
 
-    // ▼ '추정' 라벨 추가 (컨테이너 안전 가져오기)
-    const notes = [];
-    if (ctx?.__flags?.missingArea) notes.push('면적 데이터 미확정 → EUI 등급 추정');
-    if (ctx?.__flags?.missingBuiltYear) notes.push('사용연도 데이터 미확정 → 추정 연식');
+	// [추가] 주석/주의 문구
+	const notes = [];
+	if (ctx?.__flags?.missingArea) notes.push('면적 데이터 미확정 → EUI 등급 추정');
+	if (ctx?.__flags?.missingBuiltYear) notes.push('사용연도 데이터 미확정 → 추정 연식');
 
-    try {
-        // 요약 패널 엘리먼트: 있으면 사용, 없으면 ul의 부모를 사용
-        const summaryEl =
-            document.getElementById('summary-panel') || ul.parentElement || ul;
-
-        let elNotes = summaryEl.querySelector('[data-summary-notes]');
-        if (!elNotes) {
-            elNotes = document.createElement('div');
-            elNotes.setAttribute('data-summary-notes', '1');
-            elNotes.className = 'text-xs text-amber-200 mt-2';
-            summaryEl.appendChild(elNotes);
-        }
-        elNotes.textContent = notes.length ? `※ ${notes.join(' · ')}` : '';
-    } catch { }
+	try {
+		const summaryEl = document.getElementById('summary-panel') || ul.parentElement || ul;
+		let elNotes = summaryEl.querySelector('[data-summary-notes]');
+		if (!elNotes) {
+			elNotes = document.createElement('div');
+			elNotes.setAttribute('data-summary-notes', '1');
+			elNotes.className = 'text-xs text-amber-200 mt-2';
+			summaryEl.appendChild(elNotes);
+		}
+		elNotes.textContent = notes.length ? `※ ${notes.join(' · ')}` : '';
+	} catch {}
 }
+
 
 /** 페이지 상단 '건물 정보' 카드(컨텍스트 보조 정보) */
 function renderBuildingCard() {
@@ -3759,6 +3963,14 @@ function _logChartOneLine(label, metrics) {
 
 /** 포맷/헬퍼 */
 function nf(n) { try { return new Intl.NumberFormat('ko-KR').format(Math.round(Number(n) || 0)); } catch { return String(n); } }
+// [추가] 소수점 1자리 포맷터 (전력단가 등)
+function nf1(n) {
+    const v = Number(n);
+    return new Intl.NumberFormat('ko-KR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    }).format(Number.isFinite(v) ? v : 0);
+}
 function range(a, b) { const arr = []; for (let y = a; y <= b; y++) arr.push(y); return arr; }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 function show(el) { if (el) el.classList.remove('hidden'); }
