@@ -449,5 +449,44 @@ function getCookie(name) {
     return "";
 } // 24시간 기준 쿠키 설정하기 
 
+// expiredays 후의 클릭한 시간까지 쿠키 설정 
+function setCookie24(name, value, expiredays) {
+    var todayDate = new Date();
 
+    todayDate.setDate(todayDate.getDate() + expiredays);
+
+    document.cookie = name + "=" + escape(value) + "; path=/; expires=" + todayDate.toGMTString() + ";";
+}
+
+// 00:00 시 기준 쿠키 설정하기 // expiredays 의 새벽 00:00:00 까지 쿠키 설정 
+function setCookie00(name, value, expiredays) {
+    var todayDate = new Date(); todayDate = new Date(parseInt(todayDate.getTime() / 86400000) * 86400000 + 54000000);
+
+    if (todayDate > new Date()) {
+        expiredays = expiredays - 1;
+    }
+
+    todayDate.setDate(todayDate.getDate() + expiredays);
+
+    document.cookie = name + "=" + escape(value) + "; path=/; expires=" + todayDate.toGMTString() + ";";
+}
+
+// 팝업출력
+function popUpAction(name) {
+    // name으로 해당 팝업창 열기 
+    $("div[name=" + name + "]").fadeIn();
+}
+
+// 닫기버튼 클릭 이벤트 
+$('.btn_close').click(function () {
+    $(this).parent('.main_notice_pop').fadeOut();
+
+    // 오늘하루 보지않기 체크 확인 
+    if ($("input:checkbox[name=today_close1]").is(":checked") == true) {
+        setCookie00('popup1', "done", 1);
+    }
+
+    // name으로 해당 팝업창 닫기 
+    $(this).parent("div[name=" + name + "]").fadeOut();
+})
 

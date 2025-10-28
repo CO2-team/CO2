@@ -190,47 +190,25 @@ body {
 }
 
 /* 팝업 */
-.intro_popup {
-    position: absolute; /* 지도 위에 */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 200; /* 검색창보다 위 */
-    display: show; /* 기본 숨김 */
+
+.main_notice_pop .btn_close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  font-size: 1.25em;
 }
 
-.intro_popup img {
-    max-width: 300px;
-    display: block;
+.main_notice_pop{
+  position: fixed;
+  left: 15%;
+  top: 24%;
+  z-index: 999;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
+  width: 60%;
+  color: #ffff;
 }
-
-.intro_popup .close-btn {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: rgba(255,255,255,0.8);
-    border: none;
-    cursor: pointer;
-    padding: 2px 5px;
-}
-.intro_popup{
-  display: none;
-}
-
-.info-popup {
-    position: fixed;
-    top: 80px;
-    right: 30px;
-    width: 300px;
-    background: white;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    border-radius: 10px;
-    font-family: 'Pretendard', sans-serif;
-    z-index: 9999;
-    animation: fadeIn 0.3s ease;
-}
-
 
 .popup {
     position: absolute;
@@ -241,6 +219,17 @@ body {
     font-family: "Noto Sans KR", sans-serif;
     display: none;
     z-index: 999;
+}
+
+.btn_close{
+  text-decoration: none;
+  color: #ffff;
+  font-size: 1.5vh;
+}
+
+.today_close1{
+  color: #ffff;
+  font-size: 1.5vh;
 }
 
 
