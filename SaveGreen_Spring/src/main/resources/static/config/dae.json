@@ -8,7 +8,7 @@
             "2) base = dae.types[mappedType].base 로 단가/투자비/절감률 주입",
             "3) KPI 계산: savingKwh, costSaving, paybackYears 산출 (formulas 적용)",
             "4) 등급/EUI 표시는 euiRules.mode 및 해당 임계값/밴드 적용",
-            "5) UI 표기(%)는 defaults의 소수값을 ×100 변환해 표시",
+            "5) UI 표기(%)는 defaults의 소수값을 x100 변환해 표시",
             "※ 가능하면 KPI는 백엔드 응답을 그대로 사용하고, FE 계산은 보조로만 사용"
         ],
         "notes": [
@@ -52,7 +52,7 @@
     },
 
     "defaults": {
-        "__comment": "프로젝트 전역 공통 상수(소수값). UI에 % 표기 시 ×100 변환.",
+        "__comment": "프로젝트 전역 공통 상수(소수값). UI에 % 표기 시 x100 변환.",
         "electricityEscalationPctPerYear": 0.03,
         "discountRate": 0.05,
         "maintenanceOpexAsPctOfCapex": 0.01,

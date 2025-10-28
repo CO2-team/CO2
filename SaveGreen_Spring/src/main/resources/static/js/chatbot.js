@@ -1,23 +1,19 @@
 const chatbotData = {
+
+  //초기화면
   root: {
     text: "무엇이 궁금하신가요?",
     options: [
       { text: "건물정보검색", next: "finder" },
-      { text: "시뮬레이터", next: "simulator" },
       { text: "에너지등급과 ZEB", next: "tax" },
+      { text: "그린 리모델링", next: "green" },
+      { text: "시뮬레이터", next: "simulator" },
       { text: "시뮬레이터 계산 기준", next: "calc" }
     ]
   },
 
+  // 건물정보검색
   finder: {
-    text: "건물 정보 검색에 대한 안내입니다.",
-    options: [
-      { text: "건물정보검색이란?", next: "finder_detail" },
-      { text: "처음으로", next: "root"}
-    ]
-  },
-
-  finder_detail: {
      text: 
     `<p>
       건물정보검색은 주소를 입력하면 해당 건물의 <b>에너지 사용량</b>, <b>에너지 등급</b>,
@@ -26,18 +22,221 @@ const chatbotData = {
     `
     ,
     options: [
-      { text: "이전으로", next: "finder" },
+      { text: "이전으로", next: "finder" }
+    ]
+  },
+
+  // 그린리모델링
+  green: {
+     text: 
+    `그린 리모델링 페이지는 선택된 건물의 향후 예측을 <b>머신러닝</b>을 통해 제공합니다.
+    `
+    ,
+    options: [
+      { text: "머신러닝 계산 기준", next: "calc_m" },
+      { text: "머신러닝 예측 모델", next: "predict_model" },
+      { text: "이전으로", next: "root" }
+    ]
+  },
+  
+  calc_m: {
+     text: 
+    `카드에 표시되는 항목들의 계산 기준은 다음과 같습니다.
+    `
+    ,
+    options: [
+      { text: "연간 절감 비용", next: "yearly_save" },
+      { text: "투자 회수 기간", next: "payback" },
+      { text: "에너지 절감률", next: "energy_save" },
+      { text: "에너지 등급", next: "energy_grade" },
+      { text: "이전으로", next: "green" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  yearly_save: {
+     text: 
+    `<p>
+      <b>연간 절감 비용</b>은 다음과 같은 식으로 계산됩니다.
+    </p>
+
+    <p style="text-align:center; font-weight:600; color:#2e7d32;">
+      연간 절감 비용 = (연간 절감 전력량) x (전기요금 단가)
+    </p>
+
+    <p>
+      <b>연간 절감 전력량</b>은 그린리모델링을 적용했을 때 예상되는 전력 사용량 감소량을 의미합니다.<br>
+      <b>전기요금 단가</b>는 2024년 산업용 전기요금 기준으로 <b>185.5원/kWh</b>가 적용됩니다.
+    </p>`
+    ,
+    options: [
+     
+      { text: "이전으로", next: "calc_m" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  payback: {
+     text: 
+    ` <p>
+      <b>투자 회수기간</b>은 다음과 같은 식으로 계산됩니다.
+    </p>
+
+    <p style="text-align:center; font-weight:600; color:#2e7d32;">
+      투자 회수기간 = (초기 투자비) ÷ (연간 절감 비용)
+    </p>
+
+    <p>
+      <b>초기 투자비</b>는 그린리모델링에 소요되는 총 비용을 의미합니다.<br>
+      여기에는 <b>건물 옥상 평탄화 공사비</b>와 <b>태양광 패널 설치비</b>가 포함됩니다.<br>
+      <b>연간 절감 비용</b>은 리모델링 이후 절감되는 전기요금을 기준으로 산정됩니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "calc_m" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  energy_save: {
+     text: 
+    `<p>
+      <b>에너지 절감률</b>은 다음과 같은 식으로 계산됩니다.
+    </p>
+
+    <p style="text-align:center; font-weight:600; color:#2e7d32;">
+      에너지 절감률 = (연간 절감 전력량 ÷ 기준 전력 사용량) x 100
+    </p>
+
+    <p>
+      <b>연간 절감 전력량</b>은 그린리모델링으로 인해 감소된 전력 사용량을 의미합니다.<br>
+      <b>기준 전력 사용량</b>은 리모델링 이전의 연간 전력 사용량을 의미합니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "calc_m" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  energy_grade: {
+     text: 
+    `<p>
+      <b>에너지 등급</b>은 다음 기준으로 책정됩니다.
+    </p>
+
+    <p style="text-align:center; font-weight:600; color:#2e7d32;">
+      에너지 등급 = 단위면적당 에너지 사용량 (kWh/m<sup>2</sup>)
+    </p>
+
+    <p>
+      에너지 등급은 <b>1+++ 등급</b>부터 <b>7등급</b>까지 존재하며,<br>
+      숫자가 낮을수록 에너지 효율이 높습니다.<br>
+      그중 <b>1+++ 등급</b>이 가장 높은 효율을 의미합니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "calc_m" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+
+  predict_model: {
+     text: 
+    `그린 리모델링 페이지에 사용된 머신 러닝 예측 모델은 다음과 같습니다.
+    `
+    ,
+    options: [
+      { text: "A : 엘라스틱 네트", next: "elastic" },
+      { text: "B : 랜덤 포레스트", next: "randomforest" },
+      { text: "C : 앙상블", next: "ensemble" },
+      { text: "이전으로", next: "green" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  elastic: {
+     text: 
+    `<p>
+      <b>모델 A</b>는 <b>엘라스틱 네트(Elastic Net)</b> 회귀 모델로,<br>
+      라쏘(Lasso) 회귀와 릿지(Ridge) 회귀의 장점을 결합한 <b>선형 회귀 모델</b>입니다.
+    </p>
+
+    <p>
+      두 규제 항(<b>L1</b>, <b>L2</b>)을 함께 사용하여 <b>과적합을 억제</b>하고,<br>
+      가중치의 안정성과 해석 가능성을 동시에 확보할 수 있습니다.
+    </p>
+
+    <p>
+      또한 변수 간 상관관계가 높은 데이터에서도<br>
+      <b>보다 균형 잡힌 가중치 분배</b>를 제공하는 특징이 있습니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "predict_model" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  randomforest: {
+     text: 
+    `<p>
+      <b>모델 B</b>는 <b>랜덤 포레스트(Random Forest)</b> 모델로,<br>
+      여러 개의 <b>결정 트리(Decision Tree)</b> 예측 결과를 결합한 <b>앙상블 학습 기법</b>입니다.
+    </p>
+
+    <p>
+      각 트리는 데이터의 일부 특징과 표본을 무작위로 선택해 학습하며,<br>
+      모든 트리의 예측값을 <b>평균(또는 다수결)</b>하여 최종 결과를 도출합니다.
+    </p>
+
+    <p>
+      단일 트리보다 <b>과적합에 강하고</b>,<br>
+      <b>비선형적인 관계</b>를 효과적으로 해석할 수 있다는 장점이 있습니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "predict_model" },
+      { text: "처음으로", next: "root" }
+    ]
+  },
+  ensemble: {
+     text: 
+    `<p>
+      <b>모델 C</b>는 <b>앙상블(Ensemble)</b> 모델로,<br>
+      <b>엘라스틱 네트(Elastic Net)</b>과 <b>랜덤 포레스트(Random Forest)</b>의 예측을 결합한 모델입니다.
+    </p>
+
+    <p>
+      두 모델의 예측값을 <b>가중 평균</b>하여,<br>
+      더 높은 성능을 보이는 모델에 <b>가중치</b>를 두는 방식으로 결과를 산출합니다.
+    </p>
+
+    <p>
+      이를 통해 <b>선형적 해석력(엘라스틱넷)</b>과<br>
+      <b>비선형적 표현력(랜덤 포레스트)</b>을 모두 반영할 수 있는 장점이 있습니다.
+    </p>
+    `
+    ,
+    options: [
+      
+      { text: "이전으로", next: "predict_model" },
       { text: "처음으로", next: "root" }
     ]
   },
 
 
+  // 시뮬레이터
   simulator: {
     text: "두 가지 시뮬레이터중 선택 해 주세요.",
     options: [
       { text: "에너지 등급 시뮬레이터", next: "simulator_detail_grade" },
       { text: "태양광 패널 시뮬레이터", next: "simulator_detail_solar" },
-      { text: "처음으로", next: "root" }
+      { text: "이전으로", next: "root" }
     ]
   },
   simulator_detail_grade: {
@@ -113,7 +312,7 @@ const chatbotData = {
     options: [
       { text: "에너지등급 정책", next: "energyGrade" },
       { text: "ZEB등급 정책", next: "ZEBGrade" },
-      { text: "처음으로", next: "root" }
+      { text: "이전으로", next: "root" }
     ]
   },
   energyGrade: {
@@ -220,7 +419,7 @@ const chatbotData = {
       { text: "연간 일사량", next: "solarRadiation" },
       { text: "연간 패널 발전량", next: "panelGeneration" },
       { text: "전기세, 탄소배출계수", next: "referenceValue" },
-      { text: "처음으로", next: "root" }
+      { text: "이전으로", next: "root" }
     ]
   },
   solarRadiation: {
