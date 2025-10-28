@@ -3,14 +3,14 @@ document.addEventListener("DOMContentLoaded", () => {
 Swal.fire({
     title: '시뮬레이터 사용법',
     html: '<h4>에너지 등급 시뮬레이터</h4>'
-         +'<b>1.</b>지도 클릭(서비스) 혹은 주소검색으로 주소,면적 입력하기<br>'
-         +'<b>2.</b>태양광 패널 갯수,정격출력 입력하기<br>'
-         +'<b>3.</b> 결과확인 버튼 누르기<br>'
+         +'<b>1.</b>앞서 GREEN FINDER (건물정보검색) 페이지에서 선택한 건물정보(주소,건물면적, 전기사용량)이 자동기입됩니다.<br>- 선택하지 않으시면 직접 검색 및 입력 가능합니다.<br>'
+         +'<b>2.</b>태양광 패널을 설치 되어 있으시면 패널 개수 및 모델명 및 출력 적용해주세요.<br>- 미기입시에도 결과 보기 가능합니다.<br>'
+         +'<b>3.</b>결과보기를 클릭 후 내용을 확인하세요.<br>'
          +'<h4>태양광 에너지 효율 경제성 시뮬레이터</h4>'
-         +'<b>1.</b>지도 클릭(건물 정보 입력)<br>   혹은 주소검색으로 주소,면적 입력하기<br>'
-         +'<b>2.</b>현재 등급,목표 등급 선택하기<br>'
-         +'<b>3.</b>태양광 패널 정격출력 입력하기<br>'
-         +'<b>4.</b> 결과확인 버튼 누르기<br>',
+         +'<b>1.</b>앞서 GREEN FINDER (건물정보검색) 페이지에서 선택한 건물정보(주소,건물면적)이 자동기입됩니다.<br>- 선택하지 않으시면 직접 검색 및 입력 가능합니다.<br>'
+         +'<b>2.</b>에너지 시뮬레이터에서 확인하신 등급과 목표 등급을 선택해주세요.<br>'
+         +'<b>3.</b>태양광 패널의 모델명과 출력에너지를 적용해주세요.<br>'
+         +'<b>4.</b>결과보기를 클릭 후 내용을 확인하세요.<br>',
     icon: 'info',
     customClass: {
       htmlContainer: 'swal-text',
@@ -979,13 +979,23 @@ document.addEventListener('DOMContentLoaded', () => {
   
 });
 
+
 document.addEventListener("DOMContentLoaded", function () {
   const steps = ["eg1", "eg2", "eg3", "eg4", "eg5"];
   let current = 0;
   const nextBtn = document.getElementById("nextBtn");
   const submitBtn = document.querySelector(".btn-submit");
+  const descBox = document.getElementById("stepDescription");
 
-  // ✅ 공용 "다음으로" 버튼
+  
+  const descriptions = {
+    eg1: "입력하신 주소를 기반으로 면적 정보를 불러왔습니다 입력된 정보가 맞으면 다음으로 버튼을 눌러주세요.",
+    eg2: "연간 에너지 사용량을 불러왔습니다. 입력된 정보가 맞으면 다음으로 버튼을 눌러주세요.",
+    eg3: "입력하신 사용량을 기준으로 절감 효과를 계산합니다.",
+    eg4: "태양광 패널이 설치되어 있나요? 예/아니오로 선택해주세요.",
+  };
+
+ 
   nextBtn.addEventListener("click", function () {
     const currentGroup = document.getElementById(steps[current]);
     const input = currentGroup.querySelector("input");
@@ -997,18 +1007,25 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    // 설명 문구 표시
+    if (descriptions[steps[current]]) {
+      descBox.textContent = descriptions[steps[current]];
+      descBox.style.opacity = 1;
+    }
+
     // 다음 단계 열기
     if (current < steps.length - 1) {
       const nextId = steps[current + 1];
 
-      // ✅ eg4는 자동으로 열지 않고 버튼(예/아니오)만 표시
+     
       if (nextId === "eg4") {
         nextBtn.style.display = "none";
         const choiceDiv = document.getElementById("eg4-buttons");
         choiceDiv.classList.remove("hidden");
         choiceDiv.classList.add("show");
+        descBox.textContent = descriptions["eg4"];
       } else {
-        // 일반 단계는 바로 다음 입력칸 열기
+        
         const nextGroup = document.getElementById(nextId);
         nextGroup.classList.remove("hidden");
         nextGroup.classList.add("show");
@@ -1018,28 +1035,47 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // ✅ 예/아니오 버튼 처리
+
   const btnYes = document.querySelector("#eg4-buttons .btn-yes");
   const btnNo = document.querySelector("#eg4-buttons .btn-no");
 
+  // 예
   btnYes.addEventListener("click", function () {
-    // 예 선택 시 eg4, eg5 표시
+    // eg4, eg5 표시
     document.getElementById("eg4").classList.remove("hidden");
-    document.getElementById("eg4").classList.add("show");
     document.getElementById("eg5").classList.remove("hidden");
+    document.getElementById("eg4").classList.add("show");
     document.getElementById("eg5").classList.add("show");
 
-    // 예/아니오 버튼 숨기고 결과보기 버튼 표시
-    document.getElementById("eg4-buttons").classList.add("hidden");
+   
+    const buttonsDiv = document.getElementById("eg4-buttons");
+    buttonsDiv.classList.add("hidden");
+    buttonsDiv.classList.remove("show");
+
+
     submitBtn.style.display = "block";
+    nextBtn.style.display = "none";
+
+  
+    descBox.textContent = "태양광 패널 관련정보를 입력/선택 하신 뒤 결과보기를 눌러주세요.";
   });
 
+  // 아니오
   btnNo.addEventListener("click", function () {
-    // 아니오 선택 시 eg4, eg5 숨기고 결과보기 표시
+    // eg4, eg5 모두 숨김
     document.getElementById("eg4").classList.add("hidden");
     document.getElementById("eg5").classList.add("hidden");
-    document.getElementById("eg4-buttons").classList.add("hidden");
 
+    
+    const buttonsDiv = document.getElementById("eg4-buttons");
+    buttonsDiv.classList.add("hidden");
+    buttonsDiv.classList.remove("show");
+
+    
     submitBtn.style.display = "block";
+    nextBtn.style.display = "none";
+
+    
+    descBox.textContent = "입력 완료! 이제 결과보기를 눌러주세요.";
   });
 });

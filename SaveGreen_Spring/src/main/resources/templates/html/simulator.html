@@ -54,7 +54,7 @@
 
 
                 <div class="choice-buttons hidden" id="eg4-buttons">
-                    <p>태양광 패널 관련 입력을 진행하시겠습니까?</p>
+                    
                     <button type="button" class="btn-yes">예</button>
                     <button type="button" class="btn-no">아니요</button>
                 </div>
@@ -78,6 +78,7 @@
                         <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
+                <p id="stepDescription">지도검색에서 건물 정보를 가져오지 않으셨다면 직접 건물 검색이 가능합니다.</p>
                 <button type="button" id="nextBtn" class="btn-next">다음으로</button>
                 <button type="submit" class="btn-submit" style="display: none;">결과보기</button>
             </form>
@@ -235,7 +236,8 @@
     </div> 
 </div>
    
-    
+    <div class="ai-summary-container">  
+    <div id="aiResult" style="white-space: pre-line; margin-top: 10px;"></div>
 
     <div id="compareText" style="display: none;">나의 시뮬레이터 <strong>결과차트</strong> 보기 </div>
     <br>
@@ -250,12 +252,10 @@
     </div>
     <canvas id="solarEfficiencyChart" style="display:none">누적 비교차트</canvas>
     
-    <hr>
-    <div class="ai-summary-container">
+ 
     
-    <div id="aiResult" style="white-space: pre-line; margin-top: 10px;"></div>
     </div>
-    <br><br>
+    <br>
 </div>
      <div class="floating-btns">
         <input type="file" id="csvFile" name="file" accept=".csv" style="display:none;">
