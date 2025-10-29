@@ -23,6 +23,11 @@ import java.util.List;
 @RequestMapping("/policy")
 public class PolicyController {
 
+    @GetMapping("/auto-upload")
+    public String autoUploadPage() {
+    return "html/auto-upload"; 
+}
+
     private final TaxPolicyRepository taxPolicyRepository;
     private final ZebPolicyRepository zebPolicyRepository;
 
@@ -188,5 +193,13 @@ public ResponseEntity<String> uploadAllPolicies(@RequestParam("file") MultipartF
         try { return (val == null || val.isEmpty()) ? null : Integer.parseInt(val); }
         catch (Exception e) { return null; }
     }
+
+ 
+
+
+
+
+
+
 }
 

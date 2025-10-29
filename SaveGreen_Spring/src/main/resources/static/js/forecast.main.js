@@ -38,6 +38,15 @@ function _printedKey(runId, letter) {
     return `${runId}::${letter}`; // 고유키
 }
 
+// 챗봇
+document.addEventListener("DOMContentLoaded", function() {
+    const chatbotWin = document.querySelector('.chatbot-window');
+    if (chatbotWin) {
+        chatbotWin.classList.remove('hidden');
+        chatbotWin.classList.add('show');
+    }
+});
+
 
 // 첫 해 비용절감과 회수기간 계산 폴백
 function computePaybackYears(ctx, data, unitUsed, kpi) {
@@ -3414,6 +3423,14 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 	const ul = $el('#summary-list');
 	if (!ul) return;
 	ul.innerHTML = '';
+
+
+
+
+
+
+
+
 	const gradeNowNum = Number(String(gradeNow ?? '').match(/\d+/)?.[0]);
 
 	// [추가] dae.json 기준: 배열형 grade bands에서 목표 경계(max) 찾기
@@ -3430,21 +3447,55 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 		return { value: Number(band.max), unit: 'kWh/㎡·년' }; // 상한 경계 사용
 	}
 
-	// [추가] 목표 등급(한 단계 상향) 결정
-    let targetGradeText = '상위 등급';
-    let boundary = null;
-
-    if (Number.isFinite(gradeNowNum)) {
-        if (gradeNowNum <= 1) {
-            targetGradeText = '최고 등급';
-        } else {
-            const targetGradeNum = Math.max(1, gradeNowNum - 1);
-            targetGradeText = `${targetGradeNum}등급`;
-            boundary = getBoundaryForGradeSafe(targetGradeNum, rules);
-        }
-    } else {
-        targetGradeText = '상위 등급'; // 안전 폴백
+    // [추가] 등급 밴드 안전 추출(좋은 등급 → 나쁜 등급 순으로 정렬)
+    function __pickBandsAsc(rules) {
+    	// rules.primaryGradeBands | electricityGradeThresholds | gradeBands | bands 중 첫 번째
+    	const cand = rules?.primaryGradeBands || rules?.electricityGradeThresholds || rules?.gradeBands || rules?.bands || [];
+    	if (!Array.isArray(cand)) return [];
+    	// EUI는 값이 낮을수록 좋으므로 min 오름차순 = 좋은→나쁜
+    	return cand.slice().sort((a, b) => Number(a.min) - Number(b.min));
     }
+
+    // [추가] 현재 등급에서 '한 단계 상향' 라벨/경계 구하기(숫자/문자 등급 모두 지원)
+    function __getNextBetterGrade(gradeNow, rules) {
+    	const bands = __pickBandsAsc(rules);
+    	if (!bands.length || gradeNow == null) return { label: '상위 등급', boundary: null };
+
+    	// 현재 등급의 인덱스 찾기(문자 완전일치 우선, 그다음 숫자 동치)
+    	let idx = bands.findIndex(b => String(b.grade) === String(gradeNow));
+    	if (idx < 0 && Number.isFinite(Number(gradeNow))) {
+    		const gnum = Number(gradeNow);
+    		idx = bands.findIndex(b => Number(b.grade) === gnum);
+    	}
+
+    	// 못 찾으면 안전 폴백
+    	if (idx < 0) return { label: '상위 등급', boundary: null };
+
+    	// 인덱스 0이면 이미 최고 등급
+    	if (idx === 0) {
+    		const top = bands[0];
+    		return {
+    			label: '최고 등급',
+    			boundary: { value: Number(top.max), unit: 'kWh/m²·년' }
+    		};
+    	}
+
+    	// 한 단계 더 좋은 등급 = 바로 '앞' 밴드
+    	const better = bands[idx - 1];
+    	const betterLabel = `${better.grade}등급`; // '1++등급' 처럼 문자/숫자 모두 자연스럽게 처리
+    	return {
+    		label: betterLabel,
+    		boundary: { value: Number(better.max), unit: 'kWh/m²·년' }
+    	};
+    }
+
+    // [수정] 목표 등급(한 단계 상향) 결정
+    const { label: targetGradeText, boundary } = __getNextBetterGrade(gradeNow, rules);
+
+
+
+
+
 
 	// [추가] 텍스트 구성(한 번만 렌더)
 	const lines = [];
@@ -3453,7 +3504,7 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 	lines.push(`현재 등급 : <strong>${(typeof gradeNow === 'number') ? `${gradeNow}등급` : String(gradeNow)}</strong>`);
 
 	// 목표 등급
-	lines.push(`목표 : <strong>${targetGradeText}</strong>`);
+	lines.push(`목표 등급 : <strong>${targetGradeText}</strong>`);
 
 	// EUI 현재값
 	if (Number.isFinite(euiNow)) {
@@ -3465,18 +3516,32 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 		lines.push(`등급 상승 기준(EUI 경계값) : <strong>${fmt1(boundary.value)} ${boundary.unit}</strong>`);
 	}
 
-//	// [수정] 필요 절감률 계산 — 근거가 있을 때는 '추정'을 띄우지 않음
-//    let needSavingPct = null;
-//    if (Number.isFinite(euiNow) && boundary && Number.isFinite(boundary.value) && boundary.value > 0) {
-//    	needSavingPct = Math.max(0, ((euiNow - boundary.value) / euiNow) * 100);
-//    	lines.push(`등급 상승 필요 절감률 : <strong>${fmt1(needSavingPct)}%</strong>`);
-//    } else if (Number.isFinite(euiNow) && Number.isFinite(gradeNowNum) && gradeNowNum === 1) {
-//    	// 최고등급이면 0.0%
-//    	lines.push(`등급 상승 필요 절감률 : <strong>0.0%</strong>`);
-//    } else if (!Number.isFinite(euiNow) || !(boundary && Number.isFinite(boundary.value))) {
-//    	// 정말로 계산 근거가 없을 때만 '추정'
-//    	lines.push(`등급 상승 필요 절감률 : <strong>추정</strong> (데이터 부족)`);
-//    }
+	// --- 사용승인연도/면적을 lines에 추가(같은 스타일, strong 포함) ---
+    {
+    	const n = (v) => {
+    		const x = Number(String(v ?? '').replace(/[,\s]/g, ''));
+    		return Number.isFinite(x) ? x : NaN;
+    	};
+    	const ds = (document.getElementById('forecast-root')?.dataset) || {};
+
+    	// 값 수집
+    	let built = n(ctx?.builtYear);
+    	if (!Number.isFinite(built)) built = n(ds.builtYear);
+
+    	let areaM2 = n(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
+    	if (!Number.isFinite(areaM2)) areaM2 = n(ds.floorAreaM2 ?? ds.floorArea ?? ds.area);
+
+    	// 표시 텍스트
+    	const builtText = (Number.isFinite(built) && built > 0) ? String(built) : '정보 없음';
+    	const areaText  = (Number.isFinite(areaM2) && areaM2 > 0) ? (nf(areaM2) + ' m²') : '정보 없음';
+
+    	// 맨 위에 오도록 prepend: built → area 순서
+    	lines.unshift(`면적 : <strong>${areaText}</strong>`);
+    	lines.unshift(`사용승인연도 : <strong>${builtText}</strong>`);
+    }
+
+
+
 
 
 	// 렌더(단 한 번)
@@ -3486,7 +3551,7 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 		ul.appendChild(li);
 	}
 
-	// [추가] 주석/주의 문구
+	// 주석/주의 문구
 	const notes = [];
 	if (ctx?.__flags?.missingArea) notes.push('면적 데이터 미확정 → EUI 등급 추정');
 	if (ctx?.__flags?.missingBuiltYear) notes.push('사용연도 데이터 미확정 → 추정 연식');
@@ -3526,7 +3591,6 @@ function renderBuildingCard() {
     if (b.height) rows.push(row('높이', nf(b.height) + ' m'));
     if (b.floorsAbove != null || b.floorsBelow != null) rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
     if (!rows.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-    if (b.pnu && !fromQs('pnu')) rows.push(row('PNU', esc(b.pnu)));
     if (b.builtYear && !fromQs('builtYear')) rows.push(row('준공연도', String(b.builtYear)));
     box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
     box.classList.remove('hidden');

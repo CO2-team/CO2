@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box4 = document.getElementById("intensityChart2");
         const box5 = document.getElementById("intensityChart3");
         const box2 = document.getElementById('compareText');
+        const btn = document.querySelector('.pdfBtn');
         if (!box3) return;
 
 
@@ -124,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById("aiText").style.display = "block";
         document.getElementById("aiResult").style.display = "block";
         document.getElementById("aiSummaryBtn").style.display = "block";
-      
+        btn.style.display = "block";
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
@@ -153,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box2 = document.getElementById('compareText');
         const box6 = document.getElementById("solarEfficiencyChart");
         const items = box.querySelectorAll('.result-item');
-        
+        const btn = document.querySelector('.pdfBtn');
         items.forEach(item => item.classList.remove('show'));
 
         document.getElementById('solarRadiation').value = data.solarRadiation;
@@ -178,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById("aiText").style.display = "block";
         document.getElementById("aiResult").style.display = "block";
         document.getElementById("aiSummaryBtn").style.display = "block";
-
+        btn.style.display = "block";
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
@@ -549,8 +550,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (area) {
                           // $(currentForm).find("input[name='area']").val(area);
                           const areaInput = $(currentForm).find("input[name='area']")[0];
-                          areaInput.value = area; // ✅ 진짜 value 속성까지 세팅
-                          areaInput.setAttribute("value", area); // ✅ HTML 속성까지 동기화
+                          areaInput.value = area; 
+                          areaInput.setAttribute("value", area); 
                           areaInput.dispatchEvent(new Event("input", { bubbles: true }));
 
                           
@@ -1032,7 +1033,8 @@ document.addEventListener("DOMContentLoaded", function () {
   eg5: `
     <strong>⑤ 태양광 패널 정보 입력</strong><br>
     설치된 개수를 입력하고, 사용할 패널의 정격출력을 선택해주세요.<br>
-    <ul style="margin-top:5px; line-height:1.6;">
+    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
+    <ul style="margin-top:5px; line-height:1.3;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
       <li><strong>700Wp</strong> — 대형 (산업시설용)</li>
@@ -1167,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", function () {
   sg3: `
     <strong>③ 태양광 패널 선택</strong><br>
     설치 예정인 패널의 정격출력을 선택해주세요.<br>
+    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
     <ul style="margin-top:5px; line-height:1.6;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
@@ -1228,7 +1231,7 @@ function convertPyeong(id) {
 
   // 평수 표시용 라벨 생성 
   let label = document.createElement("span");
-  label.style.marginLeft = "6px";
+  
   label.style.fontSize = "13px";
   label.style.color = "#555";
   label.classList.add("pyeong-label");
@@ -1255,3 +1258,74 @@ function convertPyeong(id) {
     updatePyeong();
   }
 }
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+
+  function resetForm(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    
+    const inputs = form.querySelectorAll("input:not([type='hidden'])");
+    inputs.forEach(input => {
+      input.value = "";
+
+
+      const nextEl = input.nextElementSibling;
+      if (nextEl && nextEl.tagName === "SPAN") {
+        nextEl.remove();
+      }
+    });
+   
+    const selects = form.querySelectorAll("select");
+    selects.forEach(sel => {
+      sel.selectedIndex = 0;
+    });
+
+    console.log(` ${formId} 초기화 완료`);
+  }
+
+  // 왼쪽 버튼
+  const resetBtn1 = document.getElementById("resetBtn1");
+  if (resetBtn1) {
+    resetBtn1.addEventListener("click", function () {
+      resetForm("simulatorForm1");
+    });
+  }
+
+  // 오른쪽 버튼
+  const resetBtn2 = document.getElementById("resetBtn2");
+  if (resetBtn2) {
+    resetBtn2.addEventListener("click", function () {
+      resetForm("simulatorForm2");
+    });
+  }
+});
+
+
+document.addEventListener("DOMContentLoaded", function() {
+  const downloadBtn = document.getElementById("downloadAll");
+
+  // downloadBtn.classList.add('show');
+  if (downloadBtn) {
+    downloadBtn.style.display = "block";  
+  }
+  const chatbotWin = document.querySelector('.chatbot-window');
+  if (chatbotWin) {
+    chatbotWin.classList.remove('hidden'); 
+    chatbotWin.classList.add('show');      
+  }
+});
+
+
+// document.addEventListener("DOMContentLoaded", function() {
+  
+
+//   const chatbotWin = document.querySelector('.chatbot-window');
+//   if (chatbotWin) {
+//     chatbotWin.classList.remove('hidden'); 
+//     chatbotWin.classList.add('show');      
+//   }
+// });

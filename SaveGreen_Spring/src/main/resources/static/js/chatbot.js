@@ -514,7 +514,7 @@ function renderChatbot(state) {
 
 document.addEventListener('click', function(e) {
 
-  if (e.target.closest('.chatbot')) {
+  if (e.target.closest('#chatbot')) {
     const win = document.querySelector('.chatbot-window');
     win.classList.toggle('hidden');
     renderChatbot('root'); 
