@@ -1112,7 +1112,11 @@ document.addEventListener("DOMContentLoaded", function () {
     nextBtn.style.display = "none";
 
     // 설명 문구 갱신
-    descBox.innerHTML = "입력이 완료되었습니다! 결과보기를 눌러주세요.";
+    descBox.innerHTML = `
+    <strong>④ 입력 완료</strong><br>
+    모든 정보가 입력되었습니다.<br>
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+  `;
   });
 
   // 
@@ -1120,7 +1124,11 @@ document.addEventListener("DOMContentLoaded", function () {
     if (current === steps.length - 1) {
       nextBtn.style.display = "none";
       submitBtn1.style.display = "block";
-      descBox.innerHTML = "입력완료! 이제 결과보기를 눌러주세요.";
+      descBox.innerHTML = `
+    <strong>④ 입력 완료</strong><br>
+    모든 정보가 입력되었습니다.<br>
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+  `;
     }
   });
 });
@@ -1204,3 +1212,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
+document.addEventListener("DOMContentLoaded", function () {
+  const areaInputs = ["area1", "area2"];
+
+  areaInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+
+    input.addEventListener("input", function () {
+      const value = parseFloat(input.value);
+      let label = input.nextElementSibling;
+
+      // 이미 붙어 있는 라벨이면 그대로 사용, 아니면 새로 추가
+      if (!label || !label.classList.contains("pyeong-text")) {
+        label = document.createElement("span");
+        label.classList.add("pyeong-text");
+        input.insertAdjacentElement("afterend", label); 
+      }
+
+      if (isNaN(value) || value <= 0) {
+        label.textContent = "";
+      } else {
+        const pyeong = (value / 3.3058).toFixed(1);
+        label.textContent = `(약 ${pyeong} 평)`;
+      }
+    });
+  });
+});

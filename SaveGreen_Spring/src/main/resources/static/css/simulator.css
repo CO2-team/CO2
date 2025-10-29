@@ -19,7 +19,7 @@
 }
 
 
-#compareText:hover::after {
+#compareText::after {
   content: "시뮬레이터 결과 차트를 분류(공장,학교,병원 등)별로 비교합니다";
   display: block;
   font-size: 13px;
@@ -27,7 +27,7 @@
   margin-top: 4px;
 }
 
-#aiText:hover::after {
+#aiText::after {
   content: "AI가 시뮬레이션 결과를 분석해줍니다. 두 시뮬레이션중 하나만 사용했다면 단일 분석, 두 시뮬레이션 모두 사용했다면 두 시뮬레이션을 합친 분석을 제공합니다.";
   display: block;
   font-size: 13px;
@@ -60,6 +60,7 @@
 
 
 .simulator-container {
+    position: relative;
     flex:1 1 400px;
     max-width: 400px;
     min-width: 400px;
@@ -68,6 +69,7 @@
     background-color: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    height: 670px;
     
 }
 
@@ -78,6 +80,8 @@
     margin-bottom: 20px;
     color: #333;
 }
+
+
 
 
 .form-group {
@@ -136,8 +140,9 @@
 
 /* 버튼 */
 .btn-submit {
-    width: 100%;
-    bottom:10px;
+    position: absolute;
+    width: 87%;
+    bottom:20px;
     background-color: #114422;
     color: #fff;
     padding: 12px 0;
@@ -146,7 +151,7 @@
     border: none;
     border-radius: 8px;
     cursor: pointer;
-   
+    
     transition: background-color 0.3s;
 }
 .btn-submit:hover {
@@ -183,6 +188,7 @@
     background-color: transparent; 
     box-shadow: none; 
     gap:40px
+
   }
   .simulator-container{
     width: 100%;                
@@ -642,5 +648,12 @@ body.swal2-shown {
   margin-top: 10px;
   font-size: 14px;
   font-family: sans-serif;
+  font-weight: 600;
+}
+
+.pyeong-text {
+  color: #666;
+  font-size: 13px;
+  margin-left: 6px;
   font-weight: 600;
 }
