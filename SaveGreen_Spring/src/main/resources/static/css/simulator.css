@@ -138,25 +138,58 @@
 }
 
 
-/* 버튼 */
+
+
+.btn-group {
+  position: absolute;   
+  bottom: 20px;
+  width: 87%;             
+  left: 50%;               
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;               
+}
+
+
+
 .btn-submit {
-    position: absolute;
-    width: 87%;
-    bottom:20px;
-    background-color: #114422;
-    color: #fff;
-    padding: 12px 0;
-    font-size: 16px;
-    font-weight: bold;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    
-    transition: background-color 0.3s;
+  flex: 7;                
+  background-color: #114422;
+  color: #fff;
+  padding: 12px 0;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
+
 .btn-submit:hover {
-    background-color: #0b3d0b;
+  background-color: #0b3d0b;
 }
+
+
+#resetBtn1,#resetBtn2 {
+  flex: 3;                 
+  background-color: #e5e5e5;
+  color: #777;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#resetBtn1:hover,#resetBtn2:hover {
+  background-color: #d4d4d4;
+}
+
+
 #right{
     margin-top: 56px;
 }
@@ -643,9 +676,31 @@ body.swal2-shown {
   font-weight: 600;
 }
 
-.pyeong-text {
-  color: #666;
-  font-size: 13px;
-  margin-left: 6px;
-  font-weight: 600;
+
+.pdfBtn {
+  display: flex;
+  justify-content: center; 
+  align-items: center;
+  gap: 40px;              
+  margin-top: 40px;
+}
+
+.pdfBtn {
+  display: flex;
+  justify-content: center; 
+  align-items: center;      
+  gap: 20px;               
+  margin-top: 40px;        
+}
+
+.pdfBtn button {
+  width: 160px;             
+  height: 120px;           
+  background-color: #1b5e20; 
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  gap:20px;
 }

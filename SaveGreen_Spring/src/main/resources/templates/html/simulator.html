@@ -84,7 +84,10 @@
                     <button type="button" class="btn-no">아니요</button>
                 </div>
                 <button type="button" id="nextBtn" class="btn-next">다음으로</button>
-                <button type="submit" class="btn-submit" id="left" style="display: none;">결과보기</button>
+                <div class="btn-group">
+                <button type="submit" class="btn-submit" id="left" style="display:none;">결과보기</button>
+                <button type="button" id="resetBtn1">내용 지우기</button>
+                </div>
             </form>
         </div>        
     </section>
@@ -214,8 +217,10 @@
                     예: <em>서울특별시 중구 세종대로 110</em></p>
                     
                 <button type="button" id="nextBtn2" class="btn-next">다음으로</button>
-                <br>
+                <div class="btn-group">
                 <button type="submit" class="btn-submit" id="right" style="display: none;">결과보기</button>
+                <button type="button" id="resetBtn2">내용 지우기</button>
+                </div>
             </form>
         </div>
     </section>
@@ -264,11 +269,18 @@
     </div>
     </div>
     <canvas id="solarEfficiencyChart" style="display:none">누적 비교차트</canvas>
-    
- 
-    
+
+    <div class = "pdfBtn" style="display: none;">
+        <button id="downloadBtn">
+        <i class="fa-solid fa-file-pdf"></i>PDF로 저장
+        </button>
+        <button id="sendMailBtn" >
+        <i class="fa-solid fa-envelope"></i>메일로 보내기
+        </button>
     </div>
-    <br>
+    </div>
+    
+    
 </div>
      <div class="floating-btns">
         <input type="file" id="csvFile" name="file" accept=".csv" style="display:none;">
@@ -278,14 +290,9 @@
         <button id="uploadAll" title="정책 CSV 업로드">
         <i class="fa-solid fa-upload"></i>
         </button>
-        <button id="downloadBtn" title="PDF로 저장">
-        <i class="fa-solid fa-file-pdf"></i>
-        </button>
-        <button id="sendMailBtn" title="메일로 보내기">
-        <i class="fa-solid fa-envelope"></i>
-        </button>
+        
     </div>
-
+    
 
    
    
