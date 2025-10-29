@@ -138,7 +138,7 @@
         else if (savingPct >= 10) score += 1;
 
         // 2. 회수기간
-        if (payback <= 10) score += 2;
+        if (payback <= 15) score += 2;
         else if (payback <= 20) score += 1;
 
         // 3. 연식(없으면 중립 1점)

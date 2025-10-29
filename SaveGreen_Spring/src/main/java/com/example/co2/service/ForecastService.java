@@ -319,7 +319,7 @@ public class ForecastService {
 		else if (savingPct >= 10.0) score += 1;
 
 		// [회수기간 점수] ≤10년:2점, ≤20년:1점
-		if (paybackYears <= 10.0) score += 2;
+		if (paybackYears <= 15.0) score += 2;
 		else if (paybackYears <= 20.0) score += 1;
 
 		// [연식 점수] (미상 기본 1점; ≥25년=2점, 10~24년=1점, <10년=0점)
