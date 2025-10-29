@@ -244,5 +244,61 @@
       { "month": 2,  "electricity": 197929 },
       { "month": 1,  "electricity": 199579 }
     ]
-  }
+  },
+	{
+		"buildingName": "원광대학교 치과대학 대전 치과병원",
+		"pnu": "3017011200112680000",
+		"address": "대전 서구 둔산로 77",
+		"buildingType1": "비주거용",
+		"buildingType2": "병원",
+		"usageYear": 1996,
+		"floorAreaM2": 1337,
+		"electricityUsageKwh": 321000.0,
+		"energyIntensityKwhPerM2": 240.09,
+		"yearlyConsumption": [
+			{ "year": 1996, "electricity": 210000 },
+			{ "year": 1997, "electricity": 195000 },
+			{ "year": 1998, "electricity": 193000 },
+			{ "year": 1999, "electricity": 204000 },
+			{ "year": 2000, "electricity": 225000 },
+			{ "year": 2001, "electricity": 227000 },
+			{ "year": 2002, "electricity": 227000 },
+			{ "year": 2003, "electricity": 235000 },
+			{ "year": 2004, "electricity": 234000 },
+			{ "year": 2005, "electricity": 241000 },
+			{ "year": 2006, "electricity": 241000 },
+			{ "year": 2007, "electricity": 245000 },
+			{ "year": 2008, "electricity": 252000 },
+			{ "year": 2009, "electricity": 260000 },
+			{ "year": 2010, "electricity": 261000 },
+			{ "year": 2011, "electricity": 267000 },
+			{ "year": 2012, "electricity": 267000 },
+			{ "year": 2013, "electricity": 274000 },
+			{ "year": 2014, "electricity": 275000 },
+			{ "year": 2015, "electricity": 280000 },
+			{ "year": 2016, "electricity": 290000 },
+			{ "year": 2017, "electricity": 284000 },
+			{ "year": 2018, "electricity": 292000 },
+			{ "year": 2019, "electricity": 295000 },
+			{ "year": 2020, "electricity": 280000 },
+			{ "year": 2021, "electricity": 287000 },
+			{ "year": 2022, "electricity": 303000 },
+			{ "year": 2023, "electricity": 320000 },
+			{ "year": 2024, "electricity": 321000 }
+		],
+		"monthlyConsumption": [
+			{ "month": 1,  "electricity": 28000 },
+			{ "month": 2,  "electricity": 27000 },
+			{ "month": 3,  "electricity": 25000 },
+			{ "month": 4,  "electricity": 23000 },
+			{ "month": 5,  "electricity": 24000 },
+			{ "month": 6,  "electricity": 26000 },
+			{ "month": 7,  "electricity": 29000 },
+			{ "month": 8,  "electricity": 32000 },
+			{ "month": 9,  "electricity": 29000 },
+			{ "month": 10, "electricity": 26000 },
+			{ "month": 11, "electricity": 25000 },
+			{ "month": 12, "electricity": 27000 }
+		]
+	}
 ]
