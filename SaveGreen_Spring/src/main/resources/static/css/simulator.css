@@ -533,7 +533,7 @@ body.swal2-shown {
   height: auto;
   overflow: visible;
   margin-bottom: 10px;
-  padding: 4px 6px;
+  /* padding: 4px 6px; */
 }
 
 /* .btn-next {
@@ -570,7 +570,7 @@ body.swal2-shown {
 
 
 
-/* ✅ "다음으로" 공용 버튼 */
+
 .btn-next {
   display: block;
   margin: 20px auto;
@@ -599,19 +599,19 @@ body.swal2-shown {
   display: flex !important;
 }
 
-/* 예/아니오 버튼 영역 */
+
 .choice-buttons {
   display: flex;
   justify-content: center;
-  align-items: center; /* 버튼 세로 중앙 정렬 */
+  align-items: center; 
   gap: 20px;
   margin: 10px 0 15px;
 }
 
-/* 버튼 스타일 */
+
 .choice-buttons button {
-  width: 80px;               /* 버튼 너비 고정 */
-  height: 40px;              /* 높이 고정 */
+  width: 80px;              
+  height: 40px;             
   border: none;
   border-radius: 8px;
   background-color: #1976d2;
@@ -622,19 +622,27 @@ body.swal2-shown {
   letter-spacing: 1px;
   transition: all 0.2s ease;
   display: flex;
-  justify-content: center;   /* 텍스트 가로 중앙 */
-  align-items: center;       /* 텍스트 세로 중앙 */
+  justify-content: center;  
+  align-items: center;       
   box-shadow: 0 2px 5px rgba(0,0,0,0.15);
 }
 
-/* hover 효과 */
+
 .choice-buttons button:hover {
   background-color: #1259a8;
   transform: translateY(-2px);
 }
 
-/* 클릭 느낌 */
+
 .choice-buttons button:active {
   transform: translateY(0);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+#stepDescription{
+    text-align: center;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 15px;
+    font-family: sans-serif;
 }

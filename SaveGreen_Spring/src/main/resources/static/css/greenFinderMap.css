@@ -79,6 +79,18 @@ body {
     font-weight: bold;
     width: 100%;
 }
+
+.btn-style{
+  background: #2d5e2e;
+  color: #fff;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  width: 100%;
+  margin-top: 8px;
+}
 .energy-btn:hover {
     background: #244a25;
 }
@@ -285,7 +297,6 @@ body {
 .popup-footer {
     padding: 10px;
     text-align: center;
-    border-top: 1px solid #ddd;
 }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-5px); }

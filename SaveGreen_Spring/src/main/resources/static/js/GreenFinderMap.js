@@ -195,7 +195,7 @@ function getBuildingInfo(pnu) {
                 sessionStorage.setItem("jibunAddr", (info.ldCodeNm || '') + ' ' + (info.mnnmSlno || ''));
 
             } else {
-                showPopup(lastClickPosition, "조회된 건물 정보가 없습니다.");
+                showPopup("조회된 건물 정보가 없습니다.", lastClickPosition);
             }
         },
         error: function (err) {
@@ -238,7 +238,9 @@ function showBuildingPopup(info, windowPosition) {
 }
 
 function hidePopup() {
-    $id("popup").style.display = "none";
+    const popup = document.getElementById("popup");
+    if (!popup) return;
+    popup.style.display = "none";
 }
 
 //////////////////////
@@ -363,6 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function showPopup(html, windowPosition) {
     const popup = document.getElementById("popup");
+    if (popup.style.display === "block") return;
     const posX = windowPosition?.x ?? window.innerWidth / 2;
     const posY = windowPosition?.y ?? window.innerHeight / 2;
 
@@ -475,4 +478,12 @@ function setCookie00(name, value, expiredays) {
 function popUpAction(name) {
     $('.popup-overlay').fadeIn();
     $("div[name=" + name + "]").fadeIn();
+}
+
+function remodelong_move(){
+    window.location.href = '/forecast';
+}
+
+function simulater_move(){
+    window.location.href = '/simulator';
 }
