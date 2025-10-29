@@ -287,24 +287,16 @@ html, body { min-width: 360px; }
 
 
 
-.result-box1 {
+.result-box1, .result-box2 {
     background: #fff;
     padding: 20px;
     border-radius: 12px;
     max-width: 400px;
     margin: 20px auto;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    height: 510px;
 }
 
-
-.result-box2 {
-    background: #fff;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 400px;
-    margin: 20px auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
 
 
 .dashboard {
