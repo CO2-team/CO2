@@ -1,4 +1,3 @@
-
 // 초기 카메라/지도 설정
 
 // 우주에서 보는 지구 시점
@@ -161,47 +160,54 @@ function getBuildingInfo(pnu) {
         data: reqData,
         success: function (res) {
             console.log("건물 정보 응답:", res);
-
-            const popup = document.getElementById("popup");
-
+            $(".info-table").show();       // 테이블 숨김
+            $(".popup-footer").show(); 
             if (res && res.buildingUses && res.buildingUses.field) {
                 const info = res.buildingUses.field[0];
+                const html = `
+                    <b>건물명:</b> ${info.buldNm || "-"}<br>
+                    <b>건물동명:</b> ${info.buldDongNm || "-"}<br>
+                    <b>법정동명:</b> ${info.ldCodeNm || "-"}<br>
+                    <b>지번:</b> ${info.mnnmSlno || "-"}<br>
+                    <b>식별번호:</b> ${info.buldIdntfcNo || "-"}<br>
+                    <b>건축면적:</b> ${info.buldBildngAr || "-"}㎡<br>
+                    <b>대지면적:</b> ${info.buldPlotAr || "-"}㎡<br>
+                    <b>사용승인일:</b> ${info.useConfmDe || "-"}<br>
+                    <b>지상층수:</b> ${info.groundFloorCo || "-"}<br>
+                    <b>지하층수:</b> ${info.undgrndFloorCo || "-"}<br>
+                    <b>건물높이:</b> ${info.buldHg || "-"}m<br>
+                    <b>용도:</b> ${info.buldPrposClCodeNm || "-"}
+                `;
+                //showPopup(lastClickPosition, html);
+                showBuildingPopup(info, lastClickPosition); //팝업 호출
 
-                // 정상 데이터 표시
-                $(".popup-footer").show(); // 버튼영역 다시 표시
-                $(".info-table").show();   // 테이블 표시
-                $("#buildingName").text(info.buldNm || "-");
+                requestParam.ldCodeNm = info.ldCodeNm ?? "";
+                requestParam.mnnmSlno = info.mnnmSlno ?? "";
+                $("#ldCodeNm").val(info.ldCodeNm);
+                $("#mnnmSlno").val(info.mnnmSlno);
 
-                $("#buldNm").text(info.buldNm || "-");
-                $("#buldDongNm").text(info.buldDongNm || "-");
-                $("#ldCodeNm").text(info.ldCodeNm || "-");
-                $("#mnnmSlno").text(info.mnnmSlno || "-");
-                $("#groundFloorCo").text(info.groundFloorCo || "-");
-                $("#undgrndFloorCo").text(info.undgrndFloorCo || "-");
-                $("#buldBildngAr").text(info.buldBildngAr || "-");
-                $("#buldPlotAr").text(info.buldPlotAr || "-");
-                $("#buldHg").text(info.buldHg || "-");
-                $("#buldPrposClCodeNm").text(info.buldPrposClCodeNm || "-");
-                $("#mainPurpsClCodeNm").text(info.mainPurpsClCodeNm || "-");
-                $("#useConfmDe").text(info.useConfmDe || "-");
-                $("#detailPrposCodeNm").text(info.detailPrposCodeNm || "-");
-                $("#prmisnDe").text(info.prmisnDe || "-");
-
-                showBuildingPopup(info, lastClickPosition);
+                sessionStorage.setItem("ldCodeNm", info.ldCodeNm);
+                sessionStorage.setItem("mnnmSlno", info.mnnmSlno);
+                sessionStorage.setItem("BuildingArea", info.buldBildngAr);
+                sessionStorage.setItem("buildingName", info.buldNm);
+                sessionStorage.setItem("useConfmDe", info.useConfmDe);
+                sessionStorage.setItem("builtYear", String(info.useConfmDe || '').slice(0, 4));
+                sessionStorage.setItem("jibunAddr", (info.ldCodeNm || '') + ' ' + (info.mnnmSlno || ''));
 
             } else {
-                // 🔸 조회된 건물 정보가 없을 때
                 $("#buildingName").text("조회된 건물 정보가 없습니다.");
                 $(".info-table").hide();       // 테이블 숨김
                 $(".popup-footer").hide();     // 버튼 영역 숨김
-            }
+                resolve(null);
 
+            }
         },
         error: function (err) {
             console.error("건물정보 API 호출 실패:", err);
         }
     });
 }
+
 
 // 팝업
 
@@ -235,7 +241,9 @@ function showBuildingPopup(info, windowPosition) {
     popup.style.display = "block";
 
     makePopupDraggable("popup", "popupHeader");
+
 }
+
 
 //팝업 드래그 기능
 function makePopupDraggable(popupId, headerId) {
@@ -266,142 +274,132 @@ function makePopupDraggable(popupId, headerId) {
 
 }
 
+
 function hidePopup() {
     const popup = document.getElementById("popup");
     if (!popup) return;
     popup.style.display = "none";
 }
 
-
-
 //////////////////////
 //검색 -> 화면 이동 -> 팝업
-let currentMarker = null; // 기존 마커 제거용 전역 변수 
+
+let currentMarker = null; //기존 마커를 제거하기 위해 전역 변수
+
 
 document.addEventListener("DOMContentLoaded", () => {
-    const searchBoxes = document.querySelectorAll(".searchBox");
+   const searchBoxes = document.querySelectorAll(".searchBox");
 
-    searchBoxes.forEach((input) => {
-        const resultList = input.parentElement.querySelector(".searchResult");
+   searchBoxes.forEach((input) => {
+      const resultList = input.parentElement.querySelector(".searchResult");
 
-        input.addEventListener("keyup", function () {
-            const keyword = input.value.trim();
-            if (keyword.length < 2) {
-                resultList.innerHTML = "";
-                resultList.classList.remove("show");
-                return;
-            }
+      input.addEventListener("keyup", function () {
+         const keyword = input.value.trim();
+         if (keyword.length < 2) {
+            resultList.innerHTML = "";
+            resultList.classList.remove("show");
+            return;
+         }
 
-            $.ajax({
-                url: "https://api.vworld.kr/req/search",
-                type: "GET",
-                dataType: "jsonp",
-                data: {
-                    service: "search",
-                    request: "search",
-                    version: "2.0",
-                    crs: "EPSG:4326",
-                    size: 5,
-                    page: 1,
-                    query: keyword,
-                    type: "place", // PLACE 우선
-                    format: "json",
-                    key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"
-                },
-                success: function (data) {
-                    resultList.innerHTML = "";
-                    const items = data.response?.result?.items || [];
+         $.ajax({
+            url: "https://api.vworld.kr/req/search",
+            type: "GET",
+            dataType: "jsonp",
+            data: {
+               service: "search",
+               request: "search",
+               version: "2.0",
+               crs: "EPSG:4326",
+               size: 5,
+               page: 1,
+               query: keyword,
+               type: "place",
+               format: "json",
+               key: "AED66EDE-3B3C-3034-AE11-9DBA47236C69"
+            },
+            success: function (data) {
+               resultList.innerHTML = "";
+               const items = data.response?.result?.items || [];
 
-                    if (items.length === 0) {
-                        resultList.innerHTML = "<div class='dropdown-item'>검색 결과가 없습니다.</div>";
-                        resultList.classList.add("show");
-                        return;
-                    }
+               if (items.length === 0) {
+                  resultList.innerHTML = "<div class='dropdown-item'>검색 결과가 없습니다.</div>";
+                  resultList.classList.add("show");
+                  return;
+               }
 
-                    const uniqueItems = [];
-                    const seenCoords = new Set();
+               items.forEach((item) => {
+                  const road = item.address?.road || "-";
+                  const parcel = item.address?.parcel || "-";
+                  const lon = parseFloat(item.point?.x);
+                  const lat = parseFloat(item.point?.y);
 
-                    items.forEach(item => {
-                        const lon = item.point?.x;
-                        const lat = item.point?.y;
-                        const key = `${lon},${lat}`;
-                        if (!seenCoords.has(key)) {
-                            seenCoords.add(key);
-                            uniqueItems.push(item);
+                  const div = document.createElement("div");
+                  div.classList.add("dropdown-item");
+                  div.innerHTML = `
+                     <b>${road}</b><br>
+                     <span style="font-size: 12px; color: gray;">${parcel}</span>
+                  `;
+
+                  div.addEventListener("click", () => {
+                     input.value = road !== "-" ? road : parcel;
+                     resultList.innerHTML = "";
+                     resultList.classList.remove("show");
+
+                     if (lon && lat) {
+                        // 지도 이동
+                        vwmoveTo(lon, lat, 500);
+
+                        // 기존 마커 제거
+                        if (currentMarker) {
+                           map.removeMarker(currentMarker);
+                           currentMarker = null;
                         }
-                    });
-                    uniqueItems.forEach((item) => {
-                        const name = item.title || item.name || ""; // place 이름
-                        const road = item.address?.road || "-";
-                        const parcel = item.address?.parcel || "-";
-                        const lon = parseFloat(item.point?.x);
-                        const lat = parseFloat(item.point?.y);
 
-                        const div = document.createElement("div");
-                        div.classList.add("dropdown-item");
-                        div.innerHTML = `
-                            <b>${name || road || parcel}</b><br>
-                            <span style="font-size: 12px; color: gray;">${road !== "-" ? road : parcel}</span>
-                        `;
-
-                        div.addEventListener("click", () => {
-                             input.value = name || road || parcel;
-                            resultList.innerHTML = "";
-                            resultList.classList.remove("show");
-
-                            if (lon && lat) {
-                                // 지도 이동
-                                vwmoveTo(lon, lat, 500);
-
-                                // 기존 마커 제거
-                                   if (currentMarker) {
-                                        map.removeMarker(currentMarker);
-                                        currentMarker = null;
-                                    }
-                                // 새로운 마커 생성
-                                const marker = new vw.geom.Point(new vw.Coord(lon, lat));
+                        // 마커 생성
+                        const marker = new vw.geom.Point(new vw.Coord(lon, lat));
                                 marker.setImage("https://map.vworld.kr/images/op02/map_point.png");
                                 marker.create();
-                                currentMarker = marker;
+                                window.selectedMarker = marker;
 
-                                // PNU 조회 및 건물 정보 저장
-                                getPnuFromCoord(lon, lat)
-                                    .then((pnu) => {
-                                        if (!pnu) throw new Error("PNU를 찾을 수 없습니다.");
-                                        $("#pnu").val(pnu);
-                                        return getBuildingInfo(pnu);
-                                    })
-                                    .then(info => {
-                                        sessionStorage.setItem("ldCodeNm", info.ldCodeNm || '');
-                                        sessionStorage.setItem("mnnmSlno", info.mnnmSlno || '');
-                                        sessionStorage.setItem("BuildingArea", info.buldBildngAr || '');
-                                        sessionStorage.setItem("buildingName", info.buldNm || '');
-                                        sessionStorage.setItem("useConfmDe", info.useConfmDe || '');
+                        // PNU 조회 → 건물정보 → 팝업 표시
+                        getPnuFromCoord(lon, lat)
+                                .then((pnu) => {
+                                    if (!pnu) throw new Error("PNU를 찾을 수 없습니다.");
+                                    $("#pnu").val(pnu);
+                                    console.log("pnu---------",pnu);
+                                    getBuildingInfo(pnu).then(info => {
+                                        // info가 반환되도록 getBuildingInfo를 Promise 처리했다고 가정
+                                        sessionStorage.setItem("ldCodeNm", info.ldCodeNm);
+                                        sessionStorage.setItem("mnnmSlno", info.mnnmSlno);
+                                        sessionStorage.setItem("BuildingArea", info.buldBildngAr);
+                                        sessionStorage.setItem("buildingName", info.buldNm);
+                                        sessionStorage.setItem("useConfmDe", info.useConfmDe);
                                         sessionStorage.setItem("builtYear", String(info.useConfmDe || '').slice(0, 4));
                                         sessionStorage.setItem("jibunAddr", (info.ldCodeNm || '') + ' ' + (info.mnnmSlno || ''));
-                                    })
-                                    .catch((err) => {
-                                        console.warn("검색 기반 PNU 조회 실패:", err);
-                                        alert("건물 정보를 불러올 수 없습니다.");
+                                        console.log("dddddd",info);
                                     });
-                            } else {
-                                alert("좌표 정보가 없습니다.");
-                            }
-                        });
+                                })
+                                .catch((err) => {
+                                    console.warn("검색 기반 PNU 조회 실패:", err);
+                                    alert("건물 정보를 불러올 수 없습니다.");
+                                });
+                     } else {
+                        alert("좌표 정보가 없습니다.");
+                     }
+                  });
 
-                        resultList.appendChild(div);
-                    });
+                  resultList.appendChild(div);
+               });
 
-                    resultList.classList.add("show");
-                },
-                error: function (err) {
-                    console.error("주소 검색 오류:", err);
-                }
-            });
-        });
-    });
+               resultList.classList.add("show");
+            },
+            error: function (err) {
+               console.error("주소 검색 오류:", err);
+            }
+         });
+      });
+   });
 });
-
 
 function showPopup(html, windowPosition) {
     const popup = document.getElementById("popup");
@@ -414,6 +412,9 @@ function showPopup(html, windowPosition) {
     popup.innerHTML = html;
     popup.style.display = "block";
 }
+
+
+
 
 
 //////////////////////////////
