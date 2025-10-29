@@ -121,11 +121,14 @@ document.addEventListener('DOMContentLoaded', () => {
         box4.style.display='block';
         box5.style.display='block';
         runCompare();
-        document.getElementById('aiSummaryBtn').style.display = 'block';
+        document.getElementById("aiText").style.display = "block";
+        document.getElementById("aiResult").style.display = "block";
+        document.getElementById("aiSummaryBtn").style.display = "block";
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
+        document.getElementById("resultBox1").scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
 
@@ -172,12 +175,15 @@ document.addEventListener('DOMContentLoaded', () => {
         box2.style.display='block'
         box6.style.display = 'block';
         addNewResultToChart()
-        document.getElementById('aiSummaryBtn').style.display = 'block';
+        document.getElementById("aiText").style.display = "block";
+        document.getElementById("aiResult").style.display = "block";
+        document.getElementById("aiSummaryBtn").style.display = "block";
 
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
+        document.getElementById("resultBox2").scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
 
@@ -359,7 +365,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     const aiResult = document.getElementById("aiResult");
     aiResult.textContent = " AI 분석 중입니다... 잠시만 기다려주세요.";
 
-
+    const aiText = document.getElementById("aiText");
     const resp = await fetch("/ai/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -367,6 +373,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     });
 
     const data = await resp.json();
+    aiText.style.display = "block";
     aiResult.textContent = data.reply;
     aiResult.classList.add("show");
     aiResult.textContent = data.reply.trim();
@@ -374,6 +381,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     setTimeout(() => {
       aiResult.classList.add("show");
     }, 100);
+    aiResult.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 });
 
@@ -613,7 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           const BM = document.getElementById('buildingMonthly')
                           BM.value = JSON.stringify(data);
                           console.log("선택건물 월별비중:", data);
-                          console.log("✅ 선택건물 월별비중 저장 완료:", BM.value);
+                          
                         });
 
                     // 카테고리 평균 퍼센트 가져오기
@@ -980,52 +988,81 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+//에너지 효율 등급
 document.addEventListener("DOMContentLoaded", function () {
   const steps = ["eg1", "eg2", "eg3", "eg4", "eg5"];
   let current = 0;
   const nextBtn = document.getElementById("nextBtn");
-  const submitBtn = document.querySelector(".btn-submit");
+  const submitBtn1 = document.getElementById("left");
   const descBox = document.getElementById("stepDescription");
 
   
   const descriptions = {
-    eg1: "입력하신 주소를 기반으로 면적 정보를 불러왔습니다 입력된 정보가 맞으면 다음으로 버튼을 눌러주세요.",
-    eg2: "연간 에너지 사용량을 불러왔습니다. 입력된 정보가 맞으면 다음으로 버튼을 눌러주세요.",
-    eg3: "입력하신 사용량을 기준으로 절감 효과를 계산합니다.",
-    eg4: "태양광 패널이 설치되어 있나요? 예/아니오로 선택해주세요.",
-  };
+  eg1: `
+    <strong>① 건물 주소 확인</strong><br>
+    입력하신 주소를 기반으로 <strong>면적 정보를 불러왔습니다.</strong><br>
+    입력된 정보가 맞다면 <em>‘다음으로’</em> 버튼을 눌러주세요.
+  `,
 
- 
+  eg2: `
+    <strong>② 에너지 사용량 확인</strong><br>
+    시스템이 불러온 <strong>연간 에너지 사용량</strong>이 맞는지 확인해주세요.<br>
+    맞다면 <em>‘다음으로’</em> 버튼을 눌러주세요.
+  `,
+
+  eg3: `
+    <strong>③ 절감 효과 계산</strong><br>
+    입력하신 사용량을 기준으로 <strong>절감 효과</strong>를 계산합니다.<br>
+    다음 단계로 진행해주세요.
+  `,
+
+  eg4: `
+    <strong>④ 태양광 설치 여부</strong><br>
+    태양광 패널이 설치되어 있나요?<br>
+    <strong>‘예 / 아니오’</strong> 중 하나를 선택해주세요.
+  `,
+
+  eg5: `
+    <strong>⑤ 태양광 패널 정보 입력</strong><br>
+    설치된 개수를 입력하고, 사용할 패널의 정격출력을 선택해주세요.<br>
+    <ul style="margin-top:5px; line-height:1.6;">
+      <li><strong>400Wp</strong> — 소형 (가정용)</li>
+      <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
+      <li><strong>700Wp</strong> — 대형 (산업시설용)</li>
+    </ul>
+  `
+};
+
   nextBtn.addEventListener("click", function () {
     const currentGroup = document.getElementById(steps[current]);
     const input = currentGroup.querySelector("input");
 
     // 입력 확인
     if (input && input.value.trim() === "") {
-      alert("값을 입력해주세요!");
       input.focus();
       return;
     }
 
     // 설명 문구 표시
     if (descriptions[steps[current]]) {
-      descBox.textContent = descriptions[steps[current]];
+      descBox.innerHTML = descriptions[steps[current]];
       descBox.style.opacity = 1;
     }
 
-    // 다음 단계 열기
+    // 다음 단계 처리
     if (current < steps.length - 1) {
       const nextId = steps[current + 1];
 
-     
+      
       if (nextId === "eg4") {
         nextBtn.style.display = "none";
         const choiceDiv = document.getElementById("eg4-buttons");
         choiceDiv.classList.remove("hidden");
         choiceDiv.classList.add("show");
-        descBox.textContent = descriptions["eg4"];
+        descBox.innerHTML = descriptions["eg4"];
       } else {
-        
+        // 일반 단계는 바로 표시
         const nextGroup = document.getElementById(nextId);
         nextGroup.classList.remove("hidden");
         nextGroup.classList.add("show");
@@ -1039,43 +1076,131 @@ document.addEventListener("DOMContentLoaded", function () {
   const btnYes = document.querySelector("#eg4-buttons .btn-yes");
   const btnNo = document.querySelector("#eg4-buttons .btn-no");
 
-  // 예
+  // 예 
   btnYes.addEventListener("click", function () {
-    // eg4, eg5 표시
+    
+    const buttonsDiv = document.getElementById("eg4-buttons");
+    buttonsDiv.classList.add("hidden");
+    buttonsDiv.classList.remove("show");
+
+    
     document.getElementById("eg4").classList.remove("hidden");
     document.getElementById("eg5").classList.remove("hidden");
     document.getElementById("eg4").classList.add("show");
     document.getElementById("eg5").classList.add("show");
 
    
-    const buttonsDiv = document.getElementById("eg4-buttons");
-    buttonsDiv.classList.add("hidden");
-    buttonsDiv.classList.remove("show");
+    nextBtn.style.display = "block";
 
-
-    submitBtn.style.display = "block";
-    nextBtn.style.display = "none";
-
-  
-    descBox.textContent = "태양광 패널 관련정보를 입력/선택 하신 뒤 결과보기를 눌러주세요.";
+    // 설명 문구 갱신
+    descBox.innerHTML = descriptions["eg5"];
   });
 
-  // 아니오
+  //  아니오
   btnNo.addEventListener("click", function () {
     // eg4, eg5 모두 숨김
     document.getElementById("eg4").classList.add("hidden");
     document.getElementById("eg5").classList.add("hidden");
 
-    
+    // 예/아니오 버튼 숨김
     const buttonsDiv = document.getElementById("eg4-buttons");
     buttonsDiv.classList.add("hidden");
     buttonsDiv.classList.remove("show");
 
     
-    submitBtn.style.display = "block";
+    submitBtn1.style.display = "block";
     nextBtn.style.display = "none";
 
-    
-    descBox.textContent = "입력 완료! 이제 결과보기를 눌러주세요.";
+    // 설명 문구 갱신
+    descBox.innerHTML = "입력이 완료되었습니다! 결과보기를 눌러주세요.";
+  });
+
+  // 
+  nextBtn.addEventListener("click", function () {
+    if (current === steps.length - 1) {
+      nextBtn.style.display = "none";
+      submitBtn1.style.display = "block";
+      descBox.innerHTML = "입력완료! 이제 결과보기를 눌러주세요.";
+    }
   });
 });
+
+
+
+//태양광 패널
+
+document.addEventListener("DOMContentLoaded", function () {
+  const steps = ["sg1", "sg2", "sg3", "sg4" ];
+  let current = 0;
+  const nextBtn = document.getElementById("nextBtn2");
+  const submitBtn2 = document.getElementById("right");
+  const descBox = document.getElementById("stepDescription2");
+
+  
+  const descriptions = {
+  sg1: `
+    <strong>① 건물 정보 확인</strong><br>
+    입력하신 주소를 기반으로 <strong>면적 정보를 불러왔습니다.</strong><br>
+    정보가 맞다면 <em>‘다음으로’</em> 버튼을 눌러주세요.
+  `,
+
+  sg2: `
+    <strong>② 에너지 효율 등급 선택</strong><br>
+    현재 에너지 효율 등급과 <strong>목표 등급</strong>을 선택해주세요.<br>
+    목표 등급에 따라 필요한 <strong>태양광 패널 수</strong>가 계산됩니다.
+  `,
+
+  sg3: `
+    <strong>③ 태양광 패널 선택</strong><br>
+    설치 예정인 패널의 정격출력을 선택해주세요.<br>
+    <ul style="margin-top:5px; line-height:1.6;">
+      <li><strong>400Wp</strong> — 소형 (가정용)</li>
+      <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
+      <li><strong>700Wp</strong> — 대형 (산업시설용)</li>
+    </ul>
+  `,
+
+  sg4: `
+    <strong>④ 입력 완료</strong><br>
+    모든 정보가 입력되었습니다.<br>
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+  `
+};
+ 
+   nextBtn.addEventListener("click", function () {
+    const currentGroup = document.getElementById(steps[current]);
+    const input = currentGroup.querySelector("input, select");
+
+    // 입력 확인
+    if (input && input.value.trim() === "") {
+      input.focus();
+      return;
+    }
+
+    // 설명 문구 갱신
+    if (descriptions[steps[current]]) {
+      descBox.innerHTML = descriptions[steps[current]];
+      descBox.style.opacity = 1;
+    }
+
+    // 다음 단계 열기
+    if (current < steps.length - 1) {
+      const nextId = steps[current + 1];
+      const nextGroup = document.getElementById(nextId);
+      nextGroup.classList.remove("hidden");
+      nextGroup.classList.add("show");
+      current++;
+    } else {
+     
+      nextBtn.style.display = "none";
+      submitBtn2.style.display = "block";
+      descBox.innerHTML = descriptions["sg4"];
+    }
+  });
+
+  
+});
+
+
+
+

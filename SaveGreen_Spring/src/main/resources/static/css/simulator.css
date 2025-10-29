@@ -8,16 +8,32 @@
     background-color: #d0dacf;
 }
 
-#compareText {
+#compareText, #aiText {
     max-width: 1000px;       
     margin: 80px auto 0;  
     padding: 20px 20px;       
-    font-size: 15px;
+    font-size: 22px;
     text-align: center;      
     border-radius: 10px;
     background-color: #d0dacf;
 }
 
+
+#compareText:hover::after {
+  content: "시뮬레이터 결과 차트를 분류(공장,학교,병원 등)별로 비교합니다";
+  display: block;
+  font-size: 13px;
+  color: #444;
+  margin-top: 4px;
+}
+
+#aiText:hover::after {
+  content: "AI가 시뮬레이션 결과를 분석해줍니다. 두 시뮬레이션중 하나만 사용했다면 단일 분석, 두 시뮬레이션 모두 사용했다면 두 시뮬레이션을 합친 분석을 제공합니다.";
+  display: block;
+  font-size: 13px;
+  color: #444;
+  margin-top: 4px;
+}
 
 
 .simulator-index{
@@ -29,15 +45,19 @@
     max-width: 1000px;
     margin: 0 auto;
     flex-wrap: wrap;
+    align-items: flex-start;
 }
-.simulator-wrapper{
+#wrapper1, #wrapper2 {
     flex: 1;
     min-width: 400px;
     background-color: #d0dacf; 
     padding: 20px;
     border-radius: 10px;
     justify-content: center;
+    align-items: flex-start;
 }
+
+
 
 .simulator-container {
     flex:1 1 400px;
@@ -130,7 +150,7 @@
     transition: background-color 0.3s;
 }
 .btn-submit:hover {
-    background-color: #0a3018;
+    background-color: #0b3d0b;
 }
 #right{
     margin-top: 56px;
@@ -290,7 +310,7 @@ html, body { min-width: 360px; }
 
 
 .card {
-    background: #1b5e20;        
+    background: #0b3d0b;        
     color: #fff;
     border-radius: 10px;
     padding: 20px;
@@ -344,7 +364,7 @@ body.swal2-shown {
 
 .swal2-title {
   font-size: 22px;
-  color: #2c7a3f;
+  color: #0b3d0b;
 }
 
 .floating-btns button {
@@ -411,13 +431,12 @@ body.swal2-shown {
 }
 
 #aiSummaryBtn {
+  
   display: none; 
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(145deg, #66bb6a, #388e3c);
-  color: white;
+  position: static;
+  transform: none;
+  color: rgb(255, 255, 255);
+  background-color: #0b3d0b;
   font-weight: 600;
   padding: 12px 24px;
   border: none;
@@ -425,12 +444,13 @@ body.swal2-shown {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   z-index: 999;
-  transition: all 0.3s ease;
+  transition: all 0.5s ease;
+  margin: 20px auto;
 }
 
 #aiSummaryBtn:hover {
-  background: linear-gradient(145deg, #81c784, #43a047);
-  transform: translateX(-50%) scale(1.05);
+ 
+  transform:  scale(1.05);
 }
 
 #aiResult {
@@ -467,6 +487,16 @@ body.swal2-shown {
   margin-bottom: 16px;
   border-bottom: 2px solid #a5d6a7;
   padding-bottom: 6px;
+  text-align: center;
+}
+
+.ai-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;  
+  justify-content: center;
+  margin-top: 40px;
   text-align: center;
 }
 
@@ -533,43 +563,8 @@ body.swal2-shown {
   height: auto;
   overflow: visible;
   margin-bottom: 10px;
-  /* padding: 4px 6px; */
+ 
 }
-
-/* .btn-next {
-  margin-left: 8px;
-  background-color: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-.choice-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 10px;
-}
-
-.choice-buttons button {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 8px;
-  background-color: #1976d2;
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.choice-buttons button:hover {
-  background-color: #1259a8;
-} */
-
-
-
-
 
 .btn-next {
   display: block;
@@ -639,10 +634,13 @@ body.swal2-shown {
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-#stepDescription{
-    text-align: center;
-    font-size: 16px;
-    color: #333;
-    margin-bottom: 15px;
-    font-family: sans-serif;
+
+#stepDescription2, #stepDescription {
+  text-align: left;
+  line-height: 1.6;
+  color: #666;
+  margin-top: 10px;
+  font-size: 14px;
+  font-family: sans-serif;
+  font-weight: 600;
 }

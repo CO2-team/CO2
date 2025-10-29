@@ -19,10 +19,11 @@
 
 <div class="captureWrapper" style="width:100vw; overflow:visible;">
 <div class="simulator-index">
-    <div class="simulator-wrapper">  
+    <div class="simulator-wrapper" id="wrapper1">  
     <section class="simulator-container">
         <div class="simulator-input">
             <h3>에너지 효율 등급 시뮬레이터</h3>
+            <h5 style="color: #888;"><em>건물의 현재 에너지 등급,그에 따른 혜택 정보를 제공합니다.</em><br><br><br></h5>
             <form id="simulatorForm1" th:action="@{/simulate1}" method="post">
                 <input type="hidden" name="lat" id="lat1">
                 <input type="hidden" name="lon" id="lon1">
@@ -53,11 +54,7 @@
                 </div>
 
 
-                <div class="choice-buttons hidden" id="eg4-buttons">
-                    
-                    <button type="button" class="btn-yes">예</button>
-                    <button type="button" class="btn-no">아니요</button>
-                </div>
+                
 
 
                 <div class="form-group hidden" id="eg4" >
@@ -78,9 +75,16 @@
                         <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
-                <p id="stepDescription">지도검색에서 건물 정보를 가져오지 않으셨다면 직접 건물 검색이 가능합니다.</p>
+                <p id="stepDescription"> <strong> 시뮬레이터 안내</strong><br>
+                    지도에서 건물을 선택하지 않으셨다면,<br>
+                    아래 입력창에 <strong>직접 주소를 검색</strong>해 주세요.<br>
+                    예: <em>서울특별시 중구 세종대로 110</em></p>
+                <div class="choice-buttons hidden" id="eg4-buttons">  
+                    <button type="button" class="btn-yes">예</button>
+                    <button type="button" class="btn-no">아니요</button>
+                </div>
                 <button type="button" id="nextBtn" class="btn-next">다음으로</button>
-                <button type="submit" class="btn-submit" style="display: none;">결과보기</button>
+                <button type="submit" class="btn-submit" id="left" style="display: none;">결과보기</button>
             </form>
         </div>        
     </section>
@@ -131,10 +135,11 @@
 
 
 
-    <div class="simulator-wrapper">  
+    <div class="simulator-wrapper" id="wrapper2">  
     <section class="simulator-container">
         <div class="simulator-input">
             <h3>태양광 에너지 효율·경제성 시뮬레이터</h3>
+            <h5 style="color: #888;"><em>건물의 현재 등급에 따른 목표 등급을 설정하면, 목표 등급까지의 필요 태양광 패널 개수를 계산하고, 패널이 설치 되었을때의 금전적,에너지적 효과를 보여줍니다.</em></h5>
             <form id="simulatorForm2" th:action="@{/simulate2}" method="post">
 
                 <input type="hidden" name="lat" id="lat2">
@@ -153,18 +158,18 @@
                 <input type="hidden" name="daySolar" id="daySolar">
              
                
-                <div class="form-group">
+                <div class="form-group show" id="sg1">
                     <img class="icon" src="/img/location.png" alt="Location Icon">
                     <input type="text" id="juso2" class="searchBox" placeholder="주소를 검색하세요(ex :시/구/동/상세주소)" autocomplete="off" required >
                     <div  class="dropdown searchResult"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group hidden" id="sg2">
                     <img class="icon" src="/img/area.png" alt="Area Icon">
                     <label>m²</label>
                     <input type="number" id="area2" step="any" name="area" placeholder="건물 면적" required>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row hidden" id="sg3">
                     <select name="currentGrade">
                         <option value="0">건물 등급 (현재)</option>
                         <option value="1">1+++등급</option>
@@ -192,8 +197,7 @@
                         <option value="10">7등급</option>
                     </select>
                 </div>
-                <div class="form-row">
-                      
+                <div class="form-row hidden" id="sg4">
                     <select name="panelPower"  required >
                         <option value="">패널 정격출력</option>
                         <option value="400">400 Wp (Trina Solar Vertex S)</option>
@@ -204,7 +208,12 @@
                         <option value="700">700 Wp (Jinko Solar Tiger Neo)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-submit" id="right">결과보기</button>
+                <p id="stepDescription2"> <strong> 시뮬레이터 안내</strong><br>
+                    지도에서 건물을 선택하지 않으셨다면,<br>
+                    아래 입력창에 <strong>직접 주소를 검색</strong>해 주세요.<br>
+                    예: <em>서울특별시 중구 세종대로 110</em></p>
+                <button type="button" id="nextBtn2" class="btn-next">다음으로</button>
+                <button type="submit" class="btn-submit" id="right" style="display: none;">결과보기</button>
             </form>
         </div>
     </section>
@@ -235,7 +244,9 @@
     </section>
     </div> 
 </div>
-   
+
+    <div id="aiText" style="display: none;">나의 Ai <strong>분석</strong> 보기 </div>
+    <button id="aiSummaryBtn" class="btn btn-success">분석 시작!</button>
     <div class="ai-summary-container">  
     <div id="aiResult" style="white-space: pre-line; margin-top: 10px;"></div>
 
@@ -273,7 +284,7 @@
         </button>
     </div>
 
-<button id="aiSummaryBtn" class="btn btn-success">AI 분석</button>
+
    
    
 
