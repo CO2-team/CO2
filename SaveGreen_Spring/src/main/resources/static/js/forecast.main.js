@@ -2483,6 +2483,7 @@ function applyAssumptionsToDataset(rootEl, ctx) {
 
 
 
+let kpiFromServer = null;
 
 async function runForecast() {
     const $result = $el('#result-section');
@@ -2655,6 +2656,54 @@ async function runForecast() {
             }
         })();
 
+
+        // [수정] area 선택 헬퍼: dataset(화면 최신 입력) → sessionStorage → catalog(JSON) → ctx
+        function pickAreaM2(ctx) {
+        	// 숫자 파서(콤마/공백 제거)
+        	const toNum = (v) => {
+        		if (v == null) return NaN;
+        		const x = Number(String(v).replace(/[,\s]/g, ''));
+        		return (Number.isFinite(x) && x > 0) ? x : NaN;
+        	};
+        	const sget = (k) => (sessionStorage.getItem(k) || '').trim();
+
+        	// 1) dataset(data-attrs) — 화면(UI)에서 넘어온 최신값 최우선
+        	const ds = (document.getElementById('forecast-root')?.dataset) || {};
+        	const fromDs =
+        		toNum(ds.floorAreaM2 ?? ds.floorArea ?? ds.area);
+        	if (Number.isFinite(fromDs)) return fromDs;
+
+        	// 2) sessionStorage — Finder/입력 단계에서 저장된 최근값
+        	const fromSS =
+        		toNum(sget('floorAreaM2')) ||
+        		toNum(sget('floorArea'))   ||
+        		toNum(sget('area'))        ||
+        		toNum(sget('BuildingArea'));
+        	if (Number.isFinite(fromSS)) return fromSS;
+
+        	// 3) catalog JSON — 카탈로그의 면적
+        	const fromCat = toNum(ctx?.catalog?.floorAreaM2 ?? ctx?.catalog?.floorArea);
+        	if (Number.isFinite(fromCat)) return fromCat;
+
+        	// 4) ctx 폴백 — 그 외 컨텍스트 기본값
+        	const fromCtx = toNum(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area);
+        	return Number.isFinite(fromCtx) ? fromCtx : NaN;
+        }
+
+
+        // [추가] 면적을 우선순위대로 ‘강제 확정’ (이후 모든 계산이 이 값을 따름)
+        (function forceFloorAreaByPriority() {
+            const chosen = pickAreaM2(ctx);
+            if (Number.isFinite(chosen)) {
+                ctx.floorAreaM2 = chosen;
+                if (window.SaveGreen?.log?.kv) {
+                    window.SaveGreen.log.kv('main', 'floorArea fixed (priority)', { floorAreaM2: chosen, source: 'SS|CAT|DS|CTX' });
+                }
+            }
+        })();
+
+
+
     async function applyBaseAssumptionsStep(root, ctx) {
         try {
             const F = window.SaveGreen?.Forecast || {};
@@ -2722,6 +2771,49 @@ async function runForecast() {
     // 5-5) 데이터 로드(실제 API 또는 더미)
     const data = useDummy ? makeDummyForecast(ctx.from, ctx.to) : await fetchForecast(ctx);
     window.FORECAST_DATA = data;
+
+    // [수정] 면적은 session→catalog→dataset→ctx 우선순위로 픽
+    const areaM2 = Number(pickAreaM2(ctx)) || 0;
+
+    let baselineKwh = NaN;
+
+    // 1) 카탈로그의 마지막 연도 전력사용량 우선
+    try {
+    	const yc = ctx?.catalog?.yearlyConsumption;
+    	if (Array.isArray(yc) && yc.length) {
+    		const last = yc[yc.length - 1];
+    		const v = Number(last?.electricity ?? last?.kwh ?? last?.value);
+    		if (Number.isFinite(v) && v > 0) baselineKwh = v;
+    	}
+    } catch {}
+
+    // 2) 서버 시계열 baseline[0]
+    if (!Number.isFinite(baselineKwh)) {
+    	const b0 = Number(data?.series?.baseline?.[0]);
+    	if (Number.isFinite(b0) && b0 > 0) baselineKwh = b0;
+    }
+
+    // 3) after[0]과 절감률로 역산(폴백)
+    if (!Number.isFinite(baselineKwh)) {
+    	const a0 = Number(data?.series?.after?.[0]);
+    	const sp = Number(kpiFromServer?.savingPct);
+    	if (a0 > 0 && Number.isFinite(sp) && sp > 0) {
+    		baselineKwh = a0 / (1 - sp / 100);
+    	}
+    }
+
+    // 4) dataset 힌트 폴백
+    if (!Number.isFinite(baselineKwh)) {
+    	const ds = (document.getElementById('forecast-root')?.dataset) || {};
+    	const hint = Number(ds.energyKwh || ds.baselineKwh || ds.lastYearKwh);
+    	if (Number.isFinite(hint) && hint > 0) baselineKwh = hint;
+    }
+
+    // 최종 EUI(절감 전) 산출
+    // 지역변수 선언 없이 전역 저장만!
+    window.__EUI_NOW = (areaM2 > 0 && Number.isFinite(baselineKwh))
+        ? Math.round(baselineKwh / areaM2)
+        : NaN;
 
 
     // [추가] 건물별 실측/카탈로그의 마지막 연도 kWh로 서버 시계열 스케일 보정
@@ -2811,7 +2903,7 @@ async function runForecast() {
     })();
 
     // ▼ ML KPI 호출
-    let kpiFromServer = null;
+
     try {
         const mlResp = await trainThenPredictOrFallback(() => buildMlPayload(ctx, data));
         const kpi = mlResp?.kpi || null;
@@ -3120,14 +3212,13 @@ async function runForecast() {
 
 
     const euiRules = ctx.euiRules || window.SaveGreen?.Forecast?._euiRules || null;
-    const euiNow = SaveGreen.Forecast.KPI.computeCurrentEui(
-        data,
-        Number(ctx?.floorAreaM2 ?? ctx?.floorArea ?? ctx?.area)
-    );
+    const currentEui = window.__EUI_NOW; // ← baseline 기준으로 방금 계산한 값
+
+
 
     let gradeNow = null;
-    if (euiRules && Number.isFinite(euiNow)) {
-        gradeNow = pickGradeByRulesSafe(euiNow, euiRules);
+    if (euiRules && Number.isFinite(currentEui)) {
+        gradeNow = pickGradeByRulesSafe(currentEui, euiRules);
     }
 
     // 폴백은 진짜로 룰/면적이 없을 때만
@@ -3188,7 +3279,7 @@ async function runForecast() {
     		renderKpis(kpi, { gradeNow });
 
     		// [추가] euiNow 보강: 면적 + (after0 또는 savingKwhYr & savingPct)로 역산
-    		let euiNowSafe = Number(euiNow);
+    		let euiNowSafe = Number(currentEui);
     		if (!Number.isFinite(euiNowSafe)) {
     			const fa = Number(ctx?.floorAreaM2 ?? 0);
     			const sp = Number(kpi?.savingPct ?? NaN);               // 서버 KPI 절감률(%)
