@@ -38,6 +38,15 @@ function _printedKey(runId, letter) {
     return `${runId}::${letter}`; // 고유키
 }
 
+// 챗봇
+document.addEventListener("DOMContentLoaded", function() {
+    const chatbotWin = document.querySelector('.chatbot-window');
+    if (chatbotWin) {
+        chatbotWin.classList.remove('hidden');
+        chatbotWin.classList.add('show');
+    }
+});
+
 
 // 첫 해 비용절감과 회수기간 계산 폴백
 function computePaybackYears(ctx, data, unitUsed, kpi) {
@@ -3495,7 +3504,7 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 	lines.push(`현재 등급 : <strong>${(typeof gradeNow === 'number') ? `${gradeNow}등급` : String(gradeNow)}</strong>`);
 
 	// 목표 등급
-	lines.push(`목표 : <strong>${targetGradeText}</strong>`);
+	lines.push(`목표 등급 : <strong>${targetGradeText}</strong>`);
 
 	// EUI 현재값
 	if (Number.isFinite(euiNow)) {
