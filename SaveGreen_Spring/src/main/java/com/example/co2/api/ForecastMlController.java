@@ -288,6 +288,104 @@ public class ForecastMlController {
 		return ResponseEntity.ok(all);
 	}
 
+	// [추가] 로그 디렉터리 주입(없으면 기본값 logs/app)
+	@org.springframework.beans.factory.annotation.Value("${app.ml.logs.dir:logs/app}")
+	private String mlLogsDir;
+
+	// [추가] 최신 JSONL 파일에서 최근 N줄 읽기(간단 버전)
+	private java.util.List<String> readLastLines(java.nio.file.Path file, int limit) throws java.io.IOException {
+		java.util.List<String> all = java.nio.file.Files.readAllLines(file);
+		int size = all.size();
+		int from = Math.max(0, size - limit);
+		return all.subList(from, size);
+	}
+
+	// [추가] 디렉터리에서 가장 최근 JSONL 파일 찾기
+	private java.nio.file.Path findLatestJsonl(java.nio.file.Path dir) throws java.io.IOException {
+		try (java.util.stream.Stream<java.nio.file.Path> s = java.nio.file.Files.list(dir)) {
+			return s.filter(p -> java.nio.file.Files.isRegularFile(p) && p.getFileName().toString().endsWith(".jsonl"))
+					.max(java.util.Comparator.comparingLong(p -> {
+						try { return java.nio.file.Files.getLastModifiedTime(p).toMillis(); }
+						catch (Exception e) { return 0L; }
+					}))
+					.orElse(null);
+		}
+	}
+
+	// [추가] GET /api/forecast/ml/logs/latest  → predict_variant(건물별) + 학습 메트릭 전달
+	@org.springframework.web.bind.annotation.GetMapping("/api/forecast/ml/logs/latest")
+	public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> getLatestMlLogs(
+			@org.springframework.web.bind.annotation.RequestParam(name = "limit", required = false, defaultValue = "300") int limit,
+			@org.springframework.web.bind.annotation.RequestParam(name = "event", required = false, defaultValue = "") String eventFilter
+	) {
+		java.util.Map<String, Object> body = new java.util.HashMap<>();
+		java.util.List<java.util.Map<String, Object>> events = new java.util.ArrayList<>();
+		body.put("events", events);
+
+		try {
+			java.nio.file.Path dir = java.nio.file.Paths.get(mlLogsDir);
+			if (!java.nio.file.Files.isDirectory(dir)) {
+				body.put("error", "log dir not found: " + dir.toAbsolutePath());
+				return org.springframework.http.ResponseEntity.ok(body);
+			}
+			java.nio.file.Path latest = findLatestJsonl(dir);
+			if (latest == null) {
+				body.put("info", "no jsonl files in " + dir.toAbsolutePath());
+				return org.springframework.http.ResponseEntity.ok(body);
+			}
+
+			com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+			for (String line : readLastLines(latest, limit)) {
+				line = line.trim();
+				if (line.isEmpty()) continue;
+				try {
+					com.fasterxml.jackson.databind.JsonNode n = om.readTree(line);
+
+					// 기본 필드 추출
+					String ev = n.path("event").asText("");
+					if (!eventFilter.isEmpty() && !eventFilter.equals(ev)) continue;
+
+					java.util.Map<String, Object> one = new java.util.HashMap<>();
+					one.put("ts", n.path("ts").asText(""));
+					one.put("event", ev);
+
+					// tags(chart/run_id)와 payload(variant/savingPct 등)만 골라서 전달
+					com.fasterxml.jackson.databind.JsonNode tags = n.path("tags");
+					if (!tags.isMissingNode() && tags.isObject()) {
+						if (tags.has("chart")) one.put("chart", tags.get("chart").asText(""));
+						if (tags.has("run_id")) one.put("runId", tags.get("run_id").asText(""));
+					}
+					com.fasterxml.jackson.databind.JsonNode payload = n.path("payload");
+					if (!payload.isMissingNode() && payload.isObject()) {
+						if (payload.has("variant")) one.put("variant", payload.get("variant").asText(""));
+						if (payload.has("savingPct")) one.put("savingPct", payload.get("savingPct").asDouble());
+						if (payload.has("buildingName")) one.put("buildingName", payload.get("buildingName").asText(""));
+						if (payload.has("pnu")) one.put("pnu", payload.get("pnu").asText(""));
+						if (payload.has("floorAreaM2")) one.put("floorAreaM2", payload.get("floorAreaM2").asDouble());
+						if (payload.has("builtYear")) one.put("builtYear", payload.get("builtYear").asDouble());
+					}
+
+					// 학습 메트릭(train/test)도 그대로 통과(필요 시 FE에서 거를 수 있게)
+					com.fasterxml.jackson.databind.JsonNode metrics = n.path("metrics");
+					if (!metrics.isMissingNode() && metrics.isObject()) {
+						java.util.Map<String, Object> m = om.convertValue(metrics, java.util.Map.class);
+						one.put("metrics", m);
+					}
+
+					events.add(one);
+				} catch (Exception ignore) {
+					// 파싱 실패 라인 무시
+				}
+			}
+
+			return org.springframework.http.ResponseEntity.ok(body);
+		} catch (Exception e) {
+			body.put("error", e.getMessage());
+			return org.springframework.http.ResponseEntity.ok(body);
+		}
+	}
+
+
 	// 웹 페이지 console log에 뜨는 (GET http://localhost:8080/favicon.ico 404) 에러 제거
 	@RestController
 	static class RootAuxController {
@@ -296,6 +394,7 @@ public class ForecastMlController {
 			return ResponseEntity.noContent().build(); // 204 No Content
 		}
 	}
+
 
 
 }

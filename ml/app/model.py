@@ -252,6 +252,36 @@ class ModelManager:
         resp["uiHints"] = {"costAxisMax": UI_COST_AXIS_MAX, "animation": {"order": "bar->point->line"}}
         return resp
 
+    # [추가] A/B/C 절감률을 한 번에 미리 계산해 주는 헬퍼 (로그용)
+    def preview_all_variants(self, payload: Dict[str, Any]) -> Dict[str, Optional[float]]:
+        """
+        프런트 응답은 그대로 C만 주더라도, 로그를 위해 A/B/C 각각의
+        절감률(%)을 계산해 반환한다. 모델이 없거나 실패하면 None.
+        """
+        warnings: list[str] = []
+        # A
+        a = None
+        if self.A:
+            try:
+                a = self._predict_with(self.A, payload, EXPECTED_FEATURES_A, "A", warnings)
+            except Exception:
+                a = None
+
+        # B
+        b = None
+        if self.B:
+            try:
+                b = self._predict_with(self.B, payload, EXPECTED_FEATURES_B, "B", warnings)
+            except Exception:
+                b = None
+
+        # C (앙상블)
+        try:
+            c = self._predict_pct(payload, "C", warnings)
+        except Exception:
+            c = None
+        return {"A": a, "B": b, "C": c}
+
     # ---------------------- 핵심 로직 ----------------------
 
     def _predict_pct(self, payload: Dict[str, Any], variant: str, warnings: List[str]) -> float:

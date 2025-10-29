@@ -159,26 +159,51 @@ def predict(  # type: ignore[call-arg]
     except Exception:
         raise HTTPException(status_code=400, detail="invalid numeric fields in payload")
 
-    # 실제 예측 수행 (모델 싱글톤 사용)
+    # 실제 예측 수행 (모델 싱글톤 사용) — ★ 중복 호출 제거
     try:
         m = get_model()
         result: Dict[str, Any] = m.predict_variant(payload, variant=variant)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"prediction failed: {e}")
 
+    # [추가] 건물별 per-variant 예측 로그 (A/B/C 각각)
+    try:
+        from . import ml_logging
+        pv = m.preview_all_variants(payload)  # {"A":..., "B":..., "C":...}
+        bname = (payload.get("buildingName") or result.get("contextEcho", {}).get("buildingName"))
+        pnu   = (payload.get("pnu") or result.get("contextEcho", {}).get("pnu"))
+
+        for letter in ("A", "B", "C"):
+            ml_logging.log_event(
+                "predict_variant",
+                payload={
+                    "variant": letter,
+                    "savingPct": (pv or {}).get(letter),
+                    "buildingName": bname,
+                    "pnu": pnu,
+                    "floorAreaM2": payload.get("floorAreaM2"),
+                    "builtYear": payload.get("builtYear"),
+                },
+                tags={
+                    "run_id": SERVER_RUN_ID,
+                    "chart": letter
+                }
+            )
+    except Exception as _e:
+        print(f"[ML-LOG] skip per-variant logging: {_e}")
+
     # 가시성 로그(정합 확인용)
     try:
-        kpi = (result or {}).get("kpi", {}) or {}
+        kpi  = (result or {}).get("kpi", {}) or {}
         meta = (result or {}).get("meta", {}) or {}
-        _saving_pct = kpi.get("savingPct")
-        _payback = kpi.get("paybackYears")
-        _label = kpi.get("label")
-        _unit = meta.get("tariff_unit_used")
-        _capex_total = meta.get("capex_total_used")
-        _b0 = meta.get("before_kwh_yr_first")
-        _s0 = meta.get("saving_kwh_yr_first")
-        print(f"[predict] kpi: pct={_saving_pct}, payback={_payback}, label={_label} | "
-              f"meta: unit={_unit}, capex_total={_capex_total}, before0={_b0}, saving0={_s0}")
+        print(
+            f"[predict] kpi: pct={kpi.get('savingPct')}, "
+            f"payback={kpi.get('paybackYears')}, label={kpi.get('label')} | "
+            f"meta: unit={meta.get('tariff_unit_used')}, "
+            f"capex_total={meta.get('capex_total_used')}, "
+            f"before0={meta.get('before_kwh_yr_first')}, "
+            f"saving0={meta.get('saving_kwh_yr_first')}"
+        )
     except Exception:
         pass
 
