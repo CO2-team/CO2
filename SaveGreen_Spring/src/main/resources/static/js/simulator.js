@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box4 = document.getElementById("intensityChart2");
         const box5 = document.getElementById("intensityChart3");
         const box2 = document.getElementById('compareText');
+        const btn = document.querySelector('.pdfBtn');
         if (!box3) return;
 
 
@@ -124,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById("aiText").style.display = "block";
         document.getElementById("aiResult").style.display = "block";
         document.getElementById("aiSummaryBtn").style.display = "block";
-      
+        btn.style.display = "block";
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
@@ -153,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box2 = document.getElementById('compareText');
         const box6 = document.getElementById("solarEfficiencyChart");
         const items = box.querySelectorAll('.result-item');
-        
+        const btn = document.querySelector('.pdfBtn');
         items.forEach(item => item.classList.remove('show'));
 
         document.getElementById('solarRadiation').value = data.solarRadiation;
@@ -178,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById("aiText").style.display = "block";
         document.getElementById("aiResult").style.display = "block";
         document.getElementById("aiSummaryBtn").style.display = "block";
-
+        btn.style.display = "block";
       
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
@@ -1228,7 +1229,7 @@ function convertPyeong(id) {
 
   // 평수 표시용 라벨 생성 
   let label = document.createElement("span");
-  label.style.marginLeft = "6px";
+  
   label.style.fontSize = "13px";
   label.style.color = "#555";
   label.classList.add("pyeong-label");
@@ -1255,3 +1256,48 @@ function convertPyeong(id) {
     updatePyeong();
   }
 }
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+
+  function resetForm(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    
+    const inputs = form.querySelectorAll("input:not([type='hidden'])");
+    inputs.forEach(input => {
+      input.value = "";
+
+
+      const nextEl = input.nextElementSibling;
+      if (nextEl && nextEl.tagName === "SPAN") {
+        nextEl.remove();
+      }
+    });
+   
+    const selects = form.querySelectorAll("select");
+    selects.forEach(sel => {
+      sel.selectedIndex = 0;
+    });
+
+    console.log(` ${formId} 초기화 완료`);
+  }
+
+  // 왼쪽 버튼
+  const resetBtn1 = document.getElementById("resetBtn1");
+  if (resetBtn1) {
+    resetBtn1.addEventListener("click", function () {
+      resetForm("simulatorForm1");
+    });
+  }
+
+  // 오른쪽 버튼
+  const resetBtn2 = document.getElementById("resetBtn2");
+  if (resetBtn2) {
+    resetBtn2.addEventListener("click", function () {
+      resetForm("simulatorForm2");
+    });
+  }
+});
