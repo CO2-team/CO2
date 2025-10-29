@@ -10,20 +10,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 스크롤 대상 (window or .container)
   const scrollTarget = document.querySelector('.container') || window;
-  const line = document.querySelector('.lineHR');
+  // const line = document.querySelector('.lineHR');
 
   // 헤더 숨김/보임 처리
   scrollTarget.addEventListener('scroll', () => {
     const st = scrollTarget.scrollTop || window.scrollY;
-
     if (Math.abs(lastScrollTop - st) <= delta) return;
 
     if (st > lastScrollTop && st > 0) {
       navbar.classList.add('nav-up');
-      line.classList.add('lineHR-up');
+      console.log('⬆️ up → nav-up 추가');
     } else {
       navbar.classList.remove('nav-up');
-      line.classList.remove('lineHR-up');
+      console.log('⬇️ down → nav-up 제거');
     }
 
     lastScrollTop = st;

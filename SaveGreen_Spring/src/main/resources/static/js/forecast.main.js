@@ -39,7 +39,6 @@ function _printedKey(runId, letter) {
 }
 
 
-
 // 첫 해 비용절감과 회수기간 계산 폴백
 function computePaybackYears(ctx, data, unitUsed, kpi) {
 	// 단가(unitUsed)가 없으면 가정값에서 가져오기
@@ -1179,35 +1178,154 @@ function bootstrapContextFromStorage(rootEl) {
     } catch { }
 }
 
+
+
+
 /** 시작 버튼 결선(없으면 자동 시작) */
 function wireStartButtonAndFallback() {
-    const btn = document.getElementById('forecast-start');
+	const btn = document.getElementById('forecast-start');
 
-    setPreloadState('idle');
-    renderPreloadInfoAndRisks(); // ← 먼저 보여주기
+	// ── [A] 최소 컨텍스트 판정: 이름+면적+사용연도
+	function __hasMinContext() {
+		const root = document.getElementById('forecast-root');
+		const ds = (root && root.dataset) || {};
+		const sget = (k) => (sessionStorage.getItem(k) || '').trim();
 
-    if (btn) {
-        btn.onclick = async () => {
-            if (__RUN_LOCK__) return;
-            __RUN_LOCK__ = true;
-            btn.disabled = true;
-            try {
-                try { SaveGreen.log.clearTags(); } catch {}
-                setPreloadState('running');
-                await runForecast();
-            } catch (e) {
-                SaveGreen.log.error('forecast', 'run failed', e);
-            } finally {
-                __RUN_LOCK__ = false;
-                btn.disabled = false;
-            }
-        };
-    } else {
-        setPreloadState('running');
-        try { SaveGreen.log.clearTags(); } catch {}
-        runForecast().catch(e => SaveGreen.log.error('forecast', 'run failed', e));
-    }
+		const name = (ds.buildingName || ds.bname || sget('buildingName') || sget('buldNm') || '').trim();
+		const area = Number(ds.floorAreaM2 || ds.floorArea || ds.area || sget('floorAreaM2') || sget('floorArea') || sget('area'));
+		const built = Number(ds.builtYear || sget('builtYear'));
+
+		return !!name && Number.isFinite(area) && area > 0 && Number.isFinite(built) && built > 0;
+	}
+
+	// ── [B] 버튼 상태 업데이트(시각만 비활성)
+	function __updateStartBtn() {
+		if (!btn) return;
+		const ok = __hasMinContext();
+		btn.dataset.blocked = String(!ok);
+		btn.style.opacity = ok ? '' : '0.5';
+		btn.style.cursor = ok ? '' : 'not-allowed';
+	}
+
+	// ── [C] 버튼 주변 말풍선 힌트 (필요 시 생성/2.2초 뒤 자동 제거)
+	let __bubbleTimer = null;
+	function __showBubbleNearBtn(text) {
+		if (!btn) return;
+
+		// 스타일 1회 주입
+		if (!document.getElementById('sg-hint-style')) {
+			const st = document.createElement('style');
+			st.id = 'sg-hint-style';
+			st.textContent = `
+				.sg-hint-bubble {
+					position: fixed;
+					z-index: 9999;
+					padding: 10px 12px;
+					background: rgba(0,0,0,0.85);
+					color: #fff;
+					border-radius: 10px;
+					font-size: 13px;
+					box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+					backdrop-filter: blur(2px);
+					white-space: nowrap;
+					animation: sg-pop 140ms ease-out, sg-fade 220ms ease-out 2s forwards;
+				}
+				.sg-hint-bubble::after {
+					content: '';
+					position: absolute;
+					top: -6px; right: 18px;
+					border: 6px solid transparent;
+					border-bottom-color: rgba(0,0,0,0.85);
+				}
+				@keyframes sg-pop { from { transform: scale(.96); opacity:.0 } to { transform: scale(1); opacity:1 } }
+				@keyframes sg-fade { to { opacity: 0; transform: translateY(-4px) } }
+				.sg-shake { animation: sg-shake 280ms ease-in-out; }
+				@keyframes sg-shake {
+					0%,100% { transform: translateX(0) }
+					25% { transform: translateX(-3px) }
+					50% { transform: translateX(3px) }
+					75% { transform: translateX(-2px) }
+				}
+			`;
+			document.head.appendChild(st);
+		}
+
+		// 기존 버블 제거
+		document.querySelectorAll('.sg-hint-bubble').forEach(n => n.remove());
+		if (__bubbleTimer) { clearTimeout(__bubbleTimer); __bubbleTimer = null; }
+
+		// 위치 계산(버튼 우상단 살짝 위)
+		const r = btn.getBoundingClientRect();
+		const bubble = document.createElement('div');
+		bubble.className = 'sg-hint-bubble';
+		bubble.textContent = text;
+		document.body.appendChild(bubble);
+
+		const x = r.right - bubble.offsetWidth + 8;  // 오른쪽 정렬
+		const y = r.top - bubble.offsetHeight - 8;   // 버튼 위쪽
+		bubble.style.left = Math.max(12, x) + 'px';
+		bubble.style.top  = Math.max(12, y) + 'px';
+
+		// 버튼 살짝 흔들림 효과
+		btn.classList.add('sg-shake');
+		setTimeout(() => btn.classList.remove('sg-shake'), 320);
+
+		__bubbleTimer = setTimeout(() => {
+			bubble.remove();
+			__bubbleTimer = null;
+		}, 2200);
+	}
+
+	setPreloadState('idle');
+	renderPreloadInfoAndRisks();
+
+	// 초기 상태 및 폴링(세션이 늦게 들어오는 경우 대비, 최대 20초)
+	__updateStartBtn();
+	let __poll = 0;
+	const __pollId = setInterval(() => {
+		__updateStartBtn();
+		if (__hasMinContext() || ++__poll > 20) clearInterval(__pollId);
+	}, 1000);
+
+	if (btn) {
+		btn.onclick = async () => {
+			// 컨텍스트 없으면 실행 막고 말풍선만
+			if (btn.dataset.blocked === 'true') {
+				__showBubbleNearBtn('건물을 먼저 선택해주세요');
+				// (원하면 토스트도 병행)
+				if (typeof showToast === 'function') showToast('', 'warn');
+				return;
+			}
+
+			// 정상 실행
+			if (__RUN_LOCK__) return;
+			__RUN_LOCK__ = true;
+			btn.disabled = true; // 실행 중엔 실제 잠금
+
+			try {
+				try { SaveGreen.log.clearTags(); } catch {}
+				setPreloadState('running');
+				await runForecast();
+			} catch (e) {
+				SaveGreen.log.error('forecast', 'run failed', e);
+			} finally {
+				__RUN_LOCK__ = false;
+				btn.disabled = false; // 실행 끝나면 해제
+				__updateStartBtn();
+			}
+		};
+	} else {
+		// 버튼이 없는 페이지는 컨텍스트 있을 때만 자동 실행
+		if (__hasMinContext()) {
+			setPreloadState('running');
+			try { SaveGreen.log.clearTags(); } catch {}
+			runForecast().catch(e => SaveGreen.log.error('forecast', 'run failed', e));
+		}
+	}
 }
+
+
+
 
 
 // DOMContentLoaded 시 init 실행(+가정 라인 스타일 보정)
