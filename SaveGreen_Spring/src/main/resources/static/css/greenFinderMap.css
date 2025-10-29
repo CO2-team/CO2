@@ -102,11 +102,10 @@ body {
 
 .search-container {
     position: absolute;
-    /* top: 5%; */
     top:18%;
     left: 5%;
     z-index: 100;
-    width: 300px;
+    width: 30%;
     border-radius: 18px;
 }
 
@@ -161,9 +160,11 @@ body {
 .dropdown-item {
   padding: 8px 10px;
   cursor: pointer;
-  display: flex;
   justify-content: space-between;
   border-bottom: 1px solid #f2f2f2;
+  display: block;
+  white-space: normal;
+  line-height: 1.4;
 }
 
 .dropdown-item:hover {
@@ -191,15 +192,6 @@ body {
   align-self: center;
 }
 
-
-.dropdown-item {
-    padding: 5px;
-    cursor: pointer;
-}
-
-.dropdown-item:hover {
-    background-color: #eee;
-}
 
 /* 팝업 */
 
@@ -264,11 +256,6 @@ body {
     font-size: 16px;
     cursor: pointer;
 }
-
-.popup-body {
-    padding: 10px 15px;
-}
-
 
 
 .popup-header {

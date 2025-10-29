@@ -392,7 +392,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("세션스토리지에서 가져온 건물면적:", area);
     if (area) {
         document.getElementById("area1").value = area;
-        document.getElementById("area2").value = area;
+        document.getElementById("area2").value = area; 
     }
 });
 
@@ -547,8 +547,14 @@ document.addEventListener("DOMContentLoaded", () => {
                       success: function (buildData) {
                         const area = buildData?.buildingUses?.field?.[0]?.buldBildngAr;
                         if (area) {
-                          $(currentForm).find("input[name='area']").val(area);
+                          // $(currentForm).find("input[name='area']").val(area);
+                          const areaInput = $(currentForm).find("input[name='area']")[0];
+                          areaInput.value = area; // ✅ 진짜 value 속성까지 세팅
+                          areaInput.setAttribute("value", area); // ✅ HTML 속성까지 동기화
+                          areaInput.dispatchEvent(new Event("input", { bubbles: true }));
 
+                          
+                          
                           console.log("건물면적:", area);
                         } else {
                           console.warn("면적 정보 없음:", buildData);
@@ -935,7 +941,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const BM = document.getElementById('buildingMonthly')
         BM.value = JSON.stringify(data);
         console.log("선택건물 월별비중:", data);
-        console.log("✅ 선택건물 월별비중 저장 완료:", BM.value);
+        console.log(" 선택건물 월별비중 저장 완료:", BM.value);
       });
 
   // 카테고리 평균 퍼센트 가져오기
@@ -946,7 +952,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const CM = document.getElementById('categoryMonthly');
         CM.value = JSON.stringify(data);
         console.log("비교군 월별비중:", data);
-         console.log("✅ 선택건물 월별비중 저장 완료:", CM.value);
+         console.log(" 선택건물 월별비중 저장 완료:", CM.value);
       });
 });
 
@@ -1211,31 +1217,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-
 document.addEventListener("DOMContentLoaded", function () {
-  const areaInputs = ["area1", "area2"];
-
-  areaInputs.forEach(id => {
-    const input = document.getElementById(id);
-    if (!input) return;
-
-    input.addEventListener("input", function () {
-      const value = parseFloat(input.value);
-      let label = input.nextElementSibling;
-
-      // 이미 붙어 있는 라벨이면 그대로 사용, 아니면 새로 추가
-      if (!label || !label.classList.contains("pyeong-text")) {
-        label = document.createElement("span");
-        label.classList.add("pyeong-text");
-        input.insertAdjacentElement("afterend", label); 
-      }
-
-      if (isNaN(value) || value <= 0) {
-        label.textContent = "";
-      } else {
-        const pyeong = (value / 3.3058).toFixed(1);
-        label.textContent = `(약 ${pyeong} 평)`;
-      }
-    });
-  });
+  convertPyeong("area1");
+  convertPyeong("area2");
 });
+
+function convertPyeong(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+
+  // 평수 표시용 라벨 생성 
+  let label = document.createElement("span");
+  label.style.marginLeft = "6px";
+  label.style.fontSize = "13px";
+  label.style.color = "#555";
+  label.classList.add("pyeong-label");
+
+  input.parentNode.appendChild(label);
+
+
+  // 평수 계산 표시 함수
+  function updatePyeong() {
+    const val = parseFloat(input.value);
+    if (!isNaN(val) && val > 0) {
+      const pyeong = (val / 3.3058).toFixed(1);
+      label.textContent = `(약 ${pyeong} 평)`;
+    } else {
+      label.textContent = "";
+    }
+  }
+
+  // 직접 입력 시 감지
+  input.addEventListener("input", updatePyeong);
+
+ 
+  if (input.value) {
+    updatePyeong();
+  }
+}
