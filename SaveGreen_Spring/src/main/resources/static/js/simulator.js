@@ -550,8 +550,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (area) {
                           // $(currentForm).find("input[name='area']").val(area);
                           const areaInput = $(currentForm).find("input[name='area']")[0];
-                          areaInput.value = area; // ✅ 진짜 value 속성까지 세팅
-                          areaInput.setAttribute("value", area); // ✅ HTML 속성까지 동기화
+                          areaInput.value = area; 
+                          areaInput.setAttribute("value", area); 
                           areaInput.dispatchEvent(new Event("input", { bubbles: true }));
 
                           
@@ -1033,7 +1033,8 @@ document.addEventListener("DOMContentLoaded", function () {
   eg5: `
     <strong>⑤ 태양광 패널 정보 입력</strong><br>
     설치된 개수를 입력하고, 사용할 패널의 정격출력을 선택해주세요.<br>
-    <ul style="margin-top:5px; line-height:1.6;">
+    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
+    <ul style="margin-top:5px; line-height:1.3;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
       <li><strong>700Wp</strong> — 대형 (산업시설용)</li>
@@ -1168,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", function () {
   sg3: `
     <strong>③ 태양광 패널 선택</strong><br>
     설치 예정인 패널의 정격출력을 선택해주세요.<br>
+    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
     <ul style="margin-top:5px; line-height:1.6;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
@@ -1316,3 +1318,14 @@ document.addEventListener("DOMContentLoaded", function() {
     chatbotWin.classList.add('show');      
   }
 });
+
+
+// document.addEventListener("DOMContentLoaded", function() {
+  
+
+//   const chatbotWin = document.querySelector('.chatbot-window');
+//   if (chatbotWin) {
+//     chatbotWin.classList.remove('hidden'); 
+//     chatbotWin.classList.add('show');      
+//   }
+// });
