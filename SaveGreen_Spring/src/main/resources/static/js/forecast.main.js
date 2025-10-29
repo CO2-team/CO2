@@ -3504,7 +3504,7 @@ function renderSummary({ gradeNow, kpi, rules, euiNow, ctx }) {
 	lines.push(`현재 등급 : <strong>${(typeof gradeNow === 'number') ? `${gradeNow}등급` : String(gradeNow)}</strong>`);
 
 	// 목표 등급
-	lines.push(`목표 : <strong>${targetGradeText}</strong>`);
+	lines.push(`목표 등급 : <strong>${targetGradeText}</strong>`);
 
 	// EUI 현재값
 	if (Number.isFinite(euiNow)) {

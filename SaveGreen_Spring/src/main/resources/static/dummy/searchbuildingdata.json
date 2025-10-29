@@ -482,5 +482,50 @@
 			{ "month": 2,  "electricity": 21071 },
 			{ "month": 1,  "electricity": 24081 }
 		]
+	},
+	{
+		"buildingName": "혜성테이프공업",
+		"pnu": "3023010200100400039",
+		"address": "대전광역시 대덕구 대화동 40-39",
+		"buildingType1": "비주거용",
+		"buildingType2": "공장",
+		"usageYear": 2007,
+		"floorAreaM2": 2621.44,
+		"yearlyConsumption": [
+			{"year":2007,"electricity":730000},
+			{"year":2008,"electricity":740000},
+			{"year":2009,"electricity":755000},
+			{"year":2010,"electricity":770000},
+			{"year":2011,"electricity":785000},
+			{"year":2012,"electricity":800000},
+			{"year":2013,"electricity":815000},
+			{"year":2014,"electricity":830000},
+			{"year":2015,"electricity":845000},
+			{"year":2016,"electricity":861000},
+			{"year":2017,"electricity":876000},
+			{"year":2018,"electricity":828000},
+			{"year":2019,"electricity":803000},
+			{"year":2020,"electricity":785000},
+			{"year":2021,"electricity":802000},
+			{"year":2022,"electricity":820000},
+			{"year":2023,"electricity":838000},
+			{"year":2024,"electricity":855000}
+		],
+		"electricityUsageKwh": 855000,
+		"energyIntensityKwhPerM2": 326.3,
+		"monthlyConsumption": [
+			{ "month": 12, "electricity": 70156 },
+			{ "month": 11, "electricity": 61141 },
+			{ "month": 10, "electricity": 67153 },
+			{ "month": 9,  "electricity": 72166 },
+			{ "month": 8,  "electricity": 79180 },
+			{ "month": 7,  "electricity": 81183 },
+			{ "month": 6,  "electricity": 78176 },
+			{ "month": 5,  "electricity": 75169 },
+			{ "month": 4,  "electricity": 71161 },
+			{ "month": 3,  "electricity": 67153 },
+			{ "month": 2,  "electricity": 56079 },
+			{ "month": 1,  "electricity": 64103 }
+		]
 	}
 ]
