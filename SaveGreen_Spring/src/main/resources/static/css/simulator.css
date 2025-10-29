@@ -398,34 +398,6 @@ body.swal2-shown {
   color: #0b3d0b;
 }
 
-.floating-btns button {
-  width: 55px;
-  height: 55px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  background-color: #1b5e20; 
-  color: #fff;
-  font-size: 22px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-  transition: all 0.25s ease;
-}
-
-
-.floating-btns button:hover {
-  transform: scale(1.08);
-  background-color: #2e7d32;
-}
-
-.floating-btns {
-  position: fixed;         
-  bottom: 40px;              
-  right: 40px;               
-  display: flex;
-  flex-direction: column;   
-  gap: 15px;                 
-  z-index: 9999;             
-}
 
 
 

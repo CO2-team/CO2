@@ -1301,3 +1301,18 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 });
+
+
+document.addEventListener("DOMContentLoaded", function() {
+  const downloadBtn = document.getElementById("downloadAll");
+
+  // downloadBtn.classList.add('show');
+  if (downloadBtn) {
+    downloadBtn.style.display = "block";  
+  }
+  const chatbotWin = document.querySelector('.chatbot-window');
+  if (chatbotWin) {
+    chatbotWin.classList.remove('hidden'); 
+    chatbotWin.classList.add('show');      
+  }
+});
