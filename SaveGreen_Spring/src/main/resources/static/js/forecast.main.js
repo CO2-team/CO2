@@ -3526,7 +3526,6 @@ function renderBuildingCard() {
     if (b.height) rows.push(row('높이', nf(b.height) + ' m'));
     if (b.floorsAbove != null || b.floorsBelow != null) rows.push(row('지상/지하', `${b.floorsAbove ?? 0} / ${b.floorsBelow ?? 0}`));
     if (!rows.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-    if (b.pnu && !fromQs('pnu')) rows.push(row('PNU', esc(b.pnu)));
     if (b.builtYear && !fromQs('builtYear')) rows.push(row('준공연도', String(b.builtYear)));
     box.innerHTML = `<div class="card building-card"><h4>건물 정보</h4>${rows.join('')}</div>`;
     box.classList.remove('hidden');
