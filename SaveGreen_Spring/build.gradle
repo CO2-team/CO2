@@ -54,6 +54,10 @@ dependencies {
 
     // RestTemplate용 Apache HttpClient 5.x
     implementation 'org.apache.httpcomponents.client5:httpclient5' // (버전은 Spring Boot BOM이 관리)
+
+    implementation 'org.flywaydb:flyway-core:10.17.0'
+    implementation 'org.flywaydb:flyway-mysql:10.17.0'
+    runtimeOnly 'com.mysql:mysql-connector-j'   // ← 버전 생략(부트가 관리)
 }
 
 
