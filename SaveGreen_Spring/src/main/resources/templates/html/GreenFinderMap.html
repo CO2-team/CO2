@@ -44,7 +44,7 @@
 
         <!-- 검색창 오버레이 -->
         <div class="search-container">
-            <input type="text" name="search" class="searchBox search-box" placeholder="명칭 또는 주소 검색">
+            <input type="text" name="search" class="searchBox search-box" autocomplete="off" placeholder="명칭 또는 주소 검색">
             <div class="searchResult"></div>
         </div>
 
@@ -66,7 +66,7 @@
     </main>
 
     <div id="popup" class="popup">
-        <div class="popup-header">
+        <div id="popupHeader" class="popup-header" >
             <span>건축물정보</span>
             <button class="popup-close" onclick="hidePopup()">✕</button>
         </div>
