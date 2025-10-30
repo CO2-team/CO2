@@ -126,7 +126,7 @@ const chatbotData = {
     </p>
 
     <p style="text-align:center; font-weight:600; color:#2e7d32;">
-      에너지 등급 = 단위면적당 에너지 사용량 (kWh/m<sup>2</sup>)
+      에너지 등급 = 단위면적(m²)당 에너지 사용량 (kWh/m<sup>2</sup>)
     </p>
 
     <p>
@@ -281,7 +281,7 @@ const chatbotData = {
     </p>
 
     <h4> 에너지 등급 기준</h4>
-    <p>단위면적당 에너지 사용량 기준 (kWh/m<sup>2</sup>)</p>
+    <p>단위면적(m²)당 에너지 사용량 기준 (kWh/m<sup>2</sup>)</p>
     <ul>
       <li>1+++ 등급 : 0 ~ 80</li>
       <li>1++ 등급 : 80 ~ 140</li>
@@ -318,7 +318,7 @@ const chatbotData = {
   energyGrade: {
     text:  
     `<p>
-      에너지 등급은 단위면적당 에너지 사용량(kWh/m<sup>2</sup>)으로 책정되며,<br>
+      에너지 등급은 단위면적(m²)당 에너지 사용량(kWh/m<sup>2</sup>)으로 책정되며,<br>
       1+++ 등급부터 7등급까지 존재합니다.<br>
       <b>1+++ 등급</b>이 가장 높은 등급입니다.
     </p>
@@ -524,7 +524,6 @@ document.addEventListener('click', function(e) {
   if (e.target.closest('.chatbot-close')) {
     const win = document.querySelector('.chatbot-window');
     win.classList.add('hidden');
-    renderChatbot('root');
   }
 
 

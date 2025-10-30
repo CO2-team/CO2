@@ -27,10 +27,10 @@
 
 
 .chatbot-window.hidden {
-  display: none;
+  display : none !important;
 }
 .chatbot-window.show{
-    display:block;
+  display : block;
 }
 
 .chatbot-header {

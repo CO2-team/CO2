@@ -15,7 +15,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -196,6 +198,17 @@ public ResponseEntity<String> uploadAllPolicies(@RequestParam("file") MultipartF
 
  
 
+    @GetMapping("/list-all")
+    public ResponseEntity<Object> getAllPolicies() {
+        List<TaxPolicy> taxList = taxPolicyRepository.findAll();
+        List<ZebPolicy> zebList = zebPolicyRepository.findAll();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("tax", taxList);
+        result.put("zeb", zebList);
+
+        return ResponseEntity.ok(result);
+    }
 
 
 
