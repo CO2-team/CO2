@@ -26,19 +26,18 @@
             };
         }
 
-
         // 가장 마지막 연도의 지표로 계산
         const i = 0;
 
         const afterKwhRaw  = Number(series?.after?.[i]  ?? 0);
         const savingKwhRaw = Number(series?.saving?.[i] ?? 0);
 
-        // [수정] 실측 기반으로 before 복원: before = after + saving
+        // 실측 기반으로 before 복원: before = after + saving
         let afterKwh  = Math.max(0, afterKwhRaw);
         let savingKwh = Math.max(0, savingKwhRaw);
         let beforeKwh = afterKwh + savingKwh;
 
-        // [수정] base.savingPct 보정은 '실측이 전혀 없을 때만' 제한적으로 사용
+        // base.savingPct 보정은 '실측이 전혀 없을 때만' 제한적으로 사용
         if ((!Number.isFinite(savingKwh) || savingKwh <= 0) &&
             beforeKwh <= 0 &&
             base && Number.isFinite(base.savingPct) && base.savingPct > 0 && base.savingPct < 1) {
@@ -49,7 +48,7 @@
             }
         }
 
-        // [추가] 절감률(%) 1자리 반올림: savingPct = saving / before
+        // 절감률(%) 1자리 반올림: savingPct = saving / before
         let savingPctPct = 0;	// 퍼센트(%) 표기값
         if (Number.isFinite(beforeKwh) && beforeKwh > 0) {
         	const ratio = savingKwh / beforeKwh;     // 0~1
@@ -100,21 +99,10 @@
         	}
         }
 
-
-
         // 5) 절감률(%) = savingKwh / beforeKwh
         const savingPct = (beforeKwh > 0)
             ? Math.round((savingKwh / beforeKwh) * 100)
             : 0;
-
-//        try {
-//            // [교체] 멀티라인 요약(kv) 사용
-//            SaveGreen.log.kv('kpi', 'kpi snapshot', {
-//                savingPct,
-//                savingCostYr: Math.round(savingCost),
-//                paybackYears: Number((Math.round(paybackYears * 10) / 10).toFixed(1))
-//            }, ['savingPct','savingCostYr','paybackYears']);
-//        } catch {}
 
         return {
             savingCostYr: savingCost,   // 연간 비용 절감(원)
@@ -163,7 +151,7 @@
 		return { status, label: status, score };
 	}
 
-	// [추가] ─────────────────────────────────────────────────────────────
+	// ─────────────────────────────────────────────────────────────
 	// KPI 도메인 보조 함수 3종 (IIFE 안쪽, decideStatusByScore 바로 아래에 배치)
 	// - main.js에 남아 있던 '순수 계산로직'을 본 KPI 모듈로 이관
 	// - DOM 접근/렌더링 없음(순수 함수) → 단위 테스트/재사용 용이
@@ -248,17 +236,17 @@
 		}
 		return null;
 	}
-	// [추가 끝] ───────────────────────────────────────────────────────────
+	// ───────────────────────────────────────────────────────────
 
 
-	// [수정] 전역/네임스페이스에 노출(기존 + KPI 네임스페이스 동시 제공)
+	// 전역/네임스페이스에 노출(기존 + KPI 네임스페이스 동시 제공)
 	window.computeKpis = computeKpis;
 	window.decideStatusByScore = decideStatusByScore;
 
 	window.SaveGreen.Forecast.computeKpis = computeKpis;
 	window.SaveGreen.Forecast.decideStatusByScore = decideStatusByScore;
 
-	// [추가] KPI 서브 네임스페이스로 순수 도메인 로직을 묶어서 노출
+	// KPI 서브 네임스페이스로 순수 도메인 로직을 묶어서 노출
 	window.SaveGreen.Forecast.KPI = Object.assign(
 		window.SaveGreen.Forecast.KPI || {},
 		{
