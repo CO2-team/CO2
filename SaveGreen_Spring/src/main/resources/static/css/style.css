@@ -101,7 +101,7 @@ main, .container {
 }
 .main-banner.active .overlay .text-content {
     left: 30%;
-    transform: translate(0, 100%);
+    transform: translate(0, -50%);
 }
 
 /* 텍스트 애니메이션 */
