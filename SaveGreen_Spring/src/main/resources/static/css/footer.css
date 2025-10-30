@@ -35,7 +35,7 @@
 }
 
 .chatbot-header {
-  background-color: #2e7d32;
+  background-color: #1b5e20;
   color: #ffffff;
   padding: 12px 14px;
   display: flex;
@@ -78,7 +78,22 @@
   border-radius: 3px;
 }
 
+/*이전으로 - 버튼*/
+.chatbot-prev{
+  background-color: #1b5e20;
+  width: 100%;
+  padding: 10px 8px;
+  margin: 5px 0;
+  border: 1px solid #c8e6c9;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: #2e7d32;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
 
+/* 기본 버튼*/
 .chatbot-btn,
 .chatbot-options button {
   width: 100%;
@@ -90,7 +105,7 @@
   cursor: pointer;
   font-size: 13.5px;
   color: #2e7d32;
-  font-weight: 500;
+  font-weight: bold;
   transition: all 0.2s ease;
 }
 

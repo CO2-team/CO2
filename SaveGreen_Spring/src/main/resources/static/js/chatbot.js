@@ -6,8 +6,8 @@ const chatbotData = {
     options: [
       { text: "건물정보검색", next: "finder" },
       { text: "에너지등급과 ZEB", next: "tax" },
-      { text: "그린 리모델링", next: "green" },
-      { text: "시뮬레이터", next: "simulator" },
+      { text: "에너지 리모델링", next: "green" },
+      { text: "에너지 시뮬레이터", next: "simulator" },
       { text: "시뮬레이터 계산 기준", next: "calc" }
     ]
   },
@@ -17,7 +17,7 @@ const chatbotData = {
      text: 
     `<p>
       건물정보검색은 주소를 입력하면 해당 건물의 <b>에너지 사용량</b>, <b>에너지 등급</b>,
-      <b>ZEB 등급</b> 등을 <b> GREEN REMODELING,GREENWIMULATOR</b> 페이지로 연결하여 확인할 수 있습니다.
+      <b>ZEB 등급</b> 등을 <b> ENERGY SIMULATOR, ENERGY REMODELING</b> 페이지로 연결하여 확인할 수 있습니다.
     </p>
     `
     ,
@@ -26,10 +26,10 @@ const chatbotData = {
     ]
   },
 
-  // 그린리모델링
+  // 에너지 리모델링
   green: {
      text: 
-    `그린 리모델링 페이지는 선택된 건물의 향후 예측을 <b>머신러닝</b>을 통해 제공합니다.
+    `에너지 리모델링 페이지는 선택된 건물의 향후 예측을 <b>머신러닝</b>을 통해 제공합니다.
     `
     ,
     options: [
@@ -64,7 +64,7 @@ const chatbotData = {
     </p>
 
     <p>
-      <b>연간 절감 전력량</b>은 그린리모델링을 적용했을 때 예상되는 전력 사용량 감소량을 의미합니다.<br>
+      <b>연간 절감 전력량</b>은 에너지 리모델링을 적용했을 때 예상되는 전력 사용량 감소량을 의미합니다.<br>
       <b>전기요금 단가</b>는 2024년 산업용 전기요금 기준으로 <b>185.5원/kWh</b>가 적용됩니다.
     </p>`
     ,
@@ -85,7 +85,7 @@ const chatbotData = {
     </p>
 
     <p>
-      <b>초기 투자비</b>는 그린리모델링에 소요되는 총 비용을 의미합니다.<br>
+      <b>초기 투자비</b>는 에너지 리모델링에 소요되는 총 비용을 의미합니다.<br>
       여기에는 <b>건물 옥상 평탄화 공사비</b>와 <b>태양광 패널 설치비</b>가 포함됩니다.<br>
       <b>연간 절감 비용</b>은 리모델링 이후 절감되는 전기요금을 기준으로 산정됩니다.
     </p>
@@ -108,7 +108,7 @@ const chatbotData = {
     </p>
 
     <p>
-      <b>연간 절감 전력량</b>은 그린리모델링으로 인해 감소된 전력 사용량을 의미합니다.<br>
+      <b>연간 절감 전력량</b>은 에너지 리모델링으로 인해 감소된 전력 사용량을 의미합니다.<br>
       <b>기준 전력 사용량</b>은 리모델링 이전의 연간 전력 사용량을 의미합니다.
     </p>
     `
@@ -145,7 +145,7 @@ const chatbotData = {
 
   predict_model: {
      text: 
-    `그린 리모델링 페이지에 사용된 머신 러닝 예측 모델은 다음과 같습니다.
+    `에너지 리모델링 페이지에 사용된 머신 러닝 예측 모델은 다음과 같습니다.
     `
     ,
     options: [
@@ -503,16 +503,18 @@ function renderChatbot(state) {
 
   data.options.forEach(opt => {
     const btn = document.createElement('button');
-    btn.classList.add('chatbot-btn');
+    
     btn.innerHTML = opt.text;
     btn.dataset.next = opt.next;
     body.appendChild(btn);
-    if (opt.text === "이전으로") {
-      btn.classList.add('chatbot-prev');
-    } else if (opt.text === "처음으로") {
-      btn.classList.add('chatbot-home');
-    }
-  });
+      if (opt.text === "이전으로") {
+        btn.classList.add('chatbot-prev');
+      } else if (opt.text === "처음으로") {
+        btn.classList.add('chatbot-home');
+      } else {
+        btn.classList.add('chatbot-btn');
+      }
+    });
 
   currentState = state;
 }
