@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form2.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const spinBtn2 = document.getElementById("left");
+        const spinBtn2 = document.getElementById("right");
         spinBtn2.insertAdjacentHTML("beforeend", '<span class="btn-spinner"></span>');
         const formData = new FormData(form2);
 
@@ -395,7 +395,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     aiResult.textContent = data.reply.trim();
     aiBtn.disabled = false;
     aiBtn.innerHTML = '다시 분석하기!';
-    
+
     setTimeout(() => {
       aiResult.classList.add("show");
     }, 100);
