@@ -174,5 +174,17 @@
 
     </div>
     <div th:replace="layouts/footer :: footer"></div>
-</body>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const chatbotWin = document.querySelector('.chatbot-window');
+      if (chatbotWin) {
+        chatbotWin.classList.remove('hidden'); 
+        chatbotWin.classList.add('show');      
+      }
+    });
+    </script>
+  </body>
+
+
 </html>
