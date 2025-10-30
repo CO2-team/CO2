@@ -1287,49 +1287,7 @@ function convertPyeong(id) {
 }
 
 
-// document.addEventListener("DOMContentLoaded", function () {
 
-
-//   function resetForm(formId) {
-//     const form = document.getElementById(formId);
-//     if (!form) return;
-
-    
-//     const inputs = form.querySelectorAll("input:not([type='hidden'])");
-//     inputs.forEach(input => {
-//       input.value = "";
-
-
-//       const nextEl = input.nextElementSibling;
-//       if (nextEl && nextEl.tagName === "SPAN") {
-//         nextEl.remove();
-//       }
-//     });
-   
-//     const selects = form.querySelectorAll("select");
-//     selects.forEach(sel => {
-//       sel.selectedIndex = 0;
-//     });
-
-//     console.log(` ${formId} 초기화 완료`);
-//   }
-
-//   // 왼쪽 버튼
-//   const resetBtn1 = document.getElementById("resetBtn1");
-//   if (resetBtn1) {
-//     resetBtn1.addEventListener("click", function () {
-//       resetForm("simulatorForm1");
-//     });
-//   }
-
-//   // 오른쪽 버튼
-//   const resetBtn2 = document.getElementById("resetBtn2");
-//   if (resetBtn2) {
-//     resetBtn2.addEventListener("click", function () {
-//       resetForm("simulatorForm2");
-//     });
-//   }
-// });
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -1347,12 +1305,3 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 
-// document.addEventListener("DOMContentLoaded", function() {
-  
-
-//   const chatbotWin = document.querySelector('.chatbot-window');
-//   if (chatbotWin) {
-//     chatbotWin.classList.remove('hidden'); 
-//     chatbotWin.classList.add('show');      
-//   }
-// });
