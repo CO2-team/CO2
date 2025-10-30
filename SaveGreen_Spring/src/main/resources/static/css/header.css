@@ -300,5 +300,12 @@
   opacity: 1;
 }
 
+/* === Forecast 페이지만: 스크롤시 헤더 숨김 무력화 === */
+body.page-forecast .navbar.nav-up,
+body.page-forecast .header.nav-up {
+	opacity: 1 !important;
+	transform: none !important;
+	pointer-events: auto !important;
+}
 
 
