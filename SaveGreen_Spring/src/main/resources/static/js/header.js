@@ -52,3 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   header.style.transition = 'background-color 0.4s ease';
 });
+
+//메인 화면 외에 class 추가
+document.addEventListener("DOMContentLoaded", function() {
+  const header = document.querySelector(".header");
+  if (!window.location.pathname.includes("/main")) {
+    header.classList.add("collapsed");
+  }
+});
+
+
+
