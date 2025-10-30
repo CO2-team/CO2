@@ -273,3 +273,22 @@
     border-radius: 6px;
     margin: 15px 0;
 }
+
+.policy-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.policy-table th, .policy-table td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.policy-table th {
+  background-color: #f3f6f8;
+  font-weight: 600;
+}
+
