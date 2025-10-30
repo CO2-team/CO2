@@ -327,18 +327,34 @@ document.addEventListener("DOMContentLoaded", () => {
                   return;
                }
 
-               items.forEach((item) => {
-                  const road = item.address?.road || "-";
-                  const parcel = item.address?.parcel || "-";
-                  const lon = parseFloat(item.point?.x);
-                  const lat = parseFloat(item.point?.y);
+                const uniqueItems = [];
+                const seenCoords = new Set();
 
-                  const div = document.createElement("div");
-                  div.classList.add("dropdown-item");
-                  div.innerHTML = `
-                     <b>${road}</b><br>
-                     <span style="font-size: 12px; color: gray;">${parcel}</span>
-                  `;
+                items.forEach(item => {
+                    const lon = item.point?.x;
+                    const lat = item.point?.y;
+                    const key = `${lon},${lat}`;
+                    
+                    if (!seenCoords.has(key)) {
+                        seenCoords.add(key); 
+                        uniqueItems.push(item);
+                    }
+                });
+
+                uniqueItems.forEach((item) => {
+                    const name = item.title || item.name || ""; // place 이름
+                    const road = item.address?.road || "-";
+                    const parcel = item.address?.parcel || "-";
+                    const lon = parseFloat(item.point?.x);
+                    const lat = parseFloat(item.point?.y);
+
+                    const div = document.createElement("div");
+                    div.classList.add("dropdown-item");
+                    div.innerHTML = `
+                        <b>${name || road || parcel}</b><br>
+                        <span style="font-size: 12px; color: gray;">${road !== "-" ? road : parcel}</span>
+                    `;
+
 
                   div.addEventListener("click", () => {
                      input.value = road !== "-" ? road : parcel;
