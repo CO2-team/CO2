@@ -52,3 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   header.style.transition = 'background-color 0.4s ease';
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+  const header = document.querySelector(".header");
+  if (!window.location.pathname.includes("/main")) {
+    header.classList.add("collapsed");
+  }
+});
