@@ -503,7 +503,7 @@ function renderChatbot(state) {
 
   data.options.forEach(opt => {
     const btn = document.createElement('button');
-    
+    btn.classList.add('chatbot-btn');
     btn.innerHTML = opt.text;
     btn.dataset.next = opt.next;
     body.appendChild(btn);
@@ -512,7 +512,7 @@ function renderChatbot(state) {
       } else if (opt.text === "처음으로") {
         btn.classList.add('chatbot-home');
       } else {
-        btn.classList.add('chatbot-btn');
+        btn.classList.add('chatbot-cbtn');
       }
     });
 
