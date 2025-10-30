@@ -82,6 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form1.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const spinBtn1 = document.getElementById("left");
+         spinBtn1.insertAdjacentHTML("beforeend", '<span class="btn-spinner"></span>');
+
+
         const box = document.getElementById('resultBox1');
         const items = box.querySelectorAll('.result-item');
         const box3 = document.getElementById("intensityChart1");
@@ -115,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-        // sendAiSummary(data)
+        
         box.style.display='block';
         box2.style.display='block';
         box3.style.display='block';
@@ -129,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
+        document.querySelectorAll(".btn-spinner").forEach(s => s.remove());
         document.getElementById("resultBox1").scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
@@ -139,6 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form2.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const spinBtn2 = document.getElementById("left");
+        spinBtn2.insertAdjacentHTML("beforeend", '<span class="btn-spinner"></span>');
         const formData = new FormData(form2);
 
         const resp = await fetch('/simulate2', {
@@ -184,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach((item, index) => {
           setTimeout(() => item.classList.add('show'), index * 300);
         });
+        document.querySelectorAll(".btn-spinner").forEach(s => s.remove());
         document.getElementById("resultBox2").scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
@@ -191,6 +199,13 @@ document.addEventListener('DOMContentLoaded', () => {
 const aiBtn = document.getElementById("aiSummaryBtn");
 
   aiBtn.addEventListener("click", async () => {
+
+    // const spinBtn3 = document.getElementById("aiSummaryBtn");
+    //   spinBtn3.insertAdjacentHTML("beforeend", '<span class="btn-spinner"></span>');
+
+    aiBtn.disabled = true;
+    aiBtn.innerHTML = '분석 중... <span class="btn-spinner"></span>'; 
+
 
     const leftResult = window.simulatorData1 || null;  
     const rightResult = window.simulatorData2 || null; 
@@ -378,11 +393,14 @@ const aiBtn = document.getElementById("aiSummaryBtn");
     aiResult.textContent = data.reply;
     aiResult.classList.add("show");
     aiResult.textContent = data.reply.trim();
-
+    aiBtn.disabled = false;
+    aiBtn.innerHTML = '다시 분석하기!';
+    
     setTimeout(() => {
       aiResult.classList.add("show");
     }, 100);
     aiResult.scrollIntoView({ behavior: "smooth", block: "start" });
+    
   });
 });
 
@@ -1033,7 +1051,7 @@ document.addEventListener("DOMContentLoaded", function () {
   eg5: `
     <strong>⑤ 태양광 패널 정보 입력</strong><br>
     설치된 개수를 입력하고, 사용할 패널의 정격출력을 선택해주세요.<br>
-    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
+    <em>1000m<sup>2</sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
     <ul style="margin-top:5px; line-height:1.3;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
@@ -1123,7 +1141,10 @@ document.addEventListener("DOMContentLoaded", function () {
     descBox.innerHTML = `
     <strong>④ 입력 완료</strong><br>
     모든 정보가 입력되었습니다.<br>
-    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.<br>
+
+    ※ 조건을 수정하신 후 <strong>결과보기</strong>를 다시 클릭하면 
+    입력값을 기준으로 분석이 갱신됩니다. 
   `;
   });
 
@@ -1135,7 +1156,10 @@ document.addEventListener("DOMContentLoaded", function () {
       descBox.innerHTML = `
     <strong>④ 입력 완료</strong><br>
     모든 정보가 입력되었습니다.<br>
-    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.<br>
+
+    ※ 조건을 수정하신 후 <strong>결과보기</strong>를 다시 클릭하면 
+    입력값을 기준으로 분석이 갱신됩니다. 
   `;
     }
   });
@@ -1169,7 +1193,7 @@ document.addEventListener("DOMContentLoaded", function () {
   sg3: `
     <strong>③ 태양광 패널 선택</strong><br>
     설치 예정인 패널의 정격출력을 선택해주세요.<br>
-    <em>1000m<sup>2<sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
+    <em>1000m<sup>2</sup>당 약 250대의 패널 설치가 가능합니다.(패널 면적의 1.8배 필요)</em>
     <ul style="margin-top:5px; line-height:1.6;">
       <li><strong>400Wp</strong> — 소형 (가정용)</li>
       <li><strong>550Wp</strong> — 중형 (일반 건물용)</li>
@@ -1180,7 +1204,10 @@ document.addEventListener("DOMContentLoaded", function () {
   sg4: `
     <strong>④ 입력 완료</strong><br>
     모든 정보가 입력되었습니다.<br>
-    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.
+    <strong>‘결과보기’</strong> 버튼을 눌러 시뮬레이션 결과를 확인하세요.<br>
+
+    ※ 조건을 수정하신 후 <strong>결과보기</strong>를 다시 클릭하면 
+    입력값을 기준으로 분석이 갱신됩니다. 
   `
 };
  
@@ -1260,49 +1287,49 @@ function convertPyeong(id) {
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
+// document.addEventListener("DOMContentLoaded", function () {
 
 
-  function resetForm(formId) {
-    const form = document.getElementById(formId);
-    if (!form) return;
+//   function resetForm(formId) {
+//     const form = document.getElementById(formId);
+//     if (!form) return;
 
     
-    const inputs = form.querySelectorAll("input:not([type='hidden'])");
-    inputs.forEach(input => {
-      input.value = "";
+//     const inputs = form.querySelectorAll("input:not([type='hidden'])");
+//     inputs.forEach(input => {
+//       input.value = "";
 
 
-      const nextEl = input.nextElementSibling;
-      if (nextEl && nextEl.tagName === "SPAN") {
-        nextEl.remove();
-      }
-    });
+//       const nextEl = input.nextElementSibling;
+//       if (nextEl && nextEl.tagName === "SPAN") {
+//         nextEl.remove();
+//       }
+//     });
    
-    const selects = form.querySelectorAll("select");
-    selects.forEach(sel => {
-      sel.selectedIndex = 0;
-    });
+//     const selects = form.querySelectorAll("select");
+//     selects.forEach(sel => {
+//       sel.selectedIndex = 0;
+//     });
 
-    console.log(` ${formId} 초기화 완료`);
-  }
+//     console.log(` ${formId} 초기화 완료`);
+//   }
 
-  // 왼쪽 버튼
-  const resetBtn1 = document.getElementById("resetBtn1");
-  if (resetBtn1) {
-    resetBtn1.addEventListener("click", function () {
-      resetForm("simulatorForm1");
-    });
-  }
+//   // 왼쪽 버튼
+//   const resetBtn1 = document.getElementById("resetBtn1");
+//   if (resetBtn1) {
+//     resetBtn1.addEventListener("click", function () {
+//       resetForm("simulatorForm1");
+//     });
+//   }
 
-  // 오른쪽 버튼
-  const resetBtn2 = document.getElementById("resetBtn2");
-  if (resetBtn2) {
-    resetBtn2.addEventListener("click", function () {
-      resetForm("simulatorForm2");
-    });
-  }
-});
+//   // 오른쪽 버튼
+//   const resetBtn2 = document.getElementById("resetBtn2");
+//   if (resetBtn2) {
+//     resetBtn2.addEventListener("click", function () {
+//       resetForm("simulatorForm2");
+//     });
+//   }
+// });
 
 
 document.addEventListener("DOMContentLoaded", function() {
