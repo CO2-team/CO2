@@ -28,13 +28,12 @@
 	const NOW_YEAR = new Date().getFullYear();
 	const HORIZON_YEARS = 10;
 
-	// [추가] 컨텍스트 캐시(프리로드 ↔ runForecast 공유) + 카탈로그 URL
+	// 컨텍스트 캐시(프리로드 ↔ runForecast 공유) + 카탈로그 URL
     let __CTX_CACHE = null;
     const CATALOG_URLS = [
     	'/dummy/ml_dataset.json',   // 1순위: ML용 카탈로그
     	'/dummy/green.json'         // 2순위: 보조(있으면)
     ];
-
 
 	/* =========================================================
 	 * 1) 타입 매핑 테이블/유틸
@@ -159,15 +158,12 @@
 		window.SaveGreen.Forecast.providers.applyCatalogToContext = applyCatalogToContext;
 	}
 
-
 	/* =========================================================
      * 3-1) 카탈로그 적재/매칭/바인딩
      *  - loadCatalogs(): URL 배열에서 JSON 로드 → 하나의 배열로 머지
      *  - findCatalogItem(ctx): pnu → buildingName → 주소 순으로 매칭
      *  - attachCatalog(ctx): 매칭되면 applyCatalogToContext로 타입/EUI/에너지 주입
      * ========================================================= */
-
-    // [추가]
     let __CATALOG_CACHE = null;
 
     async function loadCatalogs() {
@@ -187,12 +183,10 @@
     	return __CATALOG_CACHE;
     }
 
-    // [추가]
     function normStr(s) {
     	return (s == null) ? '' : String(s).trim().toLowerCase();
     }
 
-    // [추가]
     function findCatalogItem(ctx, items) {
     	const pnu = normStr(ctx.pnu);
     	const name = normStr(ctx.buildingName);
@@ -221,7 +215,6 @@
     	return { item: null, how: 'none' };
     }
 
-    // [추가]
     async function attachCatalog(ctx) {
     	try {
     		const items = await loadCatalogs();
@@ -247,8 +240,6 @@
     		return ctx;
     	}
     }
-
-
 
 	/* =========================================================
 	 * 4) GreenFinder 세션 스니핑
@@ -412,7 +403,7 @@
 	}
 
 	async function getBuildingContext() {
-        // [추가] 캐시 빠른 반환(프리로드와 runForecast 동일 컨텍스트 보장)
+        // 캐시 빠른 반환(프리로드와 runForecast 동일 컨텍스트 보장)
         if (__CTX_CACHE) {
             try { return JSON.parse(JSON.stringify(__CTX_CACHE)); } catch { return { ...__CTX_CACHE }; }
         }
@@ -434,19 +425,17 @@
 					}
 
 
-					// [추가] 카탈로그 주입 → 타입 재확정(이미 있으면 보존)
+					// 카탈로그 주입 → 타입 재확정(이미 있으면 보존)
                     await attachCatalog(ctx);
                     const retype = pickTypeFromContext(ctx, true);
                     if (!ctx.type || ctx.type === 'unknown') {
-                        // [추가] 카탈로그/휴리스틱 결과로만 채움(임의 폴백 금지)
+                        // 카탈로그/휴리스틱 결과로만 채움(임의 폴백 금지)
                         ctx.type = retype;
                     }
                     ctx.mappedType = ctx.type;
 
-                    // [추가] 컨텍스트 캐시 저장
+                    // 컨텍스트 캐시 저장
                     __CTX_CACHE = { ...ctx };
-
-
 					return ctx;
 				}
 				__tried.push({ source: s, ok: false });
@@ -626,14 +615,11 @@
 
 	function normalize(v) {
 		const by = nvPos(v.builtYear);
-
 		const useName = v.useName ?? v.use_name ?? undefined;
-
 		const out = {
 			buildingId: nvPos(v.buildingId),
 			builtYear:  by,
 			useName:    useName,
-
 			// buildingType1/2 보존(타입 확정용)
 			buildingType1: sv(v.buildingType1),
 			buildingType2: sv(v.buildingType2),
@@ -653,10 +639,6 @@
 		// core type 확정(명시 목적, unknown 허용)
 		out.type = pickTypeFromContext(out, true);   // factory|school|hospital|office|unknown
 		out.mappedType = out.type;
-
-
-
-
 		return out;
 	}
 
