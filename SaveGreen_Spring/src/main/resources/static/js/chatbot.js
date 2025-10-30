@@ -507,6 +507,11 @@ function renderChatbot(state) {
     btn.innerHTML = opt.text;
     btn.dataset.next = opt.next;
     body.appendChild(btn);
+    if (opt.text === "이전으로") {
+      btn.classList.add('chatbot-prev');
+    } else if (opt.text === "처음으로") {
+      btn.classList.add('chatbot-home');
+    }
   });
 
   currentState = state;
