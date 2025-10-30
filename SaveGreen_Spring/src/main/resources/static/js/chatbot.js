@@ -493,7 +493,7 @@ const chatbotData = {
       { text: "이전으로", next: "calc" },
       { text: "처음으로", next: "root" }
     ]
-  },
+  }, 
   referenceValue: {
     text: 
     `<div class="text-container">
