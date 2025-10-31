@@ -6,8 +6,8 @@ const chatbotData = {
     options: [
       { text: "건물정보검색", next: "finder" },
       { text: "에너지등급과 ZEB", next: "tax" },
-      { text: "에너지 리모델링", next: "green" },
       { text: "에너지 시뮬레이터", next: "simulator" },
+      { text: "에너지 리모델링", next: "green" },
       { text: "시뮬레이터 계산 기준", next: "calc" }
     ]
   },
