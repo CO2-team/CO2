@@ -15,6 +15,13 @@
     <div th:replace="layouts/header :: header"></div>
     <div class="main-container">
     <h1 class="energy_bar">에너지 사용량</h1>
+    <div class="building-info-card">
+        <h2 id="buildingName">-</h2>
+        <p><b>주소:</b> <span id="buildingAddress">-</span></p>
+        <p><b>건물 용도:</b> <span id="buildingType">-</span></p>
+        <p><b>준공연도:</b> <span id="buildingYear">-</span></p>
+    </div>
+
     <div class="dashboard">
         <!-- 월별 에너지 사용량 -->
         <section class="chart-card">
@@ -54,8 +61,8 @@
         </section>
     </div>
     <div class="map-btn-container">
-        <a href="/forecast" class="map_btn">GREEN REMODELING 페이지로 이동</a>
         <a href="/simulator" class="map_btn">ENERGY SIMULATOR 페이지로 이동</a>
+        <a href="/forecast" class="map_btn">ENERGY REMODELING 페이지로 이동</a>
         <a href="/GreenFinder" class="map_btn">건물 정보 검색 페이지로 이동</a>
     </div>
     </div>

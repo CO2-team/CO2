@@ -20,6 +20,12 @@ if (!pnu) {
                 return;
             }
 
+            // 건물 정보 표시
+            document.getElementById("buildingName").textContent = buildingData.buildingName || "-";
+            document.getElementById("buildingAddress").textContent = buildingData.address || "-";
+            document.getElementById("buildingType").textContent = `${buildingData.buildingType1 || ""} ${buildingData.buildingType2 || ""}`;
+            document.getElementById("buildingYear").textContent = buildingData.usageYear ? `${buildingData.usageYear}년` : "-";
+
             // 3. 월별 에너지 사용량 차트
             if (buildingData.monthlyConsumption?.length > 0) {
                 const monthly = [...buildingData.monthlyConsumption];

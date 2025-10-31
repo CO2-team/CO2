@@ -56,7 +56,7 @@ Swal.fire({
           <b>2.</b> 태양광 패널의 발전 효율 상수는 0.8로 책정되었습니다.<br> 일반적인 태양광 패널 발전 효율은 0.75~0.85 사이입니다.<br>
           <b>3.</b> 에너지 효율 등급은 국토교통부 고시 제2021-1405호(2021.12.31) 기준을 따릅니다.<br>위도 경도 기준 일사량은 나사 위성 자료를 기반으로 산출되었습니다.<br>
           <b>4.</b> 건축물 에너지 효율 등급 증가에 대한 에너지량은 에너지 등급 구간별 중간값으로 책정되었습니다.<br>
-          <b>5.</b> 전기금액은 24년도 한국전력공사 표준 전기세 기준입니다.(kWh당 185.5원)<br>
+          <b>5.</b> 전기금액은 24년도 한국전력공사 표준 전기요금 기준입니다.(kWh당 185.5원)<br>
           <b>6.</b> 탄소배출량은 24년도 국가별 탄소배출계수 기준입니다.(kWh당 0.419)
           
         `,
@@ -232,7 +232,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
           - solarradiation: 연간 태양광 일사량  
           - onePanelGeneration: 패널 1개당 연간 발전량  
           - onePanelCO2: 패널 1개당 연간 CO₂ 절감량  (0.1ton)
-          - annualSaveElectric: 연간 절감 전기세(만원)  
+          - annualSaveElectric: 연간 절감 전기요금(만원)  
           - annualSaveCO2: 연간 절감 CO₂량(ton)  
           - total: 연간 절감 전기에너지량(kWh)
           - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
@@ -295,7 +295,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
       - solarradiation: 연간 태양광 일사량  
       - onePanelGeneration: 패널 1개당 연간 발전량  
       - onePanelCO2: 패널 10개당 연간 CO₂ 절감량
-      - annualSaveElectric: 연간 절감 전기세(만원)  
+      - annualSaveElectric: 연간 절감 전기요금(만원)  
       - annualSaveCO2: 연간 절감 CO₂량(ton)  
       - total: 연간 절감 전기에너지량(kWh)
       - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  
@@ -340,7 +340,7 @@ const aiBtn = document.getElementById("aiSummaryBtn");
         - solarradiation: 연간 태양광 일사량  
         - onePanelGeneration: 패널 1개당 연간 발전량  
         - onePanelCO2: 패널 1개당 연간 CO₂ 절감량 (0.1ton) 
-        - annualSaveElectric: 연간 절감 전기세(만원)  
+        - annualSaveElectric: 연간 절감 전기요금(만원)  
         - annualSaveCO2: 연간 절감 CO₂량(ton)  
         - total: 연간 절감 전기에너지량(kWh)
         - requiredPanels: 목표 등급 달성을 위한 필요한 패널 수  

@@ -19,10 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (st > lastScrollTop && st > 0) {
       navbar.classList.add('nav-up');
-      console.log('⬆️ up → nav-up 추가');
     } else {
       navbar.classList.remove('nav-up');
-      console.log('⬇️ down → nav-up 제거');
     }
 
     lastScrollTop = st;
