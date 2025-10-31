@@ -447,7 +447,7 @@ const chatbotData = {
     options: [
       { text: "연간 일사량", next: "solarRadiation" },
       { text: "연간 패널 발전량", next: "panelGeneration" },
-      { text: "전기세, 탄소배출계수", next: "referenceValue" },
+      { text: "전기요금, 탄소배출계수", next: "referenceValue" },
       { text: "이전으로", next: "root" }
     ]
   },
@@ -498,12 +498,12 @@ const chatbotData = {
     text: 
     `<div class="text-container">
       <p>
-        <b>연간 전기세</b>와 <b>연간 탄소 절감량</b>은 <br> 다음의 공식으로 계산됩니다.
+        <b>연간 전기요금</b>와 <b>연간 탄소 절감량</b>은 <br> 다음의 공식으로 계산됩니다.
       </p>
 
       <h4>연간 전기세 계산</h4>
       <p class="formula">
-        연간 전기세 = (연간 발전량) x (2024년 산업시설 전기요금 단가)
+        연간 전기요금 = (연간 발전량) x (2024년 산업시설 전기요금 단가)
       </p>
       <p>
         현재 산업시설 전기요금은 평균 <b>185.5원/kWh</b>으로 책정되어 있습니다.
